@@ -97,14 +97,16 @@ slug: tbox
 
 **You:** Now populate it. Two scenes: a rooftop chase and a café dialogue. Three characters: Jake, Vera, Sam. Jake is the protagonist in the chase, Vera the antagonist. Sam supports Jake in the café scene.
 
-**Assistant:** Switching to ABox view. Adding individuals for scenes, locations, characters, and their role bearers.
+**Assistant:** Switching to ABox view. Jake, Vera, and Sam get no explicit type — their
+Character type (and the BFO superclass chain up to independent_continuant) will be inferred
+from the `has_role` relationships we assert next, since `RO:has_role rdfs:domain Character`.
 
 `{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
 `{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#rooftop","typeIri":"http://example.com/scene-ontology#ExteriorLocation","label":"Rooftop"}}}`
 `{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#cafe","typeIri":"http://example.com/scene-ontology#InteriorLocation","label":"Café"}}}`
-`{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#jake","typeIri":"http://example.com/scene-ontology#Character","label":"Jake"}}}`
-`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#vera","typeIri":"http://example.com/scene-ontology#Character","label":"Vera"}}}`
-`{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#sam","typeIri":"http://example.com/scene-ontology#Character","label":"Sam"}}}`
+`{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#jake","label":"Jake"}}}`
+`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#vera","label":"Vera"}}}`
+`{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#sam","label":"Sam"}}}`
 `{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#rooftopChase","typeIri":"http://example.com/scene-ontology#ChaseScene","label":"Rooftop Chase"}}}`
 `{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#cafeDialogue","typeIri":"http://example.com/scene-ontology#DialogueScene","label":"Café Dialogue"}}}`
 `{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#jakeProtagonistRole","typeIri":"http://example.com/scene-ontology#ProtagonistRole","label":"Jake — Protagonist"}}}`

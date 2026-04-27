@@ -26,7 +26,7 @@ then axioms. Starting in TBox view so every class and property node lands on the
 
 ---
 
-**Assistant:** All four classes are on canvas. Now the seven property nodes:
+**Assistant:** All four classes are on canvas. Now the six property nodes:
 
 `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#knows","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"knows"}}}`
 `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasFriend","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasFriend"}}}`
@@ -34,7 +34,6 @@ then axioms. Starting in TBox view so every class and property node lands on the
 `{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#isManagedBy","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"isManagedBy"}}}`
 `{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#isColleagueOf","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"isColleagueOf"}}}`
 `{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasSupervisor","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasSupervisor"}}}`
-`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#jobTitle","typeIri":"http://www.w3.org/2002/07/owl#AnnotationProperty","label":"jobTitle"}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -53,7 +52,6 @@ then axioms. Starting in TBox view so every class and property node lands on the
 `{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isManagedBy","predicateIri":"http://www.w3.org/2002/07/owl#inverseOf","objectIri":"http://example.com/reasoning-demo#manages"}}}`
 `{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isColleagueOf","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#SymmetricProperty"}}}`
 `{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#TransitiveProperty"}}}`
-`{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#jobTitle","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subPropertyOf","objectIri":"http://www.w3.org/2000/01/rdf-schema#comment"}}}`
 `{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Person"}}}`
 `{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Person"}}}`
 `{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasFriend","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Person"}}}`
@@ -66,7 +64,6 @@ then axioms. Starting in TBox view so every class and property node lands on the
 `{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isColleagueOf","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
 `{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
 `{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
-`{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#jobTitle","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
 `{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 `{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
 `{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
@@ -82,30 +79,17 @@ slug: tbox
 
 ---
 
-**You:** Now for the individuals: Alice is an Executive, Bob and Carol are Employees.
-Dave has no type yet — I want to see if the reasoner works it out.
+**You:** Now for the individuals. Alice is an Executive. Bob, Carol, and Dave have no explicit
+type — I want to see what the reasoner works out from the relationships alone.
 
-**Assistant:** Switching to ABox view. Dave intentionally gets no `typeIri` — his type will be
-inferred from the `manages rdfs:domain Manager` axiom once he asserts a `manages` edge.
+**Assistant:** Switching to ABox view. Only Alice gets a `typeIri` — the others are blank nodes
+whose types must be entirely inferred from the edges we assert next.
 
 `{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
 `{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#alice","typeIri":"http://example.com/reasoning-demo#Executive","label":"Alice"}}}`
-`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#bob","typeIri":"http://example.com/reasoning-demo#Employee","label":"Bob"}}}`
-`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#carol","typeIri":"http://example.com/reasoning-demo#Employee","label":"Carol"}}}`
+`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#bob","label":"Bob"}}}`
+`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#carol","label":"Carol"}}}`
 `{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","label":"Dave"}}}`
-
-```tool-result
-<!-- runner fills this in -->
-```
-
----
-
-**You:** Give Alice the title "Chief Executive" and Dave "Division Manager" using `ex:jobTitle`.
-
-**Assistant:** Loading the literal assertions as inline Turtle. Since `ex:jobTitle` is a
-subproperty of `rdfs:comment`, the reasoner will infer `rdfs:comment` values for both too.
-
-`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix ex: <http://example.com/reasoning-demo#> .\nex:alice ex:jobTitle \"Chief Executive\" .\nex:dave  ex:jobTitle \"Division Manager\" ."}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -134,7 +118,7 @@ can see the ABox shape before we run the reasoner:
 ```
 
 ```snapshot
-caption: ABox — individuals before reasoning
+caption: ABox — individuals before reasoning, no explicit types except Alice
 slug: before-reasoning
 ```
 
@@ -142,7 +126,14 @@ slug: before-reasoning
 
 **You:** Okay, run the reasoner and show me what it inferred.
 
-**Assistant:** Running reasoning, then layout to surface the inferred edges:
+**Assistant:** Running reasoning, then layout to surface the inferred edges. Expected:
+- Dave gets Manager (domain of manages), then Employee and Person via subclass chain
+- Carol and Bob get Employee (range of manages / domain of hasSupervisor), then Person
+- Alice gets Manager, Employee, Person via subclass chain from Executive
+- isColleagueOf symmetry fires: Carol gets the inverse edge back to Bob
+- hasSupervisor transitivity: Carol gets inferred hasSupervisor Alice
+- isManagedBy inverse fires: Carol gets isManagedBy Alice, Bob gets isManagedBy Dave
+- hasFriend subPropertyOf knows: Alice gets knows Bob inferred
 
 `{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
 `{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`

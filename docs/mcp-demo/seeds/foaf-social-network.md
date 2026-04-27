@@ -59,16 +59,19 @@ slug: tbox
 
 ---
 
-**You:** Now the people. Alice is an Executive, Bob is a Manager, Carol, Dave and Eve are Employees. Frank has no explicit type yet — we'll see what the reasoner infers. Two departments: Engineering and Research.
+**You:** Now the people. Alice is an Executive. Bob, Carol, Dave, Eve, and Frank have no
+explicit type — I want the reasoner to derive all their types from the relationships alone.
+Two departments: Engineering and Research.
 
-**Assistant:** Switching to ABox view. Frank gets no `typeIri` — his type will come entirely from the relationships we assert next.
+**Assistant:** Switching to ABox view. Only Alice gets a `typeIri` — everyone else is untyped
+until the reasoner fires.
 
 `{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
 `{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/alice","typeIri":"http://example.org/ex#Executive","label":"Alice"}}}`
-`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/bob","typeIri":"http://example.org/ex#Manager","label":"Bob"}}}`
-`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/carol","typeIri":"http://example.org/ex#Employee","label":"Carol"}}}`
-`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/dave","typeIri":"http://example.org/ex#Employee","label":"Dave"}}}`
-`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/eve","typeIri":"http://example.org/ex#Employee","label":"Eve"}}}`
+`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/bob","label":"Bob"}}}`
+`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/carol","label":"Carol"}}}`
+`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/dave","label":"Dave"}}}`
+`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/eve","label":"Eve"}}}`
 `{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/frank","label":"Frank"}}}`
 `{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/engineering","typeIri":"http://example.org/ex#Department","label":"Engineering"}}}`
 `{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/research","typeIri":"http://example.org/ex#Department","label":"Research"}}}`
