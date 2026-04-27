@@ -121,7 +121,7 @@ export async function startBrowser(opts = {}) {
 
   // Register MCP tools via dynamic import
   await page.evaluate(async () => {
-    const mod = await import('/src/mcp/visgraphMcpServer.ts');
+    const mod = await import('/src/mcp/ontosphereMcpServer.ts');
     await mod.registerMcpTools();
   });
   console.log('MCP tools registered');
