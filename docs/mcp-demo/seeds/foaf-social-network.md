@@ -11,10 +11,22 @@
 
 **You:** I want to model a small organisation using FOAF as the base vocabulary, but extend it with an employment hierarchy — Employee, Manager, Executive. Then add real people with both social and professional relationships and run the reasoner to see what it can figure out.
 
-**Assistant:** Great setup. I'll load FOAF first in TBox view, then extend it with employment classes and properties, switch to ABox for individuals, wire up the relationships, and finally run the reasoner.
+**Assistant:** Great setup. Starting in TBox view — adding FOAF base classes and properties as
+individual nodes and links, then extending with the employment hierarchy. No bulk loads:
+every node and axiom will be visible on canvas.
 
 `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"tbox"}}}`
-`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n@prefix owl:  <http://www.w3.org/2002/07/owl#> .\nfoaf:Person a owl:Class ; rdfs:label \"Person\" .\nfoaf:Organization a owl:Class ; rdfs:label \"Organization\" .\nfoaf:Agent a owl:Class ; rdfs:label \"Agent\" .\nfoaf:Person rdfs:subClassOf foaf:Agent .\nfoaf:Organization rdfs:subClassOf foaf:Agent .\nfoaf:knows a owl:ObjectProperty ; rdfs:domain foaf:Person ; rdfs:range foaf:Person ; rdfs:label \"knows\" .\nfoaf:member a owl:ObjectProperty ; rdfs:domain foaf:Agent ; rdfs:range foaf:Organization ; rdfs:label \"member of\" .\nfoaf:name a owl:DatatypeProperty ; rdfs:domain foaf:Agent ; rdfs:label \"name\" ."}}}`
+`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/Agent","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"foaf:Agent"}}}`
+`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/Person","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"foaf:Person"}}}`
+`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/Organization","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"foaf:Organization"}}}`
+`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/knows","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"foaf:knows"}}}`
+`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/member","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"foaf:member"}}}`
+`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/Person","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://xmlns.com/foaf/0.1/Agent"}}}`
+`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/Organization","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://xmlns.com/foaf/0.1/Agent"}}}`
+`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://xmlns.com/foaf/0.1/Person"}}}`
+`{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://xmlns.com/foaf/0.1/Person"}}}`
+`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/member","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://xmlns.com/foaf/0.1/Agent"}}}`
+`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/member","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://xmlns.com/foaf/0.1/Organization"}}}`
 
 ```tool-result
 <!-- runner fills this in -->
