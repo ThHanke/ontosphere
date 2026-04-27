@@ -254,17 +254,21 @@ async function run() {
         await sleep(300);
       }
       const stateAfter = await callTool(page, 'getGraphState', {});
-      pendingBatch = { batch, stateAfter };
-
-      // Emit the original tool-call lines verbatim (keep them in the output)
-      outputParts.push(seg.rawLines.join('\n'));
+      pendingBatch = { batch, stateAfter, rawLines: seg.rawLines };
 
     } else if (seg.type === 'tool-result') {
       if (pendingBatch) {
-        const { batch, stateAfter } = pendingBatch;
+        const { batch, stateAfter, rawLines } = pendingBatch;
         pendingBatch = null;
         const content = buildResultBlock(batch, stateAfter, { imgDir, demoName });
-        outputParts.push('```tool-result\n' + content + '\n```');
+        const n = batch.length;
+        const ok = batch.filter(b => b.result?.success).length;
+        const label = `${n} tool call${n === 1 ? '' : 's'} ${ok === n ? '✓' : `${ok}/${n} ✓`}`;
+        outputParts.push(
+          `<details>\n<summary>${label}</summary>\n\n` +
+          rawLines.join('\n') +
+          '\n\n```tool-result\n' + content + '\n```\n\n</details>'
+        );
       } else {
         // No pending batch — copy verbatim
         outputParts.push('```tool-result\n' + seg.lines.join('\n') + '\n```');

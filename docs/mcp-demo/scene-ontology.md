@@ -13,6 +13,10 @@
 
 **Assistant:** Good choice. Loading minimal BFO 2 and RO inline — the classes and properties we need: `BFO:process`, `BFO:independent_continuant`, `BFO:site`, `BFO:role`, `BFO:realizes`, `RO:has_participant`, `RO:occurs_in`, `RO:has_role`. Starting in TBox view so all vocabulary lands on the right canvas.
 
+
+<details>
+<summary>2 tool calls ✓</summary>
+
 `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"tbox"}}}`
 `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix obo: <http://purl.obolibrary.org/obo/> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\nobo:BFO_0000001 a owl:Class ; rdfs:label \"entity\" .\nobo:BFO_0000002 a owl:Class ; rdfs:label \"continuant\" ; rdfs:subClassOf obo:BFO_0000001 .\nobo:BFO_0000003 a owl:Class ; rdfs:label \"occurrent\" ; rdfs:subClassOf obo:BFO_0000001 .\nobo:BFO_0000004 a owl:Class ; rdfs:label \"independent continuant\" ; rdfs:subClassOf obo:BFO_0000002 .\nobo:BFO_0000015 a owl:Class ; rdfs:label \"process\" ; rdfs:subClassOf obo:BFO_0000003 .\nobo:BFO_0000017 a owl:Class ; rdfs:label \"realizable entity\" ; rdfs:subClassOf obo:BFO_0000002 .\nobo:BFO_0000023 a owl:Class ; rdfs:label \"role\" ; rdfs:subClassOf obo:BFO_0000017 .\nobo:BFO_0000029 a owl:Class ; rdfs:label \"site\" ; rdfs:subClassOf obo:BFO_0000004 .\nobo:BFO_0000055 a owl:ObjectProperty ; rdfs:label \"realizes\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000017 .\nobo:RO_0000057 a owl:ObjectProperty ; rdfs:label \"has participant\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000004 .\nobo:RO_0000066 a owl:ObjectProperty ; rdfs:label \"occurs in\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000029 .\nobo:RO_0000087 a owl:ObjectProperty ; rdfs:label \"has role\" ; rdfs:domain obo:BFO_0000004 ; rdfs:range obo:BFO_0000023 ."}}}`
 
@@ -24,11 +28,17 @@
 Canvas: 12 nodes, 15 links
 ```
 
+</details>
+
 ---
 
 **You:** Great. Now define the scene type hierarchy — scenes are processes in BFO, and I want action, dialogue, chase, and confrontation subtypes.
 
 **Assistant:** Adding the scene classes, hanging them off `BFO:process`. Batching all `addNode` calls since they're independent, then wiring the subclass chain.
+
+
+<details>
+<summary>10 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Scene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Scene"}}}`
 `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ActionScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ActionScene"}}}`
@@ -57,11 +67,17 @@ Canvas: 12 nodes, 15 links
 Canvas: 17 nodes, 20 links
 ```
 
+</details>
+
 ---
 
 **You:** Now characters and locations. Characters are BFO independent continuants, locations are BFO sites.
 
 **Assistant:** Adding the character and location classes.
+
+
+<details>
+<summary>8 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Character","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Character"}}}`
 `{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Location","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Location"}}}`
@@ -86,11 +102,17 @@ Canvas: 17 nodes, 20 links
 Canvas: 21 nodes, 24 links
 ```
 
+</details>
+
 ---
 
 **You:** Now the roles — protagonist, antagonist, supporting. Use BFO roles so characters bear them in specific scenes rather than having a fixed type.
 
 **Assistant:** Roles are `BFO:role` (`BFO_0000023`) — realizable entities that a character bears in a context. Adding the role hierarchy and the `RO:has_role` domain/range axioms. Then layout to show the full TBox.
+
+
+<details>
+<summary>17 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#SceneRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"SceneRole"}}}`
 `{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ProtagonistRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ProtagonistRole"}}}`
@@ -133,6 +155,8 @@ Canvas: 21 nodes, 24 links
 Canvas: 25 nodes, 34 links
 ```
 
+</details>
+
 ![TBox — scene types, characters, locations, and roles](./scene-ontology/01-tbox.svg)
 
 ---
@@ -140,6 +164,10 @@ Canvas: 25 nodes, 34 links
 **You:** Now populate it. Two scenes: a rooftop chase and a café dialogue. Three characters: Jake, Vera, Sam. Jake is the protagonist in the chase, Vera the antagonist. Sam supports Jake in the café scene.
 
 **Assistant:** Switching to ABox view. Adding individuals for scenes, locations, characters, and their role bearers.
+
+
+<details>
+<summary>11 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
 `{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#rooftop","typeIri":"http://example.com/scene-ontology#ExteriorLocation","label":"Rooftop"}}}`
@@ -170,11 +198,17 @@ Canvas: 25 nodes, 34 links
 Canvas: 10 nodes, 0 links
 ```
 
+</details>
+
 ---
 
 **You:** Now link everything up — scenes to locations, scenes to participants, characters to their roles.
 
 **Assistant:** Wiring the ABox: scene participation, location, and role-bearing assertions. Then layout and snapshot.
+
+
+<details>
+<summary>15 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#jake"}}}`
 `{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#vera"}}}`
@@ -213,6 +247,8 @@ Canvas: 10 nodes, 0 links
 Canvas: 10 nodes, 12 links
 ```
 
+</details>
+
 ![ABox — scenes, characters, locations, and role assignments](./scene-ontology/02-abox-full.svg)
 
 ---
@@ -220,6 +256,10 @@ Canvas: 10 nodes, 12 links
 **You:** Run the reasoner. I want to see what Jake gets inferred — he participates in two scenes of different types.
 
 **Assistant:** Running reasoning. Jake should pick up `BFO:independent_continuant` via `Character → BFO_0000004`, and both scenes should inherit their BFO process superclasses through the `Scene → BFO:process` chain.
+
+
+<details>
+<summary>3 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":64,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
 `{"jsonrpc":"2.0","id":65,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
@@ -234,6 +274,8 @@ Canvas: 10 nodes, 12 links
 Canvas: 10 nodes, 22 links
 ```
 
+</details>
+
 ![Graph after reasoning — inferred superclass memberships visible](./scene-ontology/03-after-reasoning.svg)
 
 ---
@@ -241,6 +283,10 @@ Canvas: 10 nodes, 22 links
 **You:** Focus on Jake and show his inferred types.
 
 **Assistant:** Panning to Jake and expanding his annotation card.
+
+
+<details>
+<summary>2 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":67,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.com/scene-ontology#jake"}}}`
 `{"jsonrpc":"2.0","id":68,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/scene-ontology#jake","expand":true}}}`
@@ -253,6 +299,8 @@ Canvas: 10 nodes, 22 links
 Canvas: 10 nodes, 22 links
 ```
 
+</details>
+
 ![Jake — inferred types from BFO subclass chain](./scene-ontology/04-jake-focus.svg)
 
 ---
@@ -260,6 +308,10 @@ Canvas: 10 nodes, 22 links
 **You:** Perfect. Export the full graph as Turtle.
 
 **Assistant:** Exporting the asserted graph. Inferred triples live in `urn:vg:inferred` and are not included here.
+
+
+<details>
+<summary>1 tool call ✓</summary>
 
 `{"jsonrpc":"2.0","id":69,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
@@ -473,3 +525,5 @@ obo:RO_0000087 rdfs:domain owl:Thing, obo:BFO_0000001, obo:BFO_0000002;
 
 [Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Fscene-ontology%2Fgraph.ttl)
 ```
+
+</details>

@@ -14,6 +14,10 @@ and run the reasoner.
 **Assistant:** I'll build this in phases — classes first, then properties, then individuals,
 then axioms. Starting in TBox view so every class and property node lands on the right canvas.
 
+
+<details>
+<summary>5 tool calls ✓</summary>
+
 `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"tbox"}}}`
 `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Person","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Person"}}}`
 `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Employee","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Employee"}}}`
@@ -31,9 +35,15 @@ then axioms. Starting in TBox view so every class and property node lands on the
 Canvas: 4 nodes, 0 links
 ```
 
+</details>
+
 ---
 
 **Assistant:** All four classes are on canvas. Now the seven property nodes:
+
+
+<details>
+<summary>7 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#knows","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"knows"}}}`
 `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasFriend","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasFriend"}}}`
@@ -56,11 +66,17 @@ Canvas: 4 nodes, 0 links
 Canvas: 11 nodes, 0 links
 ```
 
+</details>
+
 ---
 
 **You:** Great. Now connect everything — subclass chain, property axioms, domain and range.
 
 **Assistant:** All nodes exist on canvas — batching all `addLink` calls, then layout:
+
+
+<details>
+<summary>24 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Employee","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Person"}}}`
 `{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Manager","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
@@ -117,6 +133,8 @@ Canvas: 11 nodes, 0 links
 Canvas: 11 nodes, 18 links
 ```
 
+</details>
+
 ![TBox — classes and properties on canvas](./reasoning-demo/01-tbox.svg)
 
 ---
@@ -126,6 +144,10 @@ Dave has no type yet — I want to see if the reasoner works it out.
 
 **Assistant:** Switching to ABox view. Dave intentionally gets no `typeIri` — his type will be
 inferred from the `manages rdfs:domain Manager` axiom once he asserts a `manages` edge.
+
+
+<details>
+<summary>5 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
 `{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#alice","typeIri":"http://example.com/reasoning-demo#Executive","label":"Alice"}}}`
@@ -144,12 +166,18 @@ inferred from the `manages rdfs:domain Manager` axiom once he asserts a `manages
 Canvas: 4 nodes, 0 links
 ```
 
+</details>
+
 ---
 
 **You:** Give Alice the title "Chief Executive" and Dave "Division Manager" using `ex:jobTitle`.
 
 **Assistant:** Loading the literal assertions as inline Turtle. Since `ex:jobTitle` is a
 subproperty of `rdfs:comment`, the reasoner will infer `rdfs:comment` values for both too.
+
+
+<details>
+<summary>1 tool call ✓</summary>
 
 `{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix ex: <http://example.com/reasoning-demo#> .\nex:alice ex:jobTitle \"Chief Executive\" .\nex:dave  ex:jobTitle \"Division Manager\" ."}}}`
 
@@ -160,6 +188,8 @@ subproperty of `rdfs:comment`, the reasoner will infer `rdfs:comment` values for
 Canvas: 4 nodes, 0 links
 ```
 
+</details>
+
 ---
 
 **You:** Now the relationships: Alice manages Carol, Dave manages Bob, Alice is friends with
@@ -167,6 +197,10 @@ Bob, Bob and Carol are colleagues, and the supervisor chain is Carol → Bob →
 
 **Assistant:** Six edges, all nodes already on canvas — batching them all, then layout so you
 can see the ABox shape before we run the reasoner:
+
+
+<details>
+<summary>9 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#alice","predicateIri":"http://example.com/reasoning-demo#manages","objectIri":"http://example.com/reasoning-demo#carol"}}}`
 `{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#dave","predicateIri":"http://example.com/reasoning-demo#manages","objectIri":"http://example.com/reasoning-demo#bob"}}}`
@@ -193,6 +227,8 @@ can see the ABox shape before we run the reasoner:
 Canvas: 4 nodes, 6 links
 ```
 
+</details>
+
 ![ABox — individuals before reasoning](./reasoning-demo/02-before-reasoning.svg)
 
 ---
@@ -200,6 +236,10 @@ Canvas: 4 nodes, 6 links
 **You:** Okay, run the reasoner and show me what it inferred.
 
 **Assistant:** Running reasoning, then layout to surface the inferred edges:
+
+
+<details>
+<summary>3 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
 `{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
@@ -214,6 +254,8 @@ Canvas: 4 nodes, 6 links
 Canvas: 4 nodes, 15 links
 ```
 
+</details>
+
 ![Graph after reasoning — inferred edges and types visible](./reasoning-demo/03-after-reasoning.svg)
 
 ---
@@ -221,6 +263,10 @@ Canvas: 4 nodes, 15 links
 **You:** Dave had no explicit type — what did the reasoner give him?
 
 **Assistant:** Panning to Dave and expanding his annotation card to show inferred types:
+
+
+<details>
+<summary>2 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.com/reasoning-demo#dave"}}}`
 `{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","expand":true}}}`
@@ -233,6 +279,8 @@ Canvas: 4 nodes, 15 links
 Canvas: 4 nodes, 15 links
 ```
 
+</details>
+
 ![Dave's node — inferred types visible in annotation card](./reasoning-demo/04-dave-focus.svg)
 
 ---
@@ -241,6 +289,10 @@ Canvas: 4 nodes, 15 links
 
 **Assistant:** Exporting the asserted graph. Inferred triples live in `urn:vg:inferred` and are
 not included here.
+
+
+<details>
+<summary>1 tool call ✓</summary>
 
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
@@ -381,3 +433,5 @@ ex:dave a owl:Thing, ex:Person, ex:Employee, ex:Manager;
 
 [Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Freasoning-demo%2Fgraph.ttl)
 ```
+
+</details>

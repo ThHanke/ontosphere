@@ -13,6 +13,10 @@
 
 **Assistant:** Great setup. I'll load FOAF first in TBox view, then extend it with employment classes and properties, switch to ABox for individuals, wire up the relationships, and finally run the reasoner.
 
+
+<details>
+<summary>2 tool calls ✓</summary>
+
 `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"tbox"}}}`
 `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n@prefix owl:  <http://www.w3.org/2002/07/owl#> .\nfoaf:Person a owl:Class ; rdfs:label \"Person\" .\nfoaf:Organization a owl:Class ; rdfs:label \"Organization\" .\nfoaf:Agent a owl:Class ; rdfs:label \"Agent\" .\nfoaf:Person rdfs:subClassOf foaf:Agent .\nfoaf:Organization rdfs:subClassOf foaf:Agent .\nfoaf:knows a owl:ObjectProperty ; rdfs:domain foaf:Person ; rdfs:range foaf:Person ; rdfs:label \"knows\" .\nfoaf:member a owl:ObjectProperty ; rdfs:domain foaf:Agent ; rdfs:range foaf:Organization ; rdfs:label \"member of\" .\nfoaf:name a owl:DatatypeProperty ; rdfs:domain foaf:Agent ; rdfs:label \"name\" ."}}}`
 
@@ -24,11 +28,17 @@
 Canvas: 6 nodes, 7 links
 ```
 
+</details>
+
 ---
 
 **You:** Now extend it — Employee, Manager, Executive subclasses of foaf:Person. Add a Department subclass of foaf:Organization. Then the properties: manages, reportsTo, collaboratesWith.
 
 **Assistant:** Adding the class hierarchy and properties. `manages` will have domain `Manager` and range `Employee` — that lets the reasoner infer types from relationships. `collaboratesWith` is symmetric.
+
+
+<details>
+<summary>21 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Employee","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Employee"}}}`
 `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Manager","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Manager"}}}`
@@ -79,6 +89,8 @@ Canvas: 6 nodes, 7 links
 Canvas: 13 nodes, 17 links
 ```
 
+</details>
+
 ![TBox — FOAF extended with employment hierarchy](./foaf-social-network/01-tbox.svg)
 
 ---
@@ -86,6 +98,10 @@ Canvas: 13 nodes, 17 links
 **You:** Now the people. Alice is an Executive, Bob is a Manager, Carol, Dave and Eve are Employees. Frank has no explicit type yet — we'll see what the reasoner infers. Two departments: Engineering and Research.
 
 **Assistant:** Switching to ABox view. Frank gets no `typeIri` — his type will come entirely from the relationships we assert next.
+
+
+<details>
+<summary>9 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
 `{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/alice","typeIri":"http://example.org/ex#Executive","label":"Alice"}}}`
@@ -112,11 +128,17 @@ Canvas: 13 nodes, 17 links
 Canvas: 8 nodes, 0 links
 ```
 
+</details>
+
 ---
 
 **You:** Now wire everything up. The org structure: Alice manages Bob and Frank, Bob manages Carol and Dave. Eve is a cross-team hire who reports to Alice. Social links cut across the hierarchy — Alice knows Eve (old friends), Bob knows Carol socially, Dave and Eve collaborate across departments. Everyone is a member of a department.
 
 **Assistant:** This gives us a mix of formal hierarchy and informal social ties — exactly the kind of graph where reasoning reveals hidden structure. Batching all edges then laying out.
+
+
+<details>
+<summary>19 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/bob"}}}`
 `{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/frank"}}}`
@@ -163,6 +185,8 @@ Canvas: 8 nodes, 0 links
 Canvas: 8 nodes, 16 links
 ```
 
+</details>
+
 ![Full graph before reasoning — social and professional relationships](./foaf-social-network/02-before-reasoning.svg)
 
 ---
@@ -174,6 +198,10 @@ Canvas: 8 nodes, 16 links
 - Alice gets `Manager` and `Employee` (Executive → Manager → Employee) and `foaf:Person` → `foaf:Agent`
 - `collaboratesWith` symmetry fires: Eve gets the inverse edge back to Dave
 - Everyone typed as `Employee` or above also gets `foaf:Agent` via `foaf:Person → foaf:Agent`
+
+
+<details>
+<summary>3 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
 `{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
@@ -188,6 +216,8 @@ Canvas: 8 nodes, 16 links
 Canvas: 8 nodes, 25 links
 ```
 
+</details>
+
 ![Graph after reasoning — inferred types and symmetric edges visible](./foaf-social-network/03-after-reasoning.svg)
 
 ---
@@ -195,6 +225,10 @@ Canvas: 8 nodes, 25 links
 **You:** Focus on Frank — show me what the reasoner gave him.
 
 **Assistant:** Panning to Frank and expanding his annotation card to reveal the inferred types.
+
+
+<details>
+<summary>2 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.org/frank"}}}`
 `{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.org/frank","expand":true}}}`
@@ -207,6 +241,8 @@ Canvas: 8 nodes, 25 links
 Canvas: 8 nodes, 25 links
 ```
 
+</details>
+
 ![Frank — inferred Employee, foaf:Person, foaf:Agent from manages range](./foaf-social-network/04-frank-focus.svg)
 
 ---
@@ -214,6 +250,10 @@ Canvas: 8 nodes, 25 links
 **You:** Perfect. Export the full graph as Turtle.
 
 **Assistant:** Exporting the asserted graph. Inferred triples live in `urn:vg:inferred` and are not included here.
+
+
+<details>
+<summary>1 tool call ✓</summary>
 
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
@@ -372,3 +412,5 @@ foaf:name rdfs:domain owl:Thing;
 
 [Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Ffoaf-social-network%2Fgraph.ttl)
 ```
+
+</details>
