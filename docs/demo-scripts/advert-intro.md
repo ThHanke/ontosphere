@@ -21,3 +21,30 @@ streaming AI message. Wait for the result. Pause three seconds on the result.
 
 Finally switch focus to the Ontosphere graph tab to show the final knowledge graph that was built
 entirely by AI tool calls through the relay.
+
+---
+
+## How to re-record this video
+
+```sh
+# Dev server must be running first
+npm run dev
+
+# In another terminal:
+npm run demo:video
+```
+
+Output: `docs/demo-videos/advert-intro.webm` and `.mp4` — both committed, overwritten on each run.
+
+## How to create a new demo video
+
+1. Write a new screenplay in `docs/demo-scripts/<name>.md` (plain English, see this file as example)
+2. Ask Claude: *"Record a demo video from this screenplay: `docs/demo-scripts/<name>.md`"*
+3. Claude writes `e2e/demo-<name>.spec.ts` using `DemoRunner` primitives from `e2e/demo-runner.ts`
+4. Run `npm run demo:video` → produces `docs/demo-videos/<name>.webm` + `.mp4`
+5. Commit both the spec and the video files
+
+## Planned videos
+
+- [ ] **advert-intro** ← this file (done)
+- [ ] **basic-demo** — next session: walkthrough of core UI, add nodes manually, run layout, export
