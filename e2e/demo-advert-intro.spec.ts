@@ -2,7 +2,7 @@
  * Generated from: docs/demo-scripts/advert-intro.md
  *
  * Run:  npm run demo:video
- * Output: docs/demo-videos/advert-intro.webm  (committed, regenerated on each run)
+ * Output: docs/demo-videos/advert-intro.webm / .mp4
  *
  * Requires: dev server running at http://localhost:8080
  */
@@ -17,36 +17,37 @@ test('advert-intro: relay demo — mock chat + Ontosphere side by side', async (
 
   // Open the stage — mock chat left, Ontosphere right
   await runner.openStage();
+  await runner.captionPause('Ontosphere — AI-powered knowledge graph editor', 2_500);
 
-  // Let viewer take in both panels
-  await runner.pauseMs(2_000);
-
-  // Mode explanation beat: FhGenie / OpenWebUI / ChatGPT
+  // Mode explanation beat
+  await runner.caption('The mock chat simulates real AI interfaces…');
   const chatFrame = page.frameLocator('iframe >> nth=0');
   await chatFrame.locator('#mode-fhgenie').hover();
-  await runner.pauseMs(1_000);
+  await runner.pauseMs(800);
   await chatFrame.locator('#mode-openwebui').hover();
-  await runner.pauseMs(1_000);
+  await runner.pauseMs(800);
   await chatFrame.locator('#mode-chatgpt').hover();
-  await runner.pauseMs(1_000);
-  // Return to FhGenie (default)
+  await runner.pauseMs(800);
+  await runner.captionPause('FhGenie, OpenWebUI, ChatGPT — swap in any real chat interface', 2_500);
   await runner.switchMode('fhgenie');
-  await runner.pauseMs(1_000);
 
-  // Inject bookmarklet — relay popup appears
+  // Inject bookmarklet
+  await runner.captionPause('Install the bookmarklet once — it bridges AI chat to Ontosphere', 2_000);
   await runner.injectBookmarklet();
-  await runner.pauseMs(1_000);
+  await runner.captionPause('Relay connected ✓', 1_200);
 
-  // Single addNode scenario
+  // Single addNode
+  await runner.caption('Ask the AI to add a node…');
   await runner.clickScenario('single');
   const singleResult = await runner.waitForResult(20_000);
   expect(singleResult).toContain('[Ontosphere — 1 tool ✓]');
-  await runner.pauseMs(2_000);
+  await runner.captionPause('Node added to the graph in real time ✓', 2_000);
 
-  // Clear and run full scenario
+  // Full scenario
   await runner.clearChat();
+  await runner.caption('Now run a full workflow — nodes, links, layout, export…');
   await runner.clickScenario('full');
   const fullResult = await runner.waitForResult(30_000);
   expect(fullResult).toMatch(/\[Ontosphere/);
-  await runner.pauseMs(3_000);
+  await runner.captionPause('Graph built entirely by AI tool calls through the relay ✓', 3_000);
 });

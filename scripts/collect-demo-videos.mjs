@@ -10,6 +10,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -33,7 +34,7 @@ let copied = 0;
 for (const name of specNames) {
   // Playwright names the output dir: e2e-demo-<name>-<hash>-demo/
   const subdirs = fs.readdirSync(RESULTS_DIR)
-    .filter(d => d.startsWith(`e2e-demo-${name.replace(/-/g, '-')}`));
+    .filter(d => d.startsWith(`demo-${name}`));
 
   for (const subdir of subdirs) {
     const videoPath = path.join(RESULTS_DIR, subdir, 'video.webm');
@@ -42,6 +43,17 @@ for (const name of specNames) {
     fs.copyFileSync(videoPath, dest);
     const size = (fs.statSync(dest).size / 1024).toFixed(0);
     console.log(`✓ docs/demo-videos/${name}.webm  (${size} KB)`);
+
+    // Convert to mp4 for broad playback compatibility
+    const mp4 = path.join(OUTPUT_DIR, `${name}.mp4`);
+    try {
+      execFileSync('ffmpeg', ['-y', '-i', dest, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', mp4], { stdio: 'pipe' });
+      const mp4size = (fs.statSync(mp4).size / 1024).toFixed(0);
+      console.log(`✓ docs/demo-videos/${name}.mp4   (${mp4size} KB)`);
+    } catch {
+      console.warn(`  ffmpeg not found — skipping mp4 conversion for ${name}`);
+    }
+
     copied++;
   }
 }
