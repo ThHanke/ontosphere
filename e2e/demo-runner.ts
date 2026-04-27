@@ -3,6 +3,12 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
+/** Parsed turn from a seed markdown file. */
+export interface SeedTurn {
+  caption: string;
+  toolCalls: Array<{ name: string; arguments: Record<string, unknown> }>;
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export class DemoRunner {
@@ -82,6 +88,98 @@ export class DemoRunner {
   /** Clear the chat. */
   async clearChat(): Promise<void> {
     await this.chatFrame.locator('[data-scenario="clear"]').click();
+  }
+
+  /** Open the app alone (full viewport) and wait for MCP tools to be ready. */
+  async openApp(): Promise<void> {
+    await this.page.goto(this.baseURL);
+    await this.page.waitForFunction(
+      () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
+      { timeout: 20_000 },
+    );
+  }
+
+  /**
+   * Parse a seed markdown file into turns.
+   * Each turn groups the JSON-RPC tool calls under the nearest preceding
+   * snapshot caption (or the assistant turn prose if no snapshot follows).
+   */
+  static parseSeed(seedPath: string): SeedTurn[] {
+    const content = fs.readFileSync(seedPath, 'utf8');
+    const lines = content.split('\n');
+    const turns: SeedTurn[] = [];
+    let current: SeedTurn | null = null;
+
+    // Match backtick-wrapped JSON-RPC tool calls
+    const TOOL_RE = /^`(\{"jsonrpc":"2\.0",.+\})`\s*$/;
+    // Match snapshot blocks: ```snapshot ... caption: ... ```
+    let inSnapshot = false;
+    let snapshotCaption = '';
+
+    const flush = () => {
+      if (current && current.toolCalls.length > 0) {
+        turns.push(current);
+        current = null;
+      }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      if (line.startsWith('```snapshot')) {
+        inSnapshot = true;
+        snapshotCaption = '';
+        continue;
+      }
+      if (inSnapshot) {
+        if (line.startsWith('```')) {
+          inSnapshot = false;
+          if (current) current.caption = snapshotCaption || current.caption;
+          continue;
+        }
+        const m = line.match(/^caption:\s*(.+)/);
+        if (m) snapshotCaption = m[1].trim();
+        continue;
+      }
+
+      // New assistant or user turn marker
+      if (line.startsWith('**Assistant:**') || line.startsWith('**You:**')) {
+        flush();
+        const prose = line.replace(/\*\*(?:Assistant|You):\*\*\s*/, '').trim();
+        current = { caption: prose.substring(0, 120), toolCalls: [] };
+        continue;
+      }
+
+      const toolMatch = line.match(TOOL_RE);
+      if (toolMatch) {
+        try {
+          const rpc = JSON.parse(toolMatch[1]);
+          if (rpc.params?.name && current) {
+            current.toolCalls.push({ name: rpc.params.name, arguments: rpc.params.arguments ?? {} });
+          }
+        } catch { /* skip malformed */ }
+      }
+    }
+    flush();
+    return turns;
+  }
+
+  /**
+   * Execute a parsed seed turn: call each tool on the app frame,
+   * pausing between calls for visibility.
+   */
+  async runSeedTurn(turn: SeedTurn, delayMs = 300): Promise<void> {
+    if (turn.caption) await this.caption(turn.caption);
+    for (const call of turn.toolCalls) {
+      await this.page.evaluate(
+        async ([name, args]: [string, Record<string, unknown>]) => {
+          const tool = (window as any).__mcpTools?.[name];
+          if (tool) await tool(args);
+        },
+        [call.name, call.arguments] as [string, Record<string, unknown>],
+      );
+      await this.page.waitForTimeout(delayMs);
+    }
   }
 
   /** Pause recording for a given number of milliseconds. */
