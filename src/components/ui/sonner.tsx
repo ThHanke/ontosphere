@@ -12,7 +12,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       position="bottom-center"
-      offset={120}
       toastOptions={{
         // Keep visual theming via classNames and increase default visibility time.
         duration: 8000,

@@ -199,7 +199,7 @@ export class DemoRunner {
         el.id = '__demo_caption__';
         Object.assign(el.style, {
           position:        'fixed',
-          bottom:          '48px',
+          bottom:          '160px',
           left:            '50%',
           transform:       'translateX(-50%)',
           maxWidth:        '80%',
