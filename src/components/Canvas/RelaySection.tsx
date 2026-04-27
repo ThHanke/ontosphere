@@ -3,9 +3,29 @@
  * Shows relay connection status, setup instructions, draggable bookmarklet, and call log.
  */
 
-import React, { useRef, useEffect } from 'react';
-import { Zap, ExternalLink } from 'lucide-react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { Zap, ExternalLink, Copy, Check } from 'lucide-react';
 import { Button } from '../ui/button';
+
+function fallbackCopy(text: string) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
+const STARTER_PROMPT =
+`You are connected to Ontosphere via a relay. A script in this tab intercepts your tool calls, runs them in Ontosphere, and injects results back as a user message.
+
+Output format — one JSON-RPC 2.0 call per line, backtick-wrapped:
+\`{"jsonrpc":"2.0","id":<N>,"method":"tools/call","params":{"name":"<toolName>","arguments":{...}}}\`
+
+Call help first to get full instructions and the tool list:
+\`{"jsonrpc":"2.0","id":0,"method":"tools/call","params":{"name":"help","arguments":{}}}\``;
 import type { RelayCallLogEntry } from '../../hooks/useRelayBridge';
 
 interface RelaySectionProps {
@@ -24,6 +44,20 @@ function formatRelativeTime(timestamp: number): string {
 
 export const RelaySection: React.FC<RelaySectionProps> = ({ bookmarkletHref, connected, callLog }) => {
   const bookmarkletRef = useRef<HTMLAnchorElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyPrompt = useCallback(() => {
+    const done = () => { setCopied(true); setTimeout(() => setCopied(false), 2000); };
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(STARTER_PROMPT).then(done).catch(() => {
+        fallbackCopy(STARTER_PROMPT);
+        done();
+      });
+    } else {
+      fallbackCopy(STARTER_PROMPT);
+      done();
+    }
+  }, []);
 
   useEffect(() => {
     if (bookmarkletRef.current) {
@@ -42,7 +76,19 @@ export const RelaySection: React.FC<RelaySectionProps> = ({ bookmarkletHref, con
       <ol className="text-xs text-muted-foreground space-y-1 list-none">
         <li className="flex gap-2"><span className="text-foreground font-medium">1.</span> Drag the button below to your bookmark bar</li>
         <li className="flex gap-2"><span className="text-foreground font-medium">2.</span> Go to your AI chat tab, click the bookmark</li>
-        <li className="flex gap-2"><span className="text-foreground font-medium">3.</span> Paste the starter prompt (see README) — the AI calls <code className="text-xs">help()</code> to get full instructions, then tool calls run here automatically</li>
+        <li className="flex gap-2 items-start">
+          <span className="text-foreground font-medium shrink-0">3.</span>
+          <span>
+            Paste the starter prompt into your AI chat — the AI calls <code className="text-xs">help()</code> to get full instructions, then tool calls run here automatically
+          </span>
+          <button
+            onClick={copyPrompt}
+            title="Copy starter prompt"
+            className="shrink-0 ml-auto text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+          </button>
+        </li>
       </ol>
 
       {/* Draggable bookmarklet */}
@@ -60,7 +106,7 @@ export const RelaySection: React.FC<RelaySectionProps> = ({ bookmarkletHref, con
 
       {/* Docs link */}
       <a
-        href="https://github.com/ThHanke/visgraph#chatgpt-gemini-claudeai--ai-relay-bridge"
+        href="https://github.com/ThHanke/ontosphere#chatgpt-gemini-claudeai--ai-relay-bridge"
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
