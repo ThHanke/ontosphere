@@ -37,4 +37,8 @@ keywords:
   - fair-data
   - reactodia
   - mcp
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.19605270"
+    description: "Concept DOI — always resolves to the latest release"
 type: software
