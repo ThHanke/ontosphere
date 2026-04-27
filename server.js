@@ -9,14 +9,14 @@ const app = express();
 // Add headers for worker assets so cross-origin worker errors are not opaque
 // and so misdetected .ts worker files are still served as JS by the browser.
 //
-// - If a worker resource is requested under /visgraph/assets/*, set CORS so
+// - If a worker resource is requested under /ontosphere/assets/*, set CORS so
 //   ErrorEvents are not opaque.
 // - If a worker asset path ends with ".ts" (leftover built filename), force the
 //   Content-Type to "application/javascript" so the browser will attempt to execute it.
 // This is a temporary server-side safeguard; the proper fix is to ensure built
 // assets are emitted with .js extension and served with the correct MIME.
 app.use((req, res, next) => {
-  if (req.method === 'GET' && req.originalUrl && req.originalUrl.startsWith('/visgraph/assets/')) {
+  if (req.method === 'GET' && req.originalUrl && req.originalUrl.startsWith('/ontosphere/assets/')) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     // If the asset ends with .ts, some servers may wrongly detect a binary MIME.
     // Force JS MIME type so the browser will try to execute the worker.

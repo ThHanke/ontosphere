@@ -189,7 +189,7 @@ function fmtResult(name, args, result) {
 function buildResultBlock(batch, stateAfter, { imgDir, demoName } = {}) {
   const total = batch.length;
   const ok = batch.filter(b => b.result?.success).length;
-  const lines = [`[VisGraph — ${total} tool${total === 1 ? '' : 's'} ${ok === total ? '✓' : `${ok}/${total} ✓`}]`];
+  const lines = [`[Ontosphere — ${total} tool${total === 1 ? '' : 's'} ${ok === total ? '✓' : `${ok}/${total} ✓`}]`];
   for (const { name, args, result } of batch) {
     lines.push(fmtResult(name, args, result));
   }
@@ -206,11 +206,11 @@ function buildResultBlock(batch, stateAfter, { imgDir, demoName } = {}) {
     const turtle = exportCall.result.data.content;
     const ttlFile = 'graph.ttl';
     fs.writeFileSync(path.join(imgDir, ttlFile), turtle, 'utf8');
-    const rawUrl = `https://raw.githubusercontent.com/ThHanke/visgraph/main/docs/mcp-demo/${demoName}/${ttlFile}`;
-    const appUrl = `https://thhanke.github.io/visgraph/?url=${encodeURIComponent(rawUrl)}`;
+    const rawUrl = `https://raw.githubusercontent.com/ThHanke/ontosphere/main/docs/mcp-demo/${demoName}/${ttlFile}`;
+    const appUrl = `https://thhanke.github.io/ontosphere/?url=${encodeURIComponent(rawUrl)}`;
     return block
       + `\n\n\`\`\`turtle\n${turtle}\n\`\`\``
-      + `\n\n[Open this graph in VisGraph ↗](${appUrl})`;
+      + `\n\n[Open this graph in Ontosphere ↗](${appUrl})`;
   }
 
   return block;

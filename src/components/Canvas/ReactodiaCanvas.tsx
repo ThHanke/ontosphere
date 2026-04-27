@@ -841,12 +841,12 @@ export default function ReactodiaCanvas() {
         try {
           const dataUrl = new URL(startupUrl);
           const label = dataUrl.pathname.split('/').filter(Boolean).pop()?.replace(/\.[^.]+$/, '') || startupUrl;
-          document.title = `Visgraph: ${label}`;
+          document.title = `Ontosphere: ${label}`;
           if (!window.location.hash) {
             history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${label}`);
           }
         } catch {
-          document.title = `Visgraph: ${startupUrl}`;
+          document.title = `Ontosphere: ${startupUrl}`;
         }
       }
     } catch {

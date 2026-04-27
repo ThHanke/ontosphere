@@ -502,7 +502,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     {README_TOC.map(([label, anchor]) => (
                       <a
                         key={anchor}
-                        href={`https://github.com/ThHanke/visgraph${anchor}`}
+                        href={`https://github.com/ThHanke/ontosphere${anchor}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5"

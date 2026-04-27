@@ -45,7 +45,7 @@ const bookmarkletSrc = fs.readFileSync(
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-async function openVisgraphApp(context: BrowserContext): Promise<Page> {
+async function openOntosphereApp(context: BrowserContext): Promise<Page> {
   const appPage = await context.newPage();
   await appPage.goto(DEV_URL);
   await appPage.waitForFunction(
@@ -69,7 +69,7 @@ async function injectBookmarklet(chatPage: Page): Promise<Page> {
 /** Wait for the bookmarklet result to be submitted and appear in #result-stream. */
 async function getSubmittedResult(chatPage: Page, timeout = 15_000): Promise<string> {
   const locator = chatPage.locator('#result-stream .msg-user').last();
-  await expect(locator).toContainText('[VisGraph', { timeout });
+  await expect(locator).toContainText('[Ontosphere', { timeout });
   return locator.innerText();
 }
 
@@ -81,7 +81,7 @@ test.describe('relay — FhGenie rendering scenarios', () => {
   let appPage: Page;
 
   test.beforeEach(async ({ context }) => {
-    appPage = await openVisgraphApp(context);
+    appPage = await openOntosphereApp(context);
   });
 
   test.afterEach(async () => {
@@ -90,14 +90,14 @@ test.describe('relay — FhGenie rendering scenarios', () => {
 
   // ── plain text (baseline) ─────────────────────────────────────────────
 
-  test('plain: TOOL blocks in <pre> reach VisGraph correctly', async ({ context, page }) => {
+  test('plain: TOOL blocks in <pre> reach Ontosphere correctly', async ({ context, page }) => {
     await page.goto(`${DEV_URL}/relay-fhgenie-mock.html`);
     await injectBookmarklet(page);
     await page.click('button[data-scenario="plain"]');
 
     const result = await getSubmittedResult(page);
     // 3 tools: runLayout, fitCanvas, exportImage
-    expect(result).toContain('[VisGraph — 3 tools ✓]');
+    expect(result).toContain('[Ontosphere — 3 tools ✓]');
     expect(result).toContain('✓ runLayout');
     expect(result).toContain('✓ fitCanvas');
     expect(result).toContain('✓ exportImage');
@@ -111,7 +111,7 @@ test.describe('relay — FhGenie rendering scenarios', () => {
     await page.click('button[data-scenario="markdown-p"]');
 
     const result = await getSubmittedResult(page);
-    expect(result).toContain('[VisGraph — 3 tools ✓]');
+    expect(result).toContain('[Ontosphere — 3 tools ✓]');
     expect(result).toContain('✓ runLayout');
     expect(result).toContain('✓ fitCanvas');
     expect(result).toContain('✓ exportImage');
@@ -142,7 +142,7 @@ test.describe('relay — FhGenie rendering scenarios', () => {
     await page.click('button[data-scenario="codeblock"]');
 
     const result = await getSubmittedResult(page);
-    expect(result).toContain('[VisGraph — 3 tools ✓]');
+    expect(result).toContain('[Ontosphere — 3 tools ✓]');
     expect(result).toContain('✓ runLayout');
     expect(result).toContain('✓ fitCanvas');
     expect(result).toContain('✓ exportImage');
@@ -163,7 +163,7 @@ test.describe('relay — FhGenie rendering scenarios', () => {
 
   // ── prefixed IRIs ─────────────────────────────────────────────────────
 
-  test('prefixed: ex:Alice + owl:Class expanded and node created in VisGraph', async ({ context, page }) => {
+  test('prefixed: ex:Alice + owl:Class expanded and node created in Ontosphere', async ({ context, page }) => {
     await page.goto(`${DEV_URL}/relay-fhgenie-mock.html`);
     await injectBookmarklet(page);
     await page.click('button[data-scenario="prefixed"]');
@@ -172,7 +172,7 @@ test.describe('relay — FhGenie rendering scenarios', () => {
     expect(result).toContain('✓ addNode');
     expect(result).not.toContain('✗ addNode');
 
-    // Node with expanded IRI must be in VisGraph canvas
+    // Node with expanded IRI must be in Ontosphere canvas
     const nodes = await appPage.evaluate(async () => {
       const tools = (window as any).__mcpTools as Record<string, (p: any) => Promise<any>>;
       const r = await tools['getNodes']({});

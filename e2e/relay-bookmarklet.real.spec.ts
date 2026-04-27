@@ -6,7 +6,7 @@
  *   relay-mock-chat.html (AI chat tab)
  *     ↓ bookmarklet detects TOOL block
  *     ↓ postMessage(vg-call) → relay.html popup
- *     ↓ BroadcastChannel('visgraph-relay-v1') → VisGraph app
+ *     ↓ BroadcastChannel('ontosphere-relay-v1') → Ontosphere app
  *     ↓ __mcpTools[tool](params) executed in app
  *     ↓ BC vg-result → relay.html
  *     ↓ opener.postMessage(vg-result) → chat page
@@ -14,7 +14,7 @@
  *     ↓ submitInput() clicks Send
  *     ✓ result appears in chat stream as user message
  *
- * Nothing is mocked. The VisGraph app at DEV_URL must be running and have
+ * Nothing is mocked. The Ontosphere app at DEV_URL must be running and have
  * its relay bridge (BroadcastChannel) and __mcpTools active.
  *
  * Run:
@@ -45,10 +45,10 @@ const bookmarkletSrc = fs.readFileSync(
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 /**
- * Open the VisGraph app and wait until __mcpTools is populated and the relay
+ * Open the Ontosphere app and wait until __mcpTools is populated and the relay
  * bridge BroadcastChannel is listening.  Returns the app page.
  */
-async function openVisgraphApp(context: BrowserContext): Promise<Page> {
+async function openOntosphereApp(context: BrowserContext): Promise<Page> {
   const appPage = await context.newPage();
   await appPage.goto(DEV_URL);
   // Wait for __mcpTools to be registered (app initialises async)
@@ -82,7 +82,7 @@ async function injectBookmarklet(chatPage: Page): Promise<Page> {
  */
 async function getSubmittedResult(chatPage: Page, timeout = 15_000): Promise<string> {
   const locator = chatPage.locator('#chat-stream .msg-user').last();
-  await expect(locator).toContainText('[VisGraph', { timeout });
+  await expect(locator).toContainText('[Ontosphere', { timeout });
   return locator.innerText();
 }
 
@@ -94,8 +94,8 @@ test.describe('relay — real end-to-end (dev server)', () => {
   let appPage: Page;
 
   test.beforeEach(async ({ context }) => {
-    // Open VisGraph app once per test — relay bridge starts automatically.
-    appPage = await openVisgraphApp(context);
+    // Open Ontosphere app once per test — relay bridge starts automatically.
+    appPage = await openOntosphereApp(context);
   });
 
   test.afterEach(async () => {
@@ -104,7 +104,7 @@ test.describe('relay — real end-to-end (dev server)', () => {
 
   // ── addNode via real chain ─────────────────────────────────────────────
 
-  test('addNode: tool call reaches VisGraph, node created, result injected into chat', async ({ context, page }) => {
+  test('addNode: tool call reaches Ontosphere, node created, result injected into chat', async ({ context, page }) => {
     await page.goto(`${DEV_URL}/relay-mock-chat.html`);
     const _relayPopup = await injectBookmarklet(page);
 
@@ -114,37 +114,37 @@ test.describe('relay — real end-to-end (dev server)', () => {
     const result = await getSubmittedResult(page);
 
     // Header: 1 tool succeeded
-    expect(result).toContain('[VisGraph — 1 tool ✓]');
+    expect(result).toContain('[Ontosphere — 1 tool ✓]');
     // IRI confirmed in result payload
     expect(result).toContain('http://example.org/Alice');
     // Canvas summary from real app (e.g. "Canvas: 1 node (Alice), 0 links")
     expect(result).toMatch(/Canvas:\s*\d+ node/);
   });
 
-  // ── Verify node actually exists in VisGraph ────────────────────────────
+  // ── Verify node actually exists in Ontosphere ────────────────────────────
 
-  test('addNode: node verifiably present in VisGraph canvas after injection', async ({ context, page }) => {
+  test('addNode: node verifiably present in Ontosphere canvas after injection', async ({ context, page }) => {
     await page.goto(`${DEV_URL}/relay-mock-chat.html`);
     await injectBookmarklet(page);
     await page.click('button[data-scenario="single"]');
 
     // Round-trip confirms addNode ran and app returned Alice's IRI
     const result = await getSubmittedResult(page);
-    expect(result).toContain('[VisGraph — 1 tool ✓]');
+    expect(result).toContain('[Ontosphere — 1 tool ✓]');
     expect(result).toContain('http://example.org/Alice');
     expect(result).toMatch(/Canvas:\s*\d+ node/);
   });
 
-  // ── Batch: 3 nodes, all reach VisGraph ────────────────────────────────
+  // ── Batch: 3 nodes, all reach Ontosphere ────────────────────────────────
 
-  test('batch 3 addNode: all nodes created in VisGraph, combined result injected', async ({ context, page }) => {
+  test('batch 3 addNode: all nodes created in Ontosphere, combined result injected', async ({ context, page }) => {
     await page.goto(`${DEV_URL}/relay-mock-chat.html`);
     await injectBookmarklet(page);
     await page.click('button[data-scenario="batch"]');
 
     const result = await getSubmittedResult(page, 20_000);
 
-    expect(result).toContain('[VisGraph — 3 tools ✓]');
+    expect(result).toContain('[Ontosphere — 3 tools ✓]');
     // Three separate JSON-RPC responses
     const responses = result.match(/"jsonrpc"/g);
     expect(responses).toHaveLength(3);
@@ -163,7 +163,7 @@ test.describe('relay — real end-to-end (dev server)', () => {
     await page.click('button[data-scenario="single"]');
 
     const result = await getSubmittedResult(page);
-    expect(result).toContain('[VisGraph — 1 tool ✓]');
+    expect(result).toContain('[Ontosphere — 1 tool ✓]');
     expect(result).toContain('http://example.org/Alice');
   });
 
@@ -176,13 +176,13 @@ test.describe('relay — real end-to-end (dev server)', () => {
     await page.click('button[data-scenario="single"]');
 
     const result = await getSubmittedResult(page);
-    expect(result).toContain('[VisGraph — 1 tool ✓]');
+    expect(result).toContain('[Ontosphere — 1 tool ✓]');
     expect(result).toContain('http://example.org/Alice');
   });
 
-  // ── Unknown tool: real error from VisGraph ─────────────────────────────
+  // ── Unknown tool: real error from Ontosphere ─────────────────────────────
 
-  test('unknown tool: VisGraph returns error, ✗ appears in chat', async ({ context, page }) => {
+  test('unknown tool: Ontosphere returns error, ✗ appears in chat', async ({ context, page }) => {
     await page.goto(`${DEV_URL}/relay-mock-chat.html`);
     await injectBookmarklet(page);
     await page.click('button[data-scenario="unknown-tool"]');
@@ -207,7 +207,7 @@ test.describe('relay — real end-to-end (dev server)', () => {
     // Trigger scenario — result will arrive while tab is "hidden"
     await page.click('button[data-scenario="single"]');
 
-    // Wait for the round-trip to complete on the VisGraph side (node created in app)
+    // Wait for the round-trip to complete on the Ontosphere side (node created in app)
     // but injection should not yet have fired (tab is "hidden")
     await appPage.waitForFunction(
       async () => {
@@ -227,7 +227,7 @@ test.describe('relay — real end-to-end (dev server)', () => {
     });
 
     const result = await getSubmittedResult(page, 15_000);
-    expect(result).toContain('[VisGraph — 1 tool ✓]');
+    expect(result).toContain('[Ontosphere — 1 tool ✓]');
     expect(result).toContain('http://example.org/Alice');
   });
 

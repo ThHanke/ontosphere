@@ -1,13 +1,13 @@
 {
-  "name": "visgraph",
+  "name": "ontosphere",
   "description": "Browser-based interactive RDF/ontology knowledge graph editor — authoring, OWL-RL reasoning, clustering, multi-algorithm layout, and MCP support. Runs entirely client-side.",
   "version": "1.2.0",
   "license": "Apache-2.0",
   "author": "Thomas Hanke <thomas.hnke82@gmail.com> (https://github.com/ThHanke)",
-  "homepage": "https://thhanke.github.io/visgraph/",
+  "homepage": "https://thhanke.github.io/ontosphere/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ThHanke/visgraph.git"
+    "url": "https://github.com/ThHanke/ontosphere.git"
   },
   "keywords": [
     "rdf",

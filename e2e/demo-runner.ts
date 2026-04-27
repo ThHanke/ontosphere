@@ -78,7 +78,7 @@ export class DemoRunner {
     await this.chatFrame.locator(`#mode-${mode}`).click();
   }
 
-  /** Wait for a VisGraph result to appear in the chat stream. */
+  /** Wait for a Ontosphere result to appear in the chat stream. */
   async waitForResult(timeout = 15_000): Promise<string> {
     const locator = this.chatFrame.locator('#chat-stream .msg-user', { hasText: '[Ontosphere' }).last();
     await locator.waitFor({ state: 'visible', timeout });

@@ -5,7 +5,7 @@
  *   OpenWebUI chat tab (AI message with tool call)
  *     ↓ bookmarklet detects tool call
  *     ↓ postMessage(vg-call) → relay.html popup
- *     ↓ BroadcastChannel → VisGraph app
+ *     ↓ BroadcastChannel → Ontosphere app
  *     ↓ __mcpTools[tool](params) executed
  *     ↓ vg-result → relay.html → chat page
  *     ↓ injectResult() → TipTap editor via ProseMirror dispatch
@@ -14,7 +14,7 @@
  *
  * Prerequisites:
  *   1. pip install open-webui && open-webui serve   (default: http://localhost:8080)
- *   2. VisGraph dev server running at VG_URL
+ *   2. Ontosphere dev server running at VG_URL
  *   3. OpenWebUI configured with at least one LLM model
  *
  * Run:
@@ -31,7 +31,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OWUI_URL = process.env.OWUI_URL || 'http://localhost:8080';
 const VG_URL   = process.env.VG_URL   || 'http://localhost:5173';
 
-// Patch bookmarklet to point at local VisGraph dev server
+// Patch bookmarklet to point at local Ontosphere dev server
 const bookmarkletSrc = fs.readFileSync(
   path.resolve(__dirname, '../public/relay-bookmarklet.js'), 'utf8',
 )
@@ -46,7 +46,7 @@ const bookmarkletSrc = fs.readFileSync(
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-async function openVisgraphApp(context: BrowserContext): Promise<Page> {
+async function openOntosphereApp(context: BrowserContext): Promise<Page> {
   const appPage = await context.newPage();
   await appPage.goto(VG_URL);
   await appPage.waitForFunction(
@@ -69,13 +69,13 @@ async function injectBookmarklet(chatPage: Page): Promise<Page> {
 
 /**
  * The TipTap inject result appears as a sent user message in the chat.
- * This helper waits for the VisGraph result to land in the chat as a user turn.
+ * This helper waits for the Ontosphere result to land in the chat as a user turn.
  */
 async function waitForResultInChat(chatPage: Page, timeout = 20_000): Promise<string> {
   // OpenWebUI user messages are in elements with role=none or specific classes;
-  // we look for text containing '[VisGraph' in any visible chat message
+  // we look for text containing '[Ontosphere' in any visible chat message
   await chatPage.waitForFunction(
-    () => document.body.innerText.includes('[VisGraph'),
+    () => document.body.innerText.includes('[Ontosphere'),
     { timeout },
   );
   return chatPage.evaluate(() => document.body.innerText);
@@ -114,7 +114,7 @@ test.describe('relay — OpenWebUI TipTap inject (local)', () => {
   let appPage: Page;
 
   test.beforeEach(async ({ context }) => {
-    appPage = await openVisgraphApp(context);
+    appPage = await openOntosphereApp(context);
   });
 
   test.afterEach(async () => {
@@ -134,7 +134,7 @@ test.describe('relay — OpenWebUI TipTap inject (local)', () => {
 
     const bodyText = await waitForResultInChat(page);
 
-    expect(bodyText).toContain('[VisGraph — 1 tool ✓]');
+    expect(bodyText).toContain('[Ontosphere — 1 tool ✓]');
     expect(bodyText).toContain('addNode');
     expect(bodyText).toContain('http://example.org/Alice');
   });
@@ -150,14 +150,14 @@ test.describe('relay — OpenWebUI TipTap inject (local)', () => {
     await page.waitForFunction(() => {
       var editor = document.getElementById('chat-input');
       var text = editor ? (editor.innerText || '').trim() : '';
-      return text.includes('[VisGraph');
+      return text.includes('[Ontosphere');
     }, { timeout: 10_000 });
 
     const editorText = await page.evaluate(() => {
       var el = document.getElementById('chat-input');
       return el ? el.innerText : '';
     });
-    expect(editorText).toContain('[VisGraph');
+    expect(editorText).toContain('[Ontosphere');
 
     // Send button should be enabled (TipTap state updated via PM dispatch)
     const sendEnabled = await page.evaluate(() => {
@@ -186,7 +186,7 @@ test.describe('relay — OpenWebUI TipTap inject (local)', () => {
     const bodyText = await waitForResultInChat(page, 15_000);
 
     // Must say "1 tool", not "2 tools"
-    expect(bodyText).toMatch(/\[VisGraph — 1 tool/);
-    expect(bodyText).not.toMatch(/\[VisGraph — 2 tool/);
+    expect(bodyText).toMatch(/\[Ontosphere — 1 tool/);
+    expect(bodyText).not.toMatch(/\[Ontosphere — 2 tool/);
   });
 });
