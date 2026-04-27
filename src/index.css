@@ -109,6 +109,13 @@
     background-color: var(--background);
   }
 
+  a {
+    color: var(--primary);
+  }
+  a:hover {
+    color: var(--primary-hover);
+  }
+
   /* Utility: explicit dark foreground for use on bright buttons / surfaces where text-foreground
      reads too light. This token intentionally does not change in .dark mode. */
   .text-foreground-dark { color: var(--text-foreground-dark); }
