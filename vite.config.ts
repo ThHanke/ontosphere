@@ -7,7 +7,7 @@ import { bookmarkletPlugin } from './vite-plugin-bookmarklet';
 
 
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/visgraph/' : '/',
+  base: process.env.NODE_ENV === 'production' ? '/ontosphere/' : '/',
   // Dev server settings (keep for local development)
   server: {
     host: "::",
