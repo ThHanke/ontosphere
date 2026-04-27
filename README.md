@@ -387,13 +387,17 @@ loadOntology (TBox)
 | **[FOAF social network](docs/mcp-demo/foaf-social-network.md)**<br>Build a social network, extend FOAF with employment classes, run reasoning | [![FOAF social network final state](docs/mcp-demo/foaf-social-network/05-eve-added.svg)](docs/mcp-demo/foaf-social-network.md) |
 | **[OWL-RL reasoning](docs/mcp-demo/reasoning-demo.md)**<br>Build TBox + ABox, infer types via domain/range and transitivity | [![OWL-RL reasoning demo final state](docs/mcp-demo/reasoning-demo/04-dave-focus.svg)](docs/mcp-demo/reasoning-demo.md) |
 | **[Scene ontology](docs/mcp-demo/scene-ontology.md)**<br>Load an external ontology, author individuals, export Turtle | [![Scene ontology demo final state](docs/mcp-demo/scene-ontology/04-jake-focus.svg)](docs/mcp-demo/scene-ontology.md) |
+| **[Manchester Pizza Tutorial](docs/mcp-demo/pizza-tutorial.md)**<br>Full OWL pizza ontology — classes, disjointness, properties, OWL-RL reasoning | [docs/mcp-demo/pizza-tutorial.md](docs/mcp-demo/pizza-tutorial.md) |
 
 Regenerate:
 
 ```sh
+npm run demo:all
+# or individually:
 node scripts/run-demo.mjs docs/mcp-demo/seeds/foaf-social-network.md
 node scripts/run-demo.mjs docs/mcp-demo/seeds/reasoning-demo.md
 node scripts/run-demo.mjs docs/mcp-demo/seeds/scene-ontology.md
+node scripts/run-demo.mjs docs/mcp-demo/seeds/pizza-tutorial.md
 ```
 
 Full tool declarations with input schemas: [public/.well-known/mcp.json](public/.well-known/mcp.json)
@@ -453,10 +457,20 @@ turn directly against `window.__mcpTools`. Existing seeds: `foaf-social-network`
 inject messages programmatically via `addChatMessage()`, and call tools on the app
 iframe via `callToolOnStage()`. No relay popup needed. Example: `pizza-tutorial-chat`.
 
+### Demo videos
+
+| Video | Description |
+|-------|-------------|
+| [advert-intro.mp4](docs/demo-videos/advert-intro.mp4) | Relay bookmarklet — mock chat + Ontosphere side by side |
+| [foaf-social-network.mp4](docs/demo-videos/foaf-social-network.mp4) | AI builds a FOAF social graph with OWL-RL reasoning |
+| [reasoning-demo.mp4](docs/demo-videos/reasoning-demo.mp4) | AI builds an OWL ontology and runs OWL-RL reasoning |
+| [scene-ontology.mp4](docs/demo-videos/scene-ontology.mp4) | AI builds a film scene ontology on BFO/RO upper ontology |
+| [pizza-tutorial.mp4](docs/demo-videos/pizza-tutorial.mp4) | Manchester Pizza Ontology — class hierarchy, disjointness, OWL-RL reasoning |
+| [pizza-tutorial-chat.mp4](docs/demo-videos/pizza-tutorial-chat.mp4) | OWL pizza tutorial as AI tutor lesson, side-by-side chat |
+
 To re-record all videos:
 ```sh
-npm run dev        # terminal 1
-npm run demo:video # terminal 2 — produces .webm + .mp4 in docs/demo-videos/
+npm run demo:video   # starts dev server, records, encodes, kills server
 ```
 
 Contributing / Development notes
