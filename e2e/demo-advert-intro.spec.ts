@@ -2,7 +2,7 @@
  * Generated from: docs/demo-scripts/advert-intro.md
  *
  * Run:  npm run demo:video
- * Output: test-results/demo/demo-advert-intro/video.webm
+ * Output: docs/demo-videos/advert-intro.webm  (committed, regenerated on each run)
  *
  * Requires: dev server running at http://localhost:8080
  */
@@ -22,7 +22,6 @@ test('advert-intro: relay demo — mock chat + Ontosphere side by side', async (
   await runner.pauseMs(2_000);
 
   // Mode explanation beat: FhGenie / OpenWebUI / ChatGPT
-  // Hover each mode button so the viewer's eye is drawn to them
   const chatFrame = page.frameLocator('iframe >> nth=0');
   await chatFrame.locator('#mode-fhgenie').hover();
   await runner.pauseMs(1_000);

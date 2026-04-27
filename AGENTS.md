@@ -230,7 +230,7 @@ Demo videos are produced by writing a prose screenplay and asking Claude to exec
 4. Commit the generated spec.
 5. Start the dev server (`npm run dev` or equivalent on port 8080).
 6. Run: `npm run demo:video`
-7. Find the video at `test-results/demo/demo-<name>/video.webm` (not committed to git).
+7. Find the video at `docs/demo-videos/demo-<name>/video.webm` (not committed to git).
 
 ### Screenplay requirements
 

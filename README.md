@@ -453,7 +453,7 @@ No Playwright knowledge required — just describe what the video should show.
    ```sh
    npm run demo:video
    ```
-6. Find the recording at `test-results/demo/demo-<name>/video.webm`.
+6. Find the recording at `docs/demo-videos/demo-<name>/video.webm`.
 
 The runner opens `public/demo-stage.html` — mock chat on the left and the Ontosphere app on the right,
 side by side at 1920×1080. The mock chat simulates what real AI chat interfaces (ChatGPT, OpenWebUI,

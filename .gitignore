@@ -41,3 +41,5 @@ AGENT.md
 # Local test/dev HTML pages (bookmarklet testing, not for the repo)
 public/relay-test.html
 *.png.worktrees/
+docs/demo-videos/.last-run.json
+docs/demo-videos/e2e-*/
