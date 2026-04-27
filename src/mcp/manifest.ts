@@ -5,8 +5,14 @@ export const mcpServerName = 'VisGraph';
 
 export const mcpServerDescription =
   'Interactive RDF/ontology knowledge graph editor — ABox authoring, OWL-RL reasoning, layout, and export. All client-side, no backend.\n\n' +
-  'Architecture for AI agents: The app has two coupled layers. (1) N3 RDF store — the source of truth for all triples. Tools like addNode/addLink write triples here first. (2) Reactodia canvas — a visual model that mirrors a subset of the store as draggable node cards (subjects with annotations) and arrows (object-property triples). Canvas nodes are NOT created automatically when triples are added — you must call addNode to place a subject on canvas. After adding triples, the canvas refreshes links automatically. Nodes start collapsed; call expandNode or expandAll to reveal annotation property cards. OWL-RL reasoning writes inferred triples back to the store and refreshes the canvas.\n\n' +
-  'Recommended workflow: loadOntology (TBox) → addNode ×N (ABox individuals) → addLink ×N (object properties) → runLayout → runReasoning → fitCanvas → exportImage(svg) → exportGraph(turtle).\n\n' +
+  'ABOX vs TBOX — TWO SEPARATE CANVAS VIEWS (critical for AI agents):\n' +
+  'VisGraph maintains a strict ABox/TBox split. Every node you add is classified by its rdf:type and appears in exactly one view:\n' +
+  '  • ABox view ("abox") — individuals and instance data. Nodes typed as owl:NamedIndividual, skos:Concept, or any non-schema type. This is the default view for authoring instance knowledge.\n' +
+  '  • TBox view ("tbox") — ontology schema. Nodes typed as owl:Class, owl:ObjectProperty, owl:DatatypeProperty, owl:AnnotationProperty, rdfs:Class, etc. This view shows the schema/vocabulary layer.\n' +
+  '  • "Punned" resources (typed as both, e.g. owl:Class AND owl:NamedIndividual) appear in both views.\n' +
+  'Switching views replaces the entire canvas — ABox nodes are invisible in TBox view and vice versa. Use setViewMode before exportImage to capture the right layer. addNode writes triples to the store and the canvas populates automatically in the correct view.\n\n' +
+  'Architecture for AI agents: The app has two coupled layers. (1) N3 RDF store (urn:vg:data) — source of truth for all triples. addNode/addLink write here first. (2) Reactodia canvas — mirrors the store subset matching the active view as draggable node cards and arrows. Nodes start collapsed; call expandNode or expandAll to reveal annotation property cards. OWL-RL reasoning writes inferred triples back to the store (urn:vg:inferred) and refreshes the canvas.\n\n' +
+  'Recommended workflow: setViewMode("tbox") → loadOntology → addNode ×N (owl:Class etc.) → addLink ×N (subClassOf etc.) → runLayout → setViewMode("abox") → addNode ×N (individuals) → addLink ×N → runLayout → runReasoning → fitCanvas → exportImage(svg).\n\n' +
   'Agent integration: (1) Claude Code / Playwright — call window.__mcpTools[name](params) via browser_evaluate. (2) AI Relay Bridge — any AI chat (ChatGPT, Claude.ai, Gemini) can control VisGraph via a bookmarklet relay that intercepts JSON-RPC 2.0 tool calls and injects results back automatically; see docs/relay-bridge.md. Full agent guide: AGENTS.md. Example sessions with SVG snapshots: docs/mcp-demo/.';
 
 export const mcpManifest: McpToolManifestEntry[] = [
@@ -69,8 +75,25 @@ export const mcpManifest: McpToolManifestEntry[] = [
     },
   },
   {
+    name: 'setViewMode',
+    description:
+      'Switch the canvas between ABox view (individuals/instances) and TBox view (ontology classes/properties). ' +
+      'IMPORTANT: VisGraph has two separate canvas views. ABox ("abox") shows owl:NamedIndividual and instance nodes. ' +
+      'TBox ("tbox") shows owl:Class, owl:ObjectProperty, owl:AnnotationProperty, and other schema nodes. ' +
+      'Switching views replaces the entire canvas — nodes from the other view are hidden, not deleted. ' +
+      'addNode writes triples and the canvas auto-populates in the correct view based on rdf:type. ' +
+      'Always call setViewMode before exportImage if you need to capture a specific layer.',
+    inputSchema: {
+      type: 'object',
+      required: ['mode'],
+      properties: {
+        mode: { type: 'string', enum: ['abox', 'tbox'], description: 'abox = instance view | tbox = ontology/class view' },
+      },
+    },
+  },
+  {
     name: 'addNode',
-    description: 'Create an ABox individual (subject node) on the canvas. A node is an RDF resource — it has an IRI, an optional rdf:type pointing to a class, and annotation properties (rdfs:label, etc.) shown as a card on the canvas.',
+    description: 'Create a node (RDF subject) on the canvas by writing triples to the store. The node appears in the view that matches its rdf:type — owl:Class/owl:ObjectProperty etc. → TBox view; owl:NamedIndividual or unrecognised types → ABox view. Switch to the correct view with setViewMode BEFORE calling addNode so the node materialises immediately.',
     inputSchema: {
       type: 'object',
       properties: {

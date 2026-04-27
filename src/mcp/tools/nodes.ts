@@ -41,27 +41,14 @@ const addNode: McpTool = {
       if (typeIri?.startsWith('Unknown prefix:')) return { success: false, error: typeIri };
       const { label } = raw;
 
-      const { ctx } = getWorkspaceRefs();
-      const model = ctx.model;
-
-      if (typeIri) rdfManager.addTriple(iri, RDF_TYPE, typeIri);
-      if (label) rdfManager.addTriple(iri, RDFS_LABEL, label);
-
-      if (!findEntityElement(iri, model)) {
-        model.createElement(iri as Reactodia.ElementIri);
-      }
-
-      // Allow Reactodia to mount the element before requesting data
-      await new Promise(r => setTimeout(r, 0));
-
-      await model.requestElementData([iri as Reactodia.ElementIri]);
-      await model.requestLinks({ addedElements: [iri as Reactodia.ElementIri] });
-
-      const el = findEntityElement(iri, model);
-      if (el) {
-        model.history.execute(Reactodia.setElementExpanded(el, true));
-        focusElementOnCanvas(el, ctx);
-      }
+      // Batch both triples in one awaitable worker call so onSubjectsChange fires
+      // only once, after both rdf:type and rdfs:label are already in the store.
+      // Triples land in urn:vg:data → onSubjectsChange → filterByViewMode →
+      // createElement in the correct view. No direct canvas mutation here.
+      const adds: Array<{ s: string; p: string; o: string }> = [];
+      if (typeIri) adds.push({ s: iri, p: RDF_TYPE, o: typeIri });
+      if (label) adds.push({ s: iri, p: RDFS_LABEL, o: label });
+      if (adds.length > 0) await rdfManager.applyBatch({ adds });
 
       return { success: true, data: { iri } };
     } catch (e) {
@@ -264,9 +251,6 @@ const getNodeDetails: McpTool = {
         if (q.predicate === RDFS_LABEL_IRI && !label) label = q.object;
         if (q.predicate === RDF_TYPE_IRI) types.push(q.object);
       }
-
-      const { navigateToIri } = getWorkspaceRefs();
-      navigateToIri?.(iri);
 
       return { success: true, data: { iri, label, types, properties } };
     } catch (e) {

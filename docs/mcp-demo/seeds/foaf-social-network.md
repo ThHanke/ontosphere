@@ -11,9 +11,10 @@
 
 **You:** I want to model a small organisation using FOAF as the base vocabulary, but extend it with an employment hierarchy — Employee, Manager, Executive. Then add real people with both social and professional relationships and run the reasoner to see what it can figure out.
 
-**Assistant:** Great setup. I'll load FOAF first, then extend it with the employment classes and properties, add the individuals, wire up the relationships, and finally run the reasoner. Starting with the vocabulary.
+**Assistant:** Great setup. I'll load FOAF first in TBox view, then extend it with employment classes and properties, switch to ABox for individuals, wire up the relationships, and finally run the reasoner.
 
-`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n@prefix owl:  <http://www.w3.org/2002/07/owl#> .\nfoaf:Person a owl:Class ; rdfs:label \"Person\" .\nfoaf:Organization a owl:Class ; rdfs:label \"Organization\" .\nfoaf:Agent a owl:Class ; rdfs:label \"Agent\" .\nfoaf:Person rdfs:subClassOf foaf:Agent .\nfoaf:Organization rdfs:subClassOf foaf:Agent .\nfoaf:knows a owl:ObjectProperty ; rdfs:domain foaf:Person ; rdfs:range foaf:Person ; rdfs:label \"knows\" .\nfoaf:member a owl:ObjectProperty ; rdfs:domain foaf:Agent ; rdfs:range foaf:Organization ; rdfs:label \"member of\" .\nfoaf:name a owl:DatatypeProperty ; rdfs:domain foaf:Agent ; rdfs:label \"name\" ."}}}`
+`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"tbox"}}}`
+`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n@prefix owl:  <http://www.w3.org/2002/07/owl#> .\nfoaf:Person a owl:Class ; rdfs:label \"Person\" .\nfoaf:Organization a owl:Class ; rdfs:label \"Organization\" .\nfoaf:Agent a owl:Class ; rdfs:label \"Agent\" .\nfoaf:Person rdfs:subClassOf foaf:Agent .\nfoaf:Organization rdfs:subClassOf foaf:Agent .\nfoaf:knows a owl:ObjectProperty ; rdfs:domain foaf:Person ; rdfs:range foaf:Person ; rdfs:label \"knows\" .\nfoaf:member a owl:ObjectProperty ; rdfs:domain foaf:Agent ; rdfs:range foaf:Organization ; rdfs:label \"member of\" .\nfoaf:name a owl:DatatypeProperty ; rdfs:domain foaf:Agent ; rdfs:label \"name\" ."}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -25,26 +26,27 @@
 
 **Assistant:** Adding the class hierarchy and properties. `manages` will have domain `Manager` and range `Employee` — that lets the reasoner infer types from relationships. `collaboratesWith` is symmetric.
 
-`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Employee","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Employee"}}}`
-`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Manager","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Manager"}}}`
-`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Executive","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Executive"}}}`
-`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Department","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Department"}}}`
-`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#manages","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"manages"}}}`
-`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#reportsTo","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"reportsTo"}}}`
-`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#collaboratesWith","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"collaboratesWith"}}}`
-`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#Employee","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://xmlns.com/foaf/0.1/Person"}}}`
-`{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#Manager","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.org/ex#Employee"}}}`
-`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#Executive","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.org/ex#Manager"}}}`
-`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#Department","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://xmlns.com/foaf/0.1/Organization"}}}`
-`{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#manages","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.org/ex#Manager"}}}`
-`{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#manages","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.org/ex#Employee"}}}`
-`{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#reportsTo","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.org/ex#Employee"}}}`
-`{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#reportsTo","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.org/ex#Manager"}}}`
-`{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#SymmetricProperty"}}}`
-`{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.org/ex#Employee"}}}`
-`{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.org/ex#Employee"}}}`
-`{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-tb"}}}`
-`{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Employee","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Employee"}}}`
+`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Manager","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Manager"}}}`
+`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Executive","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Executive"}}}`
+`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#Department","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Department"}}}`
+`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#manages","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"manages"}}}`
+`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#reportsTo","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"reportsTo"}}}`
+`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/ex#collaboratesWith","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"collaboratesWith"}}}`
+`{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#Employee","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://xmlns.com/foaf/0.1/Person"}}}`
+`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#Manager","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.org/ex#Employee"}}}`
+`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#Executive","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.org/ex#Manager"}}}`
+`{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#Department","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://xmlns.com/foaf/0.1/Organization"}}}`
+`{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#manages","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.org/ex#Manager"}}}`
+`{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#manages","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.org/ex#Employee"}}}`
+`{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#reportsTo","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.org/ex#Employee"}}}`
+`{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#reportsTo","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.org/ex#Manager"}}}`
+`{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#SymmetricProperty"}}}`
+`{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.org/ex#Employee"}}}`
+`{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.org/ex#Employee"}}}`
+`{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
+`{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -59,16 +61,17 @@ slug: tbox
 
 **You:** Now the people. Alice is an Executive, Bob is a Manager, Carol, Dave and Eve are Employees. Frank has no explicit type yet — we'll see what the reasoner infers. Two departments: Engineering and Research.
 
-**Assistant:** Adding six individuals and two departments. Frank gets no `typeIri` — his type will come entirely from the relationships we assert next.
+**Assistant:** Switching to ABox view. Frank gets no `typeIri` — his type will come entirely from the relationships we assert next.
 
-`{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/alice","typeIri":"http://example.org/ex#Executive","label":"Alice"}}}`
-`{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/bob","typeIri":"http://example.org/ex#Manager","label":"Bob"}}}`
-`{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/carol","typeIri":"http://example.org/ex#Employee","label":"Carol"}}}`
-`{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/dave","typeIri":"http://example.org/ex#Employee","label":"Dave"}}}`
-`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/eve","typeIri":"http://example.org/ex#Employee","label":"Eve"}}}`
-`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/frank","label":"Frank"}}}`
-`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/engineering","typeIri":"http://example.org/ex#Department","label":"Engineering"}}}`
-`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/research","typeIri":"http://example.org/ex#Department","label":"Research"}}}`
+`{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
+`{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/alice","typeIri":"http://example.org/ex#Executive","label":"Alice"}}}`
+`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/bob","typeIri":"http://example.org/ex#Manager","label":"Bob"}}}`
+`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/carol","typeIri":"http://example.org/ex#Employee","label":"Carol"}}}`
+`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/dave","typeIri":"http://example.org/ex#Employee","label":"Dave"}}}`
+`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/eve","typeIri":"http://example.org/ex#Employee","label":"Eve"}}}`
+`{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/frank","label":"Frank"}}}`
+`{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/engineering","typeIri":"http://example.org/ex#Department","label":"Engineering"}}}`
+`{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/research","typeIri":"http://example.org/ex#Department","label":"Research"}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -78,27 +81,27 @@ slug: tbox
 
 **You:** Now wire everything up. The org structure: Alice manages Bob and Frank, Bob manages Carol and Dave. Eve is a cross-team hire who reports to Alice. Social links cut across the hierarchy — Alice knows Eve (old friends), Bob knows Carol socially, Dave and Eve collaborate across departments. Everyone is a member of a department.
 
-**Assistant:** This gives us a mix of formal hierarchy and informal social ties — exactly the kind of graph where reasoning reveals hidden structure. Batching all edges.
+**Assistant:** This gives us a mix of formal hierarchy and informal social ties — exactly the kind of graph where reasoning reveals hidden structure. Batching all edges then laying out.
 
-`{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/bob"}}}`
-`{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/frank"}}}`
-`{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/bob","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/carol"}}}`
-`{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/bob","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/dave"}}}`
-`{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/eve","predicateIri":"http://example.org/ex#reportsTo","objectIri":"http://example.org/alice"}}}`
-`{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/carol","predicateIri":"http://example.org/ex#reportsTo","objectIri":"http://example.org/bob"}}}`
-`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/dave","predicateIri":"http://example.org/ex#reportsTo","objectIri":"http://example.org/bob"}}}`
-`{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/dave","predicateIri":"http://example.org/ex#collaboratesWith","objectIri":"http://example.org/eve"}}}`
-`{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://xmlns.com/foaf/0.1/knows","objectIri":"http://example.org/eve"}}}`
-`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/bob","predicateIri":"http://xmlns.com/foaf/0.1/knows","objectIri":"http://example.org/carol"}}}`
-`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/engineering"}}}`
-`{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/bob","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/engineering"}}}`
-`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/carol","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/engineering"}}}`
-`{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/dave","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
-`{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/eve","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
-`{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/frank","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
-`{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr"}}}`
-`{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"layoutNodes","arguments":{"iris":["http://example.org/alice","http://example.org/bob","http://example.org/carol","http://example.org/dave","http://example.org/eve","http://example.org/frank","http://example.org/engineering","http://example.org/research"],"algorithm":"dagre-lr"}}}`
-`{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/bob"}}}`
+`{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/frank"}}}`
+`{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/bob","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/carol"}}}`
+`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/bob","predicateIri":"http://example.org/ex#manages","objectIri":"http://example.org/dave"}}}`
+`{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/eve","predicateIri":"http://example.org/ex#reportsTo","objectIri":"http://example.org/alice"}}}`
+`{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/carol","predicateIri":"http://example.org/ex#reportsTo","objectIri":"http://example.org/bob"}}}`
+`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/dave","predicateIri":"http://example.org/ex#reportsTo","objectIri":"http://example.org/bob"}}}`
+`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/dave","predicateIri":"http://example.org/ex#collaboratesWith","objectIri":"http://example.org/eve"}}}`
+`{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://xmlns.com/foaf/0.1/knows","objectIri":"http://example.org/eve"}}}`
+`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/bob","predicateIri":"http://xmlns.com/foaf/0.1/knows","objectIri":"http://example.org/carol"}}}`
+`{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/alice","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/engineering"}}}`
+`{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/bob","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/engineering"}}}`
+`{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/carol","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/engineering"}}}`
+`{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/dave","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
+`{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/eve","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
+`{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/frank","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
+`{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
+`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -119,9 +122,9 @@ slug: before-reasoning
 - `collaboratesWith` symmetry fires: Eve gets the inverse edge back to Dave
 - Everyone typed as `Employee` or above also gets `foaf:Agent` via `foaf:Person → foaf:Agent`
 
-`{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr"}}}`
-`{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
+`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -138,8 +141,8 @@ slug: after-reasoning
 
 **Assistant:** Panning to Frank and expanding his annotation card to reveal the inferred types.
 
-`{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.org/frank"}}}`
-`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.org/frank","expand":true}}}`
+`{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.org/frank"}}}`
+`{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.org/frank","expand":true}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -156,7 +159,7 @@ slug: frank-focus
 
 **Assistant:** Exporting the asserted graph. Inferred triples live in `urn:vg:inferred` and are not included here.
 
-`{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
+`{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
 <!-- runner fills this in -->

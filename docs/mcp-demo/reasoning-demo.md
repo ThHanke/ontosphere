@@ -12,19 +12,17 @@ hierarchy: Person → Employee → Manager → Executive. Then we'll add propert
 and run the reasoner.
 
 **Assistant:** I'll build this in phases — classes first, then properties, then individuals,
-then axioms. That way each batch is independent and I can verify the canvas shape from the SVG
-before wiring links.
+then axioms. Starting in TBox view so every class and property node lands on the right canvas.
 
-Starting with the four class nodes. I can batch all `addNode` calls since they don't depend on
-each other:
-
-`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Person","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Person"}}}`
-`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Employee","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Employee"}}}`
-`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Manager","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Manager"}}}`
-`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Executive","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Executive"}}}`
+`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"tbox"}}}`
+`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Person","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Person"}}}`
+`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Employee","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Employee"}}}`
+`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Manager","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Manager"}}}`
+`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Executive","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Executive"}}}`
 
 ```tool-result
-[VisGraph — 4 tools ✓]
+[VisGraph — 5 tools ✓]
+✓ setViewMode
 ✓ addNode: http://example.com/reasoning-demo#Person
 ✓ addNode: http://example.com/reasoning-demo#Employee
 ✓ addNode: http://example.com/reasoning-demo#Manager
@@ -35,16 +33,15 @@ Canvas: 4 nodes, 0 links
 
 ---
 
-**Assistant:** All four classes are on canvas. Now the seven property nodes — still independent,
-so I batch them:
+**Assistant:** All four classes are on canvas. Now the seven property nodes:
 
-`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#knows","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"knows"}}}`
-`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasFriend","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasFriend"}}}`
-`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#manages","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"manages"}}}`
-`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#isManagedBy","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"isManagedBy"}}}`
-`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#isColleagueOf","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"isColleagueOf"}}}`
-`{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasSupervisor","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasSupervisor"}}}`
-`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#jobTitle","typeIri":"http://www.w3.org/2002/07/owl#AnnotationProperty","label":"jobTitle"}}}`
+`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#knows","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"knows"}}}`
+`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasFriend","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasFriend"}}}`
+`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#manages","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"manages"}}}`
+`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#isManagedBy","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"isManagedBy"}}}`
+`{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#isColleagueOf","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"isColleagueOf"}}}`
+`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasSupervisor","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasSupervisor"}}}`
+`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#jobTitle","typeIri":"http://www.w3.org/2002/07/owl#AnnotationProperty","label":"jobTitle"}}}`
 
 ```tool-result
 [VisGraph — 7 tools ✓]
@@ -63,26 +60,35 @@ Canvas: 11 nodes, 0 links
 
 **You:** Great. Now connect everything — subclass chain, property axioms, domain and range.
 
-**Assistant:** All nodes exist on canvas, so I can batch all `addLink` calls. I'll close with
-`runLayout` + `fitCanvas` so you can see the TBox shape:
+**Assistant:** All nodes exist on canvas — batching all `addLink` calls, then layout:
 
-`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Employee","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Person"}}}`
-`{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Manager","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
-`{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Executive","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
-`{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasFriend","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subPropertyOf","objectIri":"http://example.com/reasoning-demo#knows"}}}`
-`{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isManagedBy","predicateIri":"http://www.w3.org/2002/07/owl#inverseOf","objectIri":"http://example.com/reasoning-demo#manages"}}}`
-`{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isColleagueOf","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#SymmetricProperty"}}}`
-`{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#TransitiveProperty"}}}`
-`{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#manages","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
-`{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#manages","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
+`{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Employee","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Person"}}}`
+`{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Manager","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
+`{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Executive","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
+`{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasFriend","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subPropertyOf","objectIri":"http://example.com/reasoning-demo#knows"}}}`
+`{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isManagedBy","predicateIri":"http://www.w3.org/2002/07/owl#inverseOf","objectIri":"http://example.com/reasoning-demo#manages"}}}`
+`{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isColleagueOf","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#SymmetricProperty"}}}`
+`{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#TransitiveProperty"}}}`
+`{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#jobTitle","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subPropertyOf","objectIri":"http://www.w3.org/2000/01/rdf-schema#comment"}}}`
 `{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Person"}}}`
 `{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Person"}}}`
-`{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#jobTitle","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subPropertyOf","objectIri":"http://www.w3.org/2000/01/rdf-schema#comment"}}}`
-`{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-tb"}}}`
-`{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasFriend","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Person"}}}`
+`{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasFriend","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Person"}}}`
+`{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#manages","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
+`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#manages","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
+`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isManagedBy","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
+`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isManagedBy","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
+`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isColleagueOf","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
+`{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isColleagueOf","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
+`{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
+`{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
+`{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#jobTitle","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
+`{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
+`{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 14 tools ✓]
+[VisGraph — 24 tools ✓]
 ✓ addLink: s=Employee p=subClassOf o=Person
 ✓ addLink: s=Manager p=subClassOf o=Employee
 ✓ addLink: s=Executive p=subClassOf o=Manager
@@ -90,15 +96,25 @@ Canvas: 11 nodes, 0 links
 ✓ addLink: s=isManagedBy p=inverseOf o=manages
 ✓ addLink: s=isColleagueOf p=type o=SymmetricProperty
 ✓ addLink: s=hasSupervisor p=type o=TransitiveProperty
-✓ addLink: s=manages p=domain o=Manager
-✓ addLink: s=manages p=range o=Employee
+✓ addLink: s=jobTitle p=subPropertyOf o=comment
 ✓ addLink: s=knows p=domain o=Person
 ✓ addLink: s=knows p=range o=Person
-✓ addLink: s=jobTitle p=subPropertyOf o=comment
-✓ runLayout: dagre-tb
+✓ addLink: s=hasFriend p=domain o=Person
+✓ addLink: s=hasFriend p=range o=Person
+✓ addLink: s=manages p=domain o=Manager
+✓ addLink: s=manages p=range o=Employee
+✓ addLink: s=isManagedBy p=domain o=Employee
+✓ addLink: s=isManagedBy p=range o=Manager
+✓ addLink: s=isColleagueOf p=domain o=Employee
+✓ addLink: s=isColleagueOf p=range o=Employee
+✓ addLink: s=hasSupervisor p=domain o=Employee
+✓ addLink: s=hasSupervisor p=range o=Manager
+✓ addLink: s=jobTitle p=domain o=Employee
+✓ runLayout: elk-layered
 ✓ expandAll
+✓ runLayout: elk-layered
 
-Canvas: 11 nodes, 9 links
+Canvas: 11 nodes, 18 links
 ```
 
 ![TBox — classes and properties on canvas](./reasoning-demo/01-tbox.svg)
@@ -108,22 +124,24 @@ Canvas: 11 nodes, 9 links
 **You:** Now for the individuals: Alice is an Executive, Bob and Carol are Employees.
 Dave has no type yet — I want to see if the reasoner works it out.
 
-**Assistant:** Adding all four. Dave intentionally gets no `typeIri` — his type will be
+**Assistant:** Switching to ABox view. Dave intentionally gets no `typeIri` — his type will be
 inferred from the `manages rdfs:domain Manager` axiom once he asserts a `manages` edge.
 
-`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#alice","typeIri":"http://example.com/reasoning-demo#Executive","label":"Alice"}}}`
-`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#bob","typeIri":"http://example.com/reasoning-demo#Employee","label":"Bob"}}}`
-`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#carol","typeIri":"http://example.com/reasoning-demo#Employee","label":"Carol"}}}`
-`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","label":"Dave"}}}`
+`{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
+`{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#alice","typeIri":"http://example.com/reasoning-demo#Executive","label":"Alice"}}}`
+`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#bob","typeIri":"http://example.com/reasoning-demo#Employee","label":"Bob"}}}`
+`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#carol","typeIri":"http://example.com/reasoning-demo#Employee","label":"Carol"}}}`
+`{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","label":"Dave"}}}`
 
 ```tool-result
-[VisGraph — 4 tools ✓]
+[VisGraph — 5 tools ✓]
+✓ setViewMode
 ✓ addNode: http://example.com/reasoning-demo#alice
 ✓ addNode: http://example.com/reasoning-demo#bob
 ✓ addNode: http://example.com/reasoning-demo#carol
 ✓ addNode: http://example.com/reasoning-demo#dave
 
-Canvas: 15 nodes, 12 links
+Canvas: 4 nodes, 0 links
 ```
 
 ---
@@ -133,13 +151,13 @@ Canvas: 15 nodes, 12 links
 **Assistant:** Loading the literal assertions as inline Turtle. Since `ex:jobTitle` is a
 subproperty of `rdfs:comment`, the reasoner will infer `rdfs:comment` values for both too.
 
-`{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix ex: <http://example.com/reasoning-demo#> .\nex:alice ex:jobTitle \"Chief Executive\" .\nex:dave  ex:jobTitle \"Division Manager\" ."}}}`
+`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix ex: <http://example.com/reasoning-demo#> .\nex:alice ex:jobTitle \"Chief Executive\" .\nex:dave  ex:jobTitle \"Division Manager\" ."}}}`
 
 ```tool-result
 [VisGraph — 1 tool ✓]
 ✓ loadRdf: loaded
 
-Canvas: 15 nodes, 12 links
+Canvas: 4 nodes, 0 links
 ```
 
 ---
@@ -147,20 +165,21 @@ Canvas: 15 nodes, 12 links
 **You:** Now the relationships: Alice manages Carol, Dave manages Bob, Alice is friends with
 Bob, Bob and Carol are colleagues, and the supervisor chain is Carol → Bob → Alice.
 
-**Assistant:** Six edges, all nodes already on canvas — batching them all. Adding layout and
-export at the end to confirm the ABox shape before we run the reasoner:
+**Assistant:** Six edges, all nodes already on canvas — batching them all, then layout so you
+can see the ABox shape before we run the reasoner:
 
-`{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#alice","predicateIri":"http://example.com/reasoning-demo#manages","objectIri":"http://example.com/reasoning-demo#carol"}}}`
-`{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#dave","predicateIri":"http://example.com/reasoning-demo#manages","objectIri":"http://example.com/reasoning-demo#bob"}}}`
-`{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#alice","predicateIri":"http://example.com/reasoning-demo#hasFriend","objectIri":"http://example.com/reasoning-demo#bob"}}}`
-`{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#bob","predicateIri":"http://example.com/reasoning-demo#isColleagueOf","objectIri":"http://example.com/reasoning-demo#carol"}}}`
-`{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#carol","predicateIri":"http://example.com/reasoning-demo#hasSupervisor","objectIri":"http://example.com/reasoning-demo#bob"}}}`
-`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#bob","predicateIri":"http://example.com/reasoning-demo#hasSupervisor","objectIri":"http://example.com/reasoning-demo#alice"}}}`
-`{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr"}}}`
-`{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#alice","predicateIri":"http://example.com/reasoning-demo#manages","objectIri":"http://example.com/reasoning-demo#carol"}}}`
+`{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#dave","predicateIri":"http://example.com/reasoning-demo#manages","objectIri":"http://example.com/reasoning-demo#bob"}}}`
+`{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#alice","predicateIri":"http://example.com/reasoning-demo#hasFriend","objectIri":"http://example.com/reasoning-demo#bob"}}}`
+`{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#bob","predicateIri":"http://example.com/reasoning-demo#isColleagueOf","objectIri":"http://example.com/reasoning-demo#carol"}}}`
+`{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#carol","predicateIri":"http://example.com/reasoning-demo#hasSupervisor","objectIri":"http://example.com/reasoning-demo#bob"}}}`
+`{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#bob","predicateIri":"http://example.com/reasoning-demo#hasSupervisor","objectIri":"http://example.com/reasoning-demo#alice"}}}`
+`{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
+`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 8 tools ✓]
+[VisGraph — 9 tools ✓]
 ✓ addLink: s=alice p=manages o=carol
 ✓ addLink: s=dave p=manages o=bob
 ✓ addLink: s=alice p=hasFriend o=bob
@@ -169,30 +188,30 @@ export at the end to confirm the ABox shape before we run the reasoner:
 ✓ addLink: s=bob p=hasSupervisor o=alice
 ✓ runLayout: dagre-lr
 ✓ expandAll
+✓ runLayout: dagre-lr
 
-Canvas: 15 nodes, 18 links
+Canvas: 4 nodes, 6 links
 ```
 
-![Full graph before reasoning](./reasoning-demo/02-before-reasoning.svg)
+![ABox — individuals before reasoning](./reasoning-demo/02-before-reasoning.svg)
 
 ---
 
 **You:** Okay, run the reasoner and show me what it inferred.
 
-**Assistant:** Running reasoning, then refreshing layout and exporting so you can see the
-inferred edges appear:
+**Assistant:** Running reasoning, then layout to surface the inferred edges:
 
-`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr"}}}`
-`{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
+`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
 [VisGraph — 3 tools ✓]
-✓ runReasoning: 0 triples inferred
-✓ runLayout: dagre-lr
+✓ runReasoning: 22911 triples inferred
 ✓ expandAll
+✓ runLayout: dagre-lr
 
-Canvas: 15 nodes, 80 links
+Canvas: 4 nodes, 15 links
 ```
 
 ![Graph after reasoning — inferred edges and types visible](./reasoning-demo/03-after-reasoning.svg)
@@ -203,15 +222,15 @@ Canvas: 15 nodes, 80 links
 
 **Assistant:** Panning to Dave and expanding his annotation card to show inferred types:
 
-`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.com/reasoning-demo#dave"}}}`
-`{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","expand":true}}}`
+`{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.com/reasoning-demo#dave"}}}`
+`{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","expand":true}}}`
 
 ```tool-result
 [VisGraph — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
-Canvas: 15 nodes, 80 links
+Canvas: 4 nodes, 15 links
 ```
 
 ![Dave's node — inferred types visible in annotation card](./reasoning-demo/04-dave-focus.svg)
@@ -223,13 +242,13 @@ Canvas: 15 nodes, 80 links
 **Assistant:** Exporting the asserted graph. Inferred triples live in `urn:vg:inferred` and are
 not included here.
 
-`{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
+`{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
 [VisGraph — 1 tool ✓]
-✓ exportGraph: 4091 chars
+✓ exportGraph: 4629 chars
 
-Canvas: 15 nodes, 80 links
+Canvas: 4 nodes, 15 links
 
 ```turtle
 @prefix dc: <http://purl.org/dc/elements/1.1/>.
@@ -266,21 +285,30 @@ ex:knows rdfs:domain ex:Person;
     rdfs:range ex:Person;
     a owl:ObjectProperty;
     rdfs:label "knows".
-ex:hasFriend rdfs:subPropertyOf ex:knows;
+ex:hasFriend rdfs:domain ex:Person;
+    rdfs:range ex:Person;
+    rdfs:subPropertyOf ex:knows;
     a owl:ObjectProperty;
     rdfs:label "hasFriend".
 ex:manages rdfs:domain ex:Manager;
     rdfs:range ex:Employee;
     a owl:ObjectProperty;
     rdfs:label "manages".
-ex:isManagedBy owl:inverseOf ex:manages;
+ex:isManagedBy rdfs:domain ex:Employee;
+    rdfs:range ex:Manager;
+    owl:inverseOf ex:manages;
     a owl:ObjectProperty;
     rdfs:label "isManagedBy".
-ex:isColleagueOf a owl:ObjectProperty, owl:SymmetricProperty;
+ex:isColleagueOf rdfs:domain ex:Employee;
+    rdfs:range ex:Employee;
+    a owl:ObjectProperty, owl:SymmetricProperty;
     rdfs:label "isColleagueOf".
-ex:hasSupervisor a owl:ObjectProperty, owl:TransitiveProperty;
+ex:hasSupervisor rdfs:domain ex:Employee;
+    rdfs:range ex:Manager;
+    a owl:ObjectProperty, owl:TransitiveProperty;
     rdfs:label "hasSupervisor".
-ex:jobTitle rdfs:subPropertyOf rdfs:comment;
+ex:jobTitle rdfs:domain ex:Employee;
+    rdfs:subPropertyOf rdfs:comment;
     a owl:AnnotationProperty;
     rdfs:label "jobTitle".
 ex:alice a ex:Executive;
@@ -311,8 +339,8 @@ ex:knows rdfs:domain owl:Thing;
     rdfs:subPropertyOf ex:knows;
     owl:equivalentProperty ex:knows;
     owl:subPropertyOf ex:knows.
-ex:hasFriend rdfs:domain owl:Thing, ex:Person;
-    rdfs:range owl:Thing, ex:Person;
+ex:hasFriend rdfs:domain owl:Thing;
+    rdfs:range owl:Thing;
     rdfs:subPropertyOf ex:hasFriend;
     owl:equivalentProperty ex:hasFriend;
     owl:subPropertyOf ex:hasFriend.
@@ -321,19 +349,26 @@ ex:manages rdfs:domain owl:Thing, ex:Person, ex:Employee;
     rdfs:subPropertyOf ex:manages;
     owl:equivalentProperty ex:manages;
     owl:subPropertyOf ex:manages.
-ex:isManagedBy rdfs:subPropertyOf ex:isManagedBy;
+ex:isManagedBy rdfs:domain owl:Thing, ex:Person;
+    rdfs:range owl:Thing, ex:Person, ex:Employee;
+    rdfs:subPropertyOf ex:isManagedBy;
     owl:equivalentProperty ex:isManagedBy;
     owl:subPropertyOf ex:isManagedBy.
-ex:isColleagueOf rdfs:subPropertyOf ex:isColleagueOf;
+ex:isColleagueOf rdfs:domain owl:Thing, ex:Person;
+    rdfs:range owl:Thing, ex:Person;
+    rdfs:subPropertyOf ex:isColleagueOf;
     owl:equivalentProperty ex:isColleagueOf;
     owl:subPropertyOf ex:isColleagueOf.
-ex:hasSupervisor rdfs:subPropertyOf ex:hasSupervisor;
+ex:hasSupervisor rdfs:domain owl:Thing, ex:Person;
+    rdfs:range owl:Thing, ex:Person, ex:Employee;
+    rdfs:subPropertyOf ex:hasSupervisor;
     owl:equivalentProperty ex:hasSupervisor;
     owl:subPropertyOf ex:hasSupervisor.
+ex:jobTitle rdfs:domain owl:Thing, ex:Person.
 ex:alice a owl:Thing, ex:Person, ex:Employee, ex:Manager;
     rdfs:comment "Chief Executive";
     ex:knows ex:bob.
-ex:bob a owl:Thing, ex:Person;
+ex:bob a owl:Thing, ex:Person, ex:Manager;
     ex:isManagedBy ex:dave.
 ex:carol a owl:Thing, ex:Person;
     ex:isManagedBy ex:alice;

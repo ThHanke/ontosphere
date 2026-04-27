@@ -9,10 +9,12 @@ interface WorkspaceRefs {
   dataProvider: N3DataProvider;
   runReasoning?: () => Promise<unknown>;
   navigateToIri?: (iri: string) => void;
+  setViewMode?: (mode: 'abox' | 'tbox') => void;
 }
 
 let refs: WorkspaceRefs | null = null;
 let pendingReasoningCallback: (() => Promise<unknown>) | null = null;
+let pendingSetViewModeCallback: ((mode: 'abox' | 'tbox') => void) | null = null;
 let bc: BroadcastChannel | null = null;
 
 function getChannel(): BroadcastChannel {
@@ -48,6 +50,14 @@ export function setWorkspaceContext(
     refs.runReasoning = pendingReasoningCallback;
     pendingReasoningCallback = null;
   }
+  if (pendingSetViewModeCallback) {
+    refs.setViewMode = pendingSetViewModeCallback;
+    pendingSetViewModeCallback = null;
+    if (pendingViewMode) {
+      refs.setViewMode(pendingViewMode);
+      pendingViewMode = null;
+    }
+  }
   maybeNotifyReady();
 }
 
@@ -62,6 +72,33 @@ export function registerReasoningCallback(fn: () => Promise<unknown>): void {
 
 export function registerNavigateToIri(fn: (iri: string) => void): void {
   if (refs) refs.navigateToIri = fn;
+}
+
+let pendingViewMode: ('abox' | 'tbox') | null = null;
+
+export function registerSetViewMode(fn: (mode: 'abox' | 'tbox') => void): void {
+  if (refs) {
+    refs.setViewMode = fn;
+    if (pendingViewMode) {
+      fn(pendingViewMode);
+      pendingViewMode = null;
+    }
+  } else {
+    pendingSetViewModeCallback = fn;
+  }
+}
+
+/** Call setViewMode now if registered, or queue it until registerSetViewMode fires. */
+export function applyViewMode(mode: 'abox' | 'tbox'): void {
+  // Update data provider immediately so filterByViewMode is consistent for the
+  // very next addNode call — the React effect runs asynchronously and would lag.
+  refs?.dataProvider.setViewMode(mode);
+  if (refs?.setViewMode) {
+    refs.setViewMode(mode);
+    pendingViewMode = null;
+  } else {
+    pendingViewMode = mode;
+  }
 }
 
 export function getWorkspaceRefs(): WorkspaceRefs {

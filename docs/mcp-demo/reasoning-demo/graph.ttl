@@ -32,21 +32,30 @@ ex:knows rdfs:domain ex:Person;
     rdfs:range ex:Person;
     a owl:ObjectProperty;
     rdfs:label "knows".
-ex:hasFriend rdfs:subPropertyOf ex:knows;
+ex:hasFriend rdfs:domain ex:Person;
+    rdfs:range ex:Person;
+    rdfs:subPropertyOf ex:knows;
     a owl:ObjectProperty;
     rdfs:label "hasFriend".
 ex:manages rdfs:domain ex:Manager;
     rdfs:range ex:Employee;
     a owl:ObjectProperty;
     rdfs:label "manages".
-ex:isManagedBy owl:inverseOf ex:manages;
+ex:isManagedBy rdfs:domain ex:Employee;
+    rdfs:range ex:Manager;
+    owl:inverseOf ex:manages;
     a owl:ObjectProperty;
     rdfs:label "isManagedBy".
-ex:isColleagueOf a owl:ObjectProperty, owl:SymmetricProperty;
+ex:isColleagueOf rdfs:domain ex:Employee;
+    rdfs:range ex:Employee;
+    a owl:ObjectProperty, owl:SymmetricProperty;
     rdfs:label "isColleagueOf".
-ex:hasSupervisor a owl:ObjectProperty, owl:TransitiveProperty;
+ex:hasSupervisor rdfs:domain ex:Employee;
+    rdfs:range ex:Manager;
+    a owl:ObjectProperty, owl:TransitiveProperty;
     rdfs:label "hasSupervisor".
-ex:jobTitle rdfs:subPropertyOf rdfs:comment;
+ex:jobTitle rdfs:domain ex:Employee;
+    rdfs:subPropertyOf rdfs:comment;
     a owl:AnnotationProperty;
     rdfs:label "jobTitle".
 ex:alice a ex:Executive;
@@ -77,8 +86,8 @@ ex:knows rdfs:domain owl:Thing;
     rdfs:subPropertyOf ex:knows;
     owl:equivalentProperty ex:knows;
     owl:subPropertyOf ex:knows.
-ex:hasFriend rdfs:domain owl:Thing, ex:Person;
-    rdfs:range owl:Thing, ex:Person;
+ex:hasFriend rdfs:domain owl:Thing;
+    rdfs:range owl:Thing;
     rdfs:subPropertyOf ex:hasFriend;
     owl:equivalentProperty ex:hasFriend;
     owl:subPropertyOf ex:hasFriend.
@@ -87,19 +96,26 @@ ex:manages rdfs:domain owl:Thing, ex:Person, ex:Employee;
     rdfs:subPropertyOf ex:manages;
     owl:equivalentProperty ex:manages;
     owl:subPropertyOf ex:manages.
-ex:isManagedBy rdfs:subPropertyOf ex:isManagedBy;
+ex:isManagedBy rdfs:domain owl:Thing, ex:Person;
+    rdfs:range owl:Thing, ex:Person, ex:Employee;
+    rdfs:subPropertyOf ex:isManagedBy;
     owl:equivalentProperty ex:isManagedBy;
     owl:subPropertyOf ex:isManagedBy.
-ex:isColleagueOf rdfs:subPropertyOf ex:isColleagueOf;
+ex:isColleagueOf rdfs:domain owl:Thing, ex:Person;
+    rdfs:range owl:Thing, ex:Person;
+    rdfs:subPropertyOf ex:isColleagueOf;
     owl:equivalentProperty ex:isColleagueOf;
     owl:subPropertyOf ex:isColleagueOf.
-ex:hasSupervisor rdfs:subPropertyOf ex:hasSupervisor;
+ex:hasSupervisor rdfs:domain owl:Thing, ex:Person;
+    rdfs:range owl:Thing, ex:Person, ex:Employee;
+    rdfs:subPropertyOf ex:hasSupervisor;
     owl:equivalentProperty ex:hasSupervisor;
     owl:subPropertyOf ex:hasSupervisor.
+ex:jobTitle rdfs:domain owl:Thing, ex:Person.
 ex:alice a owl:Thing, ex:Person, ex:Employee, ex:Manager;
     rdfs:comment "Chief Executive";
     ex:knows ex:bob.
-ex:bob a owl:Thing, ex:Person;
+ex:bob a owl:Thing, ex:Person, ex:Manager;
     ex:isManagedBy ex:dave.
 ex:carol a owl:Thing, ex:Person;
     ex:isManagedBy ex:alice;

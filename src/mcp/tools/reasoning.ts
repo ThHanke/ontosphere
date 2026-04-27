@@ -2,6 +2,7 @@
 import type { McpTool, McpResult } from '@/mcp/types';
 import { rdfManager } from '@/utils/rdfManager';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
+import { useAppConfigStore } from '@/stores/appConfigStore';
 import { VALID_ALGORITHMS } from './layout';
 const EXPORT_FORMATS = ['turtle', 'jsonld', 'rdfxml', 'svg', 'png'];
 
@@ -26,7 +27,9 @@ const runReasoning: McpTool = {
         await refs.dataProvider.clearInferred();
       }
 
-      const result = await rdfManager.runReasoning({ rulesets: [] });
+      const cfg = useAppConfigStore.getState().config;
+      const rulesets = Array.isArray(cfg?.reasoningRulesets) ? cfg.reasoningRulesets : [];
+      const result = await rdfManager.runReasoning({ rulesets });
       const inferredTriples = result?.meta?.addedCount ?? result?.inferences?.length ?? 0;
 
       // Trigger canvas refresh via registered callback if available

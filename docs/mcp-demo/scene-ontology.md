@@ -11,33 +11,35 @@
 
 **You:** I want to build a small ontology for classifying film scenes — scene types, character roles, locations. Let's use BFO and RO as the upper ontology so we get reasoning for free.
 
-**Assistant:** Good choice. Loading minimal BFO 2 and RO inline — the classes and properties we need: `BFO:process`, `BFO:independent_continuant`, `BFO:site`, `BFO:role`, `BFO:realizes`, `RO:has_participant`, `RO:occurs_in`, `RO:has_role`.
+**Assistant:** Good choice. Loading minimal BFO 2 and RO inline — the classes and properties we need: `BFO:process`, `BFO:independent_continuant`, `BFO:site`, `BFO:role`, `BFO:realizes`, `RO:has_participant`, `RO:occurs_in`, `RO:has_role`. Starting in TBox view so all vocabulary lands on the right canvas.
 
-`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix obo: <http://purl.obolibrary.org/obo/> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\nobo:BFO_0000001 a owl:Class ; rdfs:label \"entity\" .\nobo:BFO_0000002 a owl:Class ; rdfs:label \"continuant\" ; rdfs:subClassOf obo:BFO_0000001 .\nobo:BFO_0000003 a owl:Class ; rdfs:label \"occurrent\" ; rdfs:subClassOf obo:BFO_0000001 .\nobo:BFO_0000004 a owl:Class ; rdfs:label \"independent continuant\" ; rdfs:subClassOf obo:BFO_0000002 .\nobo:BFO_0000015 a owl:Class ; rdfs:label \"process\" ; rdfs:subClassOf obo:BFO_0000003 .\nobo:BFO_0000017 a owl:Class ; rdfs:label \"realizable entity\" ; rdfs:subClassOf obo:BFO_0000002 .\nobo:BFO_0000023 a owl:Class ; rdfs:label \"role\" ; rdfs:subClassOf obo:BFO_0000017 .\nobo:BFO_0000029 a owl:Class ; rdfs:label \"site\" ; rdfs:subClassOf obo:BFO_0000004 .\nobo:BFO_0000055 a owl:ObjectProperty ; rdfs:label \"realizes\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000017 .\nobo:RO_0000057 a owl:ObjectProperty ; rdfs:label \"has participant\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000004 .\nobo:RO_0000066 a owl:ObjectProperty ; rdfs:label \"occurs in\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000029 .\nobo:RO_0000087 a owl:ObjectProperty ; rdfs:label \"has role\" ; rdfs:domain obo:BFO_0000004 ; rdfs:range obo:BFO_0000023 ."}}}`
+`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"tbox"}}}`
+`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix obo: <http://purl.obolibrary.org/obo/> .\n@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\nobo:BFO_0000001 a owl:Class ; rdfs:label \"entity\" .\nobo:BFO_0000002 a owl:Class ; rdfs:label \"continuant\" ; rdfs:subClassOf obo:BFO_0000001 .\nobo:BFO_0000003 a owl:Class ; rdfs:label \"occurrent\" ; rdfs:subClassOf obo:BFO_0000001 .\nobo:BFO_0000004 a owl:Class ; rdfs:label \"independent continuant\" ; rdfs:subClassOf obo:BFO_0000002 .\nobo:BFO_0000015 a owl:Class ; rdfs:label \"process\" ; rdfs:subClassOf obo:BFO_0000003 .\nobo:BFO_0000017 a owl:Class ; rdfs:label \"realizable entity\" ; rdfs:subClassOf obo:BFO_0000002 .\nobo:BFO_0000023 a owl:Class ; rdfs:label \"role\" ; rdfs:subClassOf obo:BFO_0000017 .\nobo:BFO_0000029 a owl:Class ; rdfs:label \"site\" ; rdfs:subClassOf obo:BFO_0000004 .\nobo:BFO_0000055 a owl:ObjectProperty ; rdfs:label \"realizes\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000017 .\nobo:RO_0000057 a owl:ObjectProperty ; rdfs:label \"has participant\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000004 .\nobo:RO_0000066 a owl:ObjectProperty ; rdfs:label \"occurs in\" ; rdfs:domain obo:BFO_0000015 ; rdfs:range obo:BFO_0000029 .\nobo:RO_0000087 a owl:ObjectProperty ; rdfs:label \"has role\" ; rdfs:domain obo:BFO_0000004 ; rdfs:range obo:BFO_0000023 ."}}}`
 
 ```tool-result
-[VisGraph — 1 tool ✓]
+[VisGraph — 2 tools ✓]
+✓ setViewMode
 ✓ loadRdf: loaded
 
-Canvas: 0 nodes, 0 links
+Canvas: 12 nodes, 15 links
 ```
 
 ---
 
 **You:** Great. Now define the scene type hierarchy — scenes are processes in BFO, and I want action, dialogue, chase, and confrontation subtypes.
 
-**Assistant:** Adding the scene classes, hanging them off `BFO:process`. I can batch all `addNode` calls since they're independent, then wire the subclass chain.
+**Assistant:** Adding the scene classes, hanging them off `BFO:process`. Batching all `addNode` calls since they're independent, then wiring the subclass chain.
 
-`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Scene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Scene"}}}`
-`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ActionScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ActionScene"}}}`
-`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#DialogueScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"DialogueScene"}}}`
-`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ChaseScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ChaseScene"}}}`
-`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ConfrontationScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ConfrontationScene"}}}`
-`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#Scene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://purl.obolibrary.org/obo/BFO_0000015"}}}`
-`{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ActionScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Scene"}}}`
-`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#DialogueScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Scene"}}}`
-`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ChaseScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#ActionScene"}}}`
-`{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ConfrontationScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#ActionScene"}}}`
+`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Scene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Scene"}}}`
+`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ActionScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ActionScene"}}}`
+`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#DialogueScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"DialogueScene"}}}`
+`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ChaseScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ChaseScene"}}}`
+`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ConfrontationScene","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ConfrontationScene"}}}`
+`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#Scene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://purl.obolibrary.org/obo/BFO_0000015"}}}`
+`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ActionScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Scene"}}}`
+`{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#DialogueScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Scene"}}}`
+`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ChaseScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#ActionScene"}}}`
+`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ConfrontationScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#ActionScene"}}}`
 
 ```tool-result
 [VisGraph — 10 tools ✓]
@@ -52,7 +54,7 @@ Canvas: 0 nodes, 0 links
 ✓ addLink: s=ChaseScene p=subClassOf o=ActionScene
 ✓ addLink: s=ConfrontationScene p=subClassOf o=ActionScene
 
-Canvas: 5 nodes, 4 links
+Canvas: 17 nodes, 20 links
 ```
 
 ---
@@ -61,14 +63,14 @@ Canvas: 5 nodes, 4 links
 
 **Assistant:** Adding the character and location classes.
 
-`{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Character","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Character"}}}`
-`{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Location","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Location"}}}`
-`{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ExteriorLocation","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ExteriorLocation"}}}`
-`{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#InteriorLocation","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"InteriorLocation"}}}`
-`{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#Character","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://purl.obolibrary.org/obo/BFO_0000004"}}}`
-`{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#Location","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://purl.obolibrary.org/obo/BFO_0000029"}}}`
-`{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ExteriorLocation","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Location"}}}`
-`{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#InteriorLocation","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Location"}}}`
+`{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Character","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Character"}}}`
+`{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#Location","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Location"}}}`
+`{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ExteriorLocation","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ExteriorLocation"}}}`
+`{"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#InteriorLocation","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"InteriorLocation"}}}`
+`{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#Character","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://purl.obolibrary.org/obo/BFO_0000004"}}}`
+`{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#Location","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://purl.obolibrary.org/obo/BFO_0000029"}}}`
+`{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ExteriorLocation","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Location"}}}`
+`{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#InteriorLocation","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Location"}}}`
 
 ```tool-result
 [VisGraph — 8 tools ✓]
@@ -81,34 +83,35 @@ Canvas: 5 nodes, 4 links
 ✓ addLink: s=ExteriorLocation p=subClassOf o=Location
 ✓ addLink: s=InteriorLocation p=subClassOf o=Location
 
-Canvas: 9 nodes, 6 links
+Canvas: 21 nodes, 24 links
 ```
 
 ---
 
 **You:** Now the roles — protagonist, antagonist, supporting. Use BFO roles so characters bear them in specific scenes rather than having a fixed type.
 
-**Assistant:** Roles are `BFO:role` (`BFO_0000023`) — realizable entities that a character bears in a context. Adding the role hierarchy and the `RO:has_role` domain/range axioms.
+**Assistant:** Roles are `BFO:role` (`BFO_0000023`) — realizable entities that a character bears in a context. Adding the role hierarchy and the `RO:has_role` domain/range axioms. Then layout to show the full TBox.
 
-`{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#SceneRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"SceneRole"}}}`
-`{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ProtagonistRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ProtagonistRole"}}}`
-`{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#AntagonistRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"AntagonistRole"}}}`
-`{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#SupportingRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"SupportingRole"}}}`
-`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#SceneRole","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://purl.obolibrary.org/obo/BFO_0000023"}}}`
-`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ProtagonistRole","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#SceneRole"}}}`
-`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#AntagonistRole","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#SceneRole"}}}`
-`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#SupportingRole","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#SceneRole"}}}`
-`{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000087","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/scene-ontology#Character"}}}`
-`{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000087","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/scene-ontology#SceneRole"}}}`
-`{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000057","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/scene-ontology#Scene"}}}`
-`{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000057","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/scene-ontology#Character"}}}`
-`{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000066","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/scene-ontology#Scene"}}}`
-`{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000066","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/scene-ontology#Location"}}}`
-`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-tb"}}}`
-`{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#SceneRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"SceneRole"}}}`
+`{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#ProtagonistRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"ProtagonistRole"}}}`
+`{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#AntagonistRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"AntagonistRole"}}}`
+`{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#SupportingRole","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"SupportingRole"}}}`
+`{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#SceneRole","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://purl.obolibrary.org/obo/BFO_0000023"}}}`
+`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ProtagonistRole","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#SceneRole"}}}`
+`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#AntagonistRole","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#SceneRole"}}}`
+`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#SupportingRole","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#SceneRole"}}}`
+`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000087","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/scene-ontology#Character"}}}`
+`{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000087","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/scene-ontology#SceneRole"}}}`
+`{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000057","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/scene-ontology#Scene"}}}`
+`{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000057","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/scene-ontology#Character"}}}`
+`{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000066","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/scene-ontology#Scene"}}}`
+`{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000066","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/scene-ontology#Location"}}}`
+`{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
+`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 16 tools ✓]
+[VisGraph — 17 tools ✓]
 ✓ addNode: http://example.com/scene-ontology#SceneRole
 ✓ addNode: http://example.com/scene-ontology#ProtagonistRole
 ✓ addNode: http://example.com/scene-ontology#AntagonistRole
@@ -123,10 +126,11 @@ Canvas: 9 nodes, 6 links
 ✓ addLink: s=RO_0000057 p=range o=Character
 ✓ addLink: s=RO_0000066 p=domain o=Scene
 ✓ addLink: s=RO_0000066 p=range o=Location
-✓ runLayout: dagre-tb
+✓ runLayout: elk-layered
 ✓ expandAll
+✓ runLayout: elk-layered
 
-Canvas: 13 nodes, 9 links
+Canvas: 25 nodes, 34 links
 ```
 
 ![TBox — scene types, characters, locations, and roles](./scene-ontology/01-tbox.svg)
@@ -135,21 +139,23 @@ Canvas: 13 nodes, 9 links
 
 **You:** Now populate it. Two scenes: a rooftop chase and a café dialogue. Three characters: Jake, Vera, Sam. Jake is the protagonist in the chase, Vera the antagonist. Sam supports Jake in the café scene.
 
-**Assistant:** Adding individuals for scenes, locations, characters, and their role bearers. Jake and Vera get separate role individuals — same character, different roles per scene.
+**Assistant:** Switching to ABox view. Adding individuals for scenes, locations, characters, and their role bearers.
 
-`{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#rooftop","typeIri":"http://example.com/scene-ontology#ExteriorLocation","label":"Rooftop"}}}`
-`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#cafe","typeIri":"http://example.com/scene-ontology#InteriorLocation","label":"Café"}}}`
-`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#jake","typeIri":"http://example.com/scene-ontology#Character","label":"Jake"}}}`
-`{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#vera","typeIri":"http://example.com/scene-ontology#Character","label":"Vera"}}}`
-`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#sam","typeIri":"http://example.com/scene-ontology#Character","label":"Sam"}}}`
-`{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#rooftopChase","typeIri":"http://example.com/scene-ontology#ChaseScene","label":"Rooftop Chase"}}}`
-`{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#cafeDialogue","typeIri":"http://example.com/scene-ontology#DialogueScene","label":"Café Dialogue"}}}`
-`{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#jakeProtagonistRole","typeIri":"http://example.com/scene-ontology#ProtagonistRole","label":"Jake — Protagonist"}}}`
-`{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#veraAntagonistRole","typeIri":"http://example.com/scene-ontology#AntagonistRole","label":"Vera — Antagonist"}}}`
-`{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#samSupportingRole","typeIri":"http://example.com/scene-ontology#SupportingRole","label":"Sam — Supporting"}}}`
+`{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
+`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#rooftop","typeIri":"http://example.com/scene-ontology#ExteriorLocation","label":"Rooftop"}}}`
+`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#cafe","typeIri":"http://example.com/scene-ontology#InteriorLocation","label":"Café"}}}`
+`{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#jake","typeIri":"http://example.com/scene-ontology#Character","label":"Jake"}}}`
+`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#vera","typeIri":"http://example.com/scene-ontology#Character","label":"Vera"}}}`
+`{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#sam","typeIri":"http://example.com/scene-ontology#Character","label":"Sam"}}}`
+`{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#rooftopChase","typeIri":"http://example.com/scene-ontology#ChaseScene","label":"Rooftop Chase"}}}`
+`{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#cafeDialogue","typeIri":"http://example.com/scene-ontology#DialogueScene","label":"Café Dialogue"}}}`
+`{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#jakeProtagonistRole","typeIri":"http://example.com/scene-ontology#ProtagonistRole","label":"Jake — Protagonist"}}}`
+`{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#veraAntagonistRole","typeIri":"http://example.com/scene-ontology#AntagonistRole","label":"Vera — Antagonist"}}}`
+`{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#samSupportingRole","typeIri":"http://example.com/scene-ontology#SupportingRole","label":"Sam — Supporting"}}}`
 
 ```tool-result
-[VisGraph — 10 tools ✓]
+[VisGraph — 11 tools ✓]
+✓ setViewMode
 ✓ addNode: http://example.com/scene-ontology#rooftop
 ✓ addNode: http://example.com/scene-ontology#cafe
 ✓ addNode: http://example.com/scene-ontology#jake
@@ -161,7 +167,7 @@ Canvas: 13 nodes, 9 links
 ✓ addNode: http://example.com/scene-ontology#veraAntagonistRole
 ✓ addNode: http://example.com/scene-ontology#samSupportingRole
 
-Canvas: 23 nodes, 19 links
+Canvas: 10 nodes, 0 links
 ```
 
 ---
@@ -170,21 +176,21 @@ Canvas: 23 nodes, 19 links
 
 **Assistant:** Wiring the ABox: scene participation, location, and role-bearing assertions. Then layout and snapshot.
 
-`{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#jake"}}}`
-`{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#vera"}}}`
-`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/RO_0000066","objectIri":"http://example.com/scene-ontology#rooftop"}}}`
-`{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#jake"}}}`
-`{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#sam"}}}`
-`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/RO_0000066","objectIri":"http://example.com/scene-ontology#cafe"}}}`
-`{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#jake","predicateIri":"http://purl.obolibrary.org/obo/RO_0000087","objectIri":"http://example.com/scene-ontology#jakeProtagonistRole"}}}`
-`{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#vera","predicateIri":"http://purl.obolibrary.org/obo/RO_0000087","objectIri":"http://example.com/scene-ontology#veraAntagonistRole"}}}`
-`{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#sam","predicateIri":"http://purl.obolibrary.org/obo/RO_0000087","objectIri":"http://example.com/scene-ontology#samSupportingRole"}}}`
-`{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#jakeProtagonistRole"}}}`
-`{"jsonrpc":"2.0","id":58,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#veraAntagonistRole"}}}`
-`{"jsonrpc":"2.0","id":59,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#samSupportingRole"}}}`
-`{"jsonrpc":"2.0","id":60,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr"}}}`
-`{"jsonrpc":"2.0","id":61,"method":"tools/call","params":{"name":"layoutNodes","arguments":{"iris":["http://example.com/scene-ontology#jake","http://example.com/scene-ontology#vera","http://example.com/scene-ontology#sam","http://example.com/scene-ontology#rooftop","http://example.com/scene-ontology#cafe","http://example.com/scene-ontology#rooftopChase","http://example.com/scene-ontology#cafeDialogue","http://example.com/scene-ontology#jakeProtagonistRole","http://example.com/scene-ontology#veraAntagonistRole","http://example.com/scene-ontology#samSupportingRole"],"algorithm":"dagre-lr"}}}`
+`{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#jake"}}}`
+`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#vera"}}}`
+`{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/RO_0000066","objectIri":"http://example.com/scene-ontology#rooftop"}}}`
+`{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#jake"}}}`
+`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/RO_0000057","objectIri":"http://example.com/scene-ontology#sam"}}}`
+`{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/RO_0000066","objectIri":"http://example.com/scene-ontology#cafe"}}}`
+`{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#jake","predicateIri":"http://purl.obolibrary.org/obo/RO_0000087","objectIri":"http://example.com/scene-ontology#jakeProtagonistRole"}}}`
+`{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#vera","predicateIri":"http://purl.obolibrary.org/obo/RO_0000087","objectIri":"http://example.com/scene-ontology#veraAntagonistRole"}}}`
+`{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#sam","predicateIri":"http://purl.obolibrary.org/obo/RO_0000087","objectIri":"http://example.com/scene-ontology#samSupportingRole"}}}`
+`{"jsonrpc":"2.0","id":58,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#jakeProtagonistRole"}}}`
+`{"jsonrpc":"2.0","id":59,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#veraAntagonistRole"}}}`
+`{"jsonrpc":"2.0","id":60,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#samSupportingRole"}}}`
+`{"jsonrpc":"2.0","id":61,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 `{"jsonrpc":"2.0","id":62,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":63,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
 [VisGraph — 15 tools ✓]
@@ -201,13 +207,13 @@ Canvas: 23 nodes, 19 links
 ✓ addLink: s=rooftopChase p=BFO_0000055 o=veraAntagonistRole
 ✓ addLink: s=cafeDialogue p=BFO_0000055 o=samSupportingRole
 ✓ runLayout: dagre-lr
-✓ layoutNodes
 ✓ expandAll
+✓ runLayout: dagre-lr
 
-Canvas: 23 nodes, 31 links
+Canvas: 10 nodes, 12 links
 ```
 
-![Full graph — TBox and ABox before reasoning](./scene-ontology/02-abox-full.svg)
+![ABox — scenes, characters, locations, and role assignments](./scene-ontology/02-abox-full.svg)
 
 ---
 
@@ -215,17 +221,17 @@ Canvas: 23 nodes, 31 links
 
 **Assistant:** Running reasoning. Jake should pick up `BFO:independent_continuant` via `Character → BFO_0000004`, and both scenes should inherit their BFO process superclasses through the `Scene → BFO:process` chain.
 
-`{"jsonrpc":"2.0","id":63,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":64,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr"}}}`
+`{"jsonrpc":"2.0","id":64,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
 `{"jsonrpc":"2.0","id":65,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":66,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
 [VisGraph — 3 tools ✓]
-✓ runReasoning: 0 triples inferred
-✓ runLayout: dagre-lr
+✓ runReasoning: 23092 triples inferred
 ✓ expandAll
+✓ runLayout: dagre-lr
 
-Canvas: 23 nodes, 90 links
+Canvas: 10 nodes, 22 links
 ```
 
 ![Graph after reasoning — inferred superclass memberships visible](./scene-ontology/03-after-reasoning.svg)
@@ -236,15 +242,15 @@ Canvas: 23 nodes, 90 links
 
 **Assistant:** Panning to Jake and expanding his annotation card.
 
-`{"jsonrpc":"2.0","id":66,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.com/scene-ontology#jake"}}}`
-`{"jsonrpc":"2.0","id":67,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/scene-ontology#jake","expand":true}}}`
+`{"jsonrpc":"2.0","id":67,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://example.com/scene-ontology#jake"}}}`
+`{"jsonrpc":"2.0","id":68,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/scene-ontology#jake","expand":true}}}`
 
 ```tool-result
 [VisGraph — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
-Canvas: 23 nodes, 90 links
+Canvas: 10 nodes, 22 links
 ```
 
 ![Jake — inferred types from BFO subclass chain](./scene-ontology/04-jake-focus.svg)
@@ -255,13 +261,13 @@ Canvas: 23 nodes, 90 links
 
 **Assistant:** Exporting the asserted graph. Inferred triples live in `urn:vg:inferred` and are not included here.
 
-`{"jsonrpc":"2.0","id":68,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
+`{"jsonrpc":"2.0","id":69,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
 [VisGraph — 1 tool ✓]
 ✓ exportGraph: 13401 chars
 
-Canvas: 23 nodes, 90 links
+Canvas: 10 nodes, 22 links
 
 ```turtle
 @prefix dc: <http://purl.org/dc/elements/1.1/>.

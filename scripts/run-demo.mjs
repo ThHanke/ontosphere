@@ -226,6 +226,7 @@ async function run() {
   const outDir = path.dirname(outPath);
   const imgDir = path.join(outDir, demoName);
   fs.mkdirSync(outDir, { recursive: true });
+  if (fs.existsSync(imgDir)) fs.rmSync(imgDir, { recursive: true });
   fs.mkdirSync(imgDir, { recursive: true });
 
   const { page, cleanup, idleMs: idle } = await startBrowser({ baseUrl, noServer, idleMs });

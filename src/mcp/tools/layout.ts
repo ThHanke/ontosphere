@@ -47,11 +47,15 @@ const runLayout: McpTool = {
         description: 'Layout algorithm to apply. Defaults to elk-layered.',
         enum: [...VALID_ALGORITHMS],
       },
+      spacing: {
+        type: 'number',
+        description: 'Minimum distance between nodes in pixels. Defaults to 120.',
+      },
     },
   },
   async handler(params): Promise<McpResult> {
     try {
-      const p = params as { algorithm?: string };
+      const p = params as { algorithm?: string; spacing?: number };
       // Normalise common short forms: "dagre" → "dagre-lr", "elk" → "elk-layered"
       const ALIASES: Record<string, string> = { dagre: 'dagre-lr', elk: 'elk-layered' };
       const raw = p.algorithm ?? 'elk-layered';
@@ -68,7 +72,7 @@ const runLayout: McpTool = {
       const { createDagreLayout, createElkLayout } = await import(
         '@/components/Canvas/layout/layouts'
       );
-      const spacing = 120;
+      const spacing = p.spacing ?? 120;
       let layoutFunction;
       switch (algorithm as Algorithm) {
         case 'dagre-lr':
@@ -271,12 +275,16 @@ const layoutNodes: McpTool = {
         description: 'Layout algorithm to apply to the subset. Defaults to elk-layered.',
         enum: [...VALID_ALGORITHMS],
       },
+      spacing: {
+        type: 'number',
+        description: 'Minimum distance between nodes in pixels. Defaults to 120.',
+      },
     },
     required: ['iris'],
   },
   async handler(params): Promise<McpResult> {
     try {
-      const p = params as { iris?: string[]; algorithm?: string };
+      const p = params as { iris?: string[]; algorithm?: string; spacing?: number };
       const iris = p.iris ?? [];
       if (iris.length === 0) {
         return { success: false, error: 'iris must be a non-empty array' };
@@ -337,7 +345,7 @@ const layoutNodes: McpTool = {
       const { createDagreLayout, createElkLayout } = await import(
         '@/components/Canvas/layout/layouts'
       );
-      const spacing = 120;
+      const spacing = p.spacing ?? 120;
       let layoutFunction;
       switch (algorithm as Algorithm) {
         case 'dagre-lr':

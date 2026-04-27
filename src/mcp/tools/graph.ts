@@ -2,7 +2,7 @@
 import * as Reactodia from '@reactodia/workspace';
 import type { McpTool, McpResult } from '@/mcp/types';
 import { rdfManager } from '@/utils/rdfManager';
-import { getWorkspaceRefs } from '@/mcp/workspaceContext';
+import { getWorkspaceRefs, applyViewMode } from '@/mcp/workspaceContext';
 import { mcpManifest, mcpServerDescription } from '@/mcp/manifest';
 import { Parser as SparqlParser } from 'sparqljs';
 import { resolveOntologyLoadUrl, WELL_KNOWN_PREFIXES } from '@/utils/wellKnownOntologies';
@@ -289,6 +289,37 @@ const exportImage: McpTool = {
 };
 
 // ---------------------------------------------------------------------------
+// setViewMode
+// ---------------------------------------------------------------------------
+const setViewMode: McpTool = {
+  name: 'setViewMode',
+  description: 'Switch the canvas between ABox view (individuals/instances) and TBox view (classes/properties). Call before exportImage when you want to capture a specific layer.',
+  inputSchema: {
+    type: 'object',
+    required: ['mode'],
+    properties: {
+      mode: {
+        type: 'string',
+        enum: ['abox', 'tbox'],
+        description: 'abox = instance view, tbox = ontology/class view',
+      },
+    },
+  },
+  async handler(params): Promise<McpResult> {
+    try {
+      const { mode } = (params ?? {}) as { mode?: string };
+      if (mode !== 'abox' && mode !== 'tbox') {
+        return { success: false, error: 'mode must be "abox" or "tbox"' };
+      }
+      applyViewMode(mode);
+      return { success: true, data: { mode } };
+    } catch (e) {
+      return { success: false, error: String(e) };
+    }
+  },
+};
+
+// ---------------------------------------------------------------------------
 // getGraphState
 // ---------------------------------------------------------------------------
 const getGraphState: McpTool = {
@@ -389,6 +420,7 @@ export const graphTools: McpTool[] = [
   queryGraph,
   exportGraph,
   exportImage,
+  setViewMode,
   getGraphState,
   help,
 ];
