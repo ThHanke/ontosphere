@@ -11,21 +11,43 @@
 
 **You:** I want to model a small organisation using FOAF as the base vocabulary, but extend it with an employment hierarchy — Employee, Manager, Executive. Then add real people with both social and professional relationships and run the reasoner to see what it can figure out.
 
-**Assistant:** Great setup. I'll load FOAF first in TBox view, then extend it with employment classes and properties, switch to ABox for individuals, wire up the relationships, and finally run the reasoner.
+**Assistant:** Great setup. Starting in TBox view — adding FOAF base classes and properties as
+individual nodes and links, then extending with the employment hierarchy. No bulk loads:
+every node and axiom will be visible on canvas.
 
 
 <details>
-<summary>2 tool calls ✓</summary>
+<summary>12 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"tbox"}}}`
-`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n@prefix owl:  <http://www.w3.org/2002/07/owl#> .\nfoaf:Person a owl:Class ; rdfs:label \"Person\" .\nfoaf:Organization a owl:Class ; rdfs:label \"Organization\" .\nfoaf:Agent a owl:Class ; rdfs:label \"Agent\" .\nfoaf:Person rdfs:subClassOf foaf:Agent .\nfoaf:Organization rdfs:subClassOf foaf:Agent .\nfoaf:knows a owl:ObjectProperty ; rdfs:domain foaf:Person ; rdfs:range foaf:Person ; rdfs:label \"knows\" .\nfoaf:member a owl:ObjectProperty ; rdfs:domain foaf:Agent ; rdfs:range foaf:Organization ; rdfs:label \"member of\" .\nfoaf:name a owl:DatatypeProperty ; rdfs:domain foaf:Agent ; rdfs:label \"name\" ."}}}`
+`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/Agent","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"foaf:Agent"}}}`
+`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/Person","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"foaf:Person"}}}`
+`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/Organization","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"foaf:Organization"}}}`
+`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/knows","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"foaf:knows"}}}`
+`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://xmlns.com/foaf/0.1/member","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"foaf:member"}}}`
+`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/Person","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://xmlns.com/foaf/0.1/Agent"}}}`
+`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/Organization","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://xmlns.com/foaf/0.1/Agent"}}}`
+`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://xmlns.com/foaf/0.1/Person"}}}`
+`{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://xmlns.com/foaf/0.1/Person"}}}`
+`{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/member","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://xmlns.com/foaf/0.1/Agent"}}}`
+`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/member","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://xmlns.com/foaf/0.1/Organization"}}}`
 
 ```tool-result
-[Ontosphere — 2 tools ✓]
+[VisGraph — 12 tools ✓]
 ✓ setViewMode
-✓ loadRdf: loaded
+✓ addNode: http://xmlns.com/foaf/0.1/Agent
+✓ addNode: http://xmlns.com/foaf/0.1/Person
+✓ addNode: http://xmlns.com/foaf/0.1/Organization
+✓ addNode: http://xmlns.com/foaf/0.1/knows
+✓ addNode: http://xmlns.com/foaf/0.1/member
+✓ addLink: s=Person p=subClassOf o=Agent
+✓ addLink: s=Organization p=subClassOf o=Agent
+✓ addLink: s=knows p=domain o=Person
+✓ addLink: s=knows p=range o=Person
+✓ addLink: s=member p=domain o=Agent
+✓ addLink: s=member p=range o=Organization
 
-Canvas: 6 nodes, 7 links
+Canvas: 5 nodes, 6 links
 ```
 
 </details>
@@ -63,7 +85,7 @@ Canvas: 6 nodes, 7 links
 `{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[Ontosphere — 21 tools ✓]
+[VisGraph — 21 tools ✓]
 ✓ addNode: http://example.org/ex#Employee
 ✓ addNode: http://example.org/ex#Manager
 ✓ addNode: http://example.org/ex#Executive
@@ -86,7 +108,7 @@ Canvas: 6 nodes, 7 links
 ✓ expandAll
 ✓ runLayout: elk-layered
 
-Canvas: 13 nodes, 17 links
+Canvas: 12 nodes, 16 links
 ```
 
 </details>
@@ -95,9 +117,12 @@ Canvas: 13 nodes, 17 links
 
 ---
 
-**You:** Now the people. Alice is an Executive, Bob is a Manager, Carol, Dave and Eve are Employees. Frank has no explicit type yet — we'll see what the reasoner infers. Two departments: Engineering and Research.
+**You:** Now the people. Alice is an Executive. Bob, Carol, Dave, Eve, and Frank have no
+explicit type — I want the reasoner to derive all their types from the relationships alone.
+Two departments: Engineering and Research.
 
-**Assistant:** Switching to ABox view. Frank gets no `typeIri` — his type will come entirely from the relationships we assert next.
+**Assistant:** Switching to ABox view. Only Alice gets a `typeIri` — everyone else is untyped
+until the reasoner fires.
 
 
 <details>
@@ -105,16 +130,16 @@ Canvas: 13 nodes, 17 links
 
 `{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
 `{"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/alice","typeIri":"http://example.org/ex#Executive","label":"Alice"}}}`
-`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/bob","typeIri":"http://example.org/ex#Manager","label":"Bob"}}}`
-`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/carol","typeIri":"http://example.org/ex#Employee","label":"Carol"}}}`
-`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/dave","typeIri":"http://example.org/ex#Employee","label":"Dave"}}}`
-`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/eve","typeIri":"http://example.org/ex#Employee","label":"Eve"}}}`
+`{"jsonrpc":"2.0","id":26,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/bob","label":"Bob"}}}`
+`{"jsonrpc":"2.0","id":27,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/carol","label":"Carol"}}}`
+`{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/dave","label":"Dave"}}}`
+`{"jsonrpc":"2.0","id":29,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/eve","label":"Eve"}}}`
 `{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/frank","label":"Frank"}}}`
 `{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/engineering","typeIri":"http://example.org/ex#Department","label":"Engineering"}}}`
 `{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/research","typeIri":"http://example.org/ex#Department","label":"Research"}}}`
 
 ```tool-result
-[Ontosphere — 9 tools ✓]
+[VisGraph — 9 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://example.org/alice
 ✓ addNode: http://example.org/bob
@@ -161,7 +186,7 @@ Canvas: 8 nodes, 0 links
 `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[Ontosphere — 19 tools ✓]
+[VisGraph — 19 tools ✓]
 ✓ addLink: s=alice p=manages o=bob
 ✓ addLink: s=alice p=manages o=frank
 ✓ addLink: s=bob p=manages o=carol
@@ -208,8 +233,8 @@ Canvas: 8 nodes, 16 links
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[Ontosphere — 3 tools ✓]
-✓ runReasoning: 22947 triples inferred
+[VisGraph — 3 tools ✓]
+✓ runReasoning: 22948 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
 
@@ -234,7 +259,7 @@ Canvas: 8 nodes, 25 links
 `{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.org/frank","expand":true}}}`
 
 ```tool-result
-[Ontosphere — 2 tools ✓]
+[VisGraph — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
@@ -258,8 +283,8 @@ Canvas: 8 nodes, 25 links
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
-[Ontosphere — 1 tool ✓]
-✓ exportGraph: 7300 chars
+[VisGraph — 1 tool ✓]
+✓ exportGraph: 8756 chars
 
 Canvas: 8 nodes, 25 links
 
@@ -276,33 +301,29 @@ Canvas: 8 nodes, 25 links
 @prefix spw: <https://thhanke.github.io/PyodideSemanticWorkflow#>.
 @prefix dcterms: <http://purl.org/dc/terms/>.
 @prefix p-plan: <http://purl.org/net/p-plan#>.
-@prefix foaf: <http://xmlns.com/foaf/0.1/>.
 @prefix dtype: <http://www.linkedmodel.org/schema/dtype#>.
 @prefix qudt: <http://qudt.org/schema/qudt/>.
 @prefix skos: <http://www.w3.org/2004/02/skos/core#>.
 @prefix vaem: <http://www.linkedmodel.org/schema/vaem#>.
 @prefix voag: <http://voag.linkedmodel.org/schema/voag#>.
 
-foaf:Person rdfs:subClassOf foaf:Agent;
+<http://xmlns.com/foaf/0.1/Agent> a owl:Class;
+    rdfs:label <foaf:Agent>.
+<http://xmlns.com/foaf/0.1/Person> rdfs:subClassOf <http://xmlns.com/foaf/0.1/Agent>;
     a owl:Class;
-    rdfs:label "Person".
-foaf:Organization rdfs:subClassOf foaf:Agent;
+    rdfs:label <foaf:Person>.
+<http://xmlns.com/foaf/0.1/Organization> rdfs:subClassOf <http://xmlns.com/foaf/0.1/Agent>;
     a owl:Class;
-    rdfs:label "Organization".
-foaf:Agent a owl:Class;
-    rdfs:label "Agent".
-foaf:knows rdfs:domain foaf:Person;
-    rdfs:range foaf:Person;
+    rdfs:label <foaf:Organization>.
+<http://xmlns.com/foaf/0.1/knows> rdfs:domain <http://xmlns.com/foaf/0.1/Person>;
+    rdfs:range <http://xmlns.com/foaf/0.1/Person>;
     a owl:ObjectProperty;
-    rdfs:label "knows".
-foaf:member rdfs:domain foaf:Agent;
-    rdfs:range foaf:Organization;
+    rdfs:label <foaf:knows>.
+<http://xmlns.com/foaf/0.1/member> rdfs:domain <http://xmlns.com/foaf/0.1/Agent>;
+    rdfs:range <http://xmlns.com/foaf/0.1/Organization>;
     a owl:ObjectProperty;
-    rdfs:label "member of".
-foaf:name rdfs:domain foaf:Agent;
-    a owl:DatatypeProperty;
-    rdfs:label "name".
-<http://example.org/ex#Employee> rdfs:subClassOf foaf:Person;
+    rdfs:label <foaf:member>.
+<http://example.org/ex#Employee> rdfs:subClassOf <http://xmlns.com/foaf/0.1/Person>;
     a owl:Class;
     rdfs:label "Employee".
 <http://example.org/ex#Manager> rdfs:subClassOf <http://example.org/ex#Employee>;
@@ -311,7 +332,7 @@ foaf:name rdfs:domain foaf:Agent;
 <http://example.org/ex#Executive> rdfs:subClassOf <http://example.org/ex#Manager>;
     a owl:Class;
     rdfs:label "Executive".
-<http://example.org/ex#Department> rdfs:subClassOf foaf:Organization;
+<http://example.org/ex#Department> rdfs:subClassOf <http://xmlns.com/foaf/0.1/Organization>;
     a owl:Class;
     rdfs:label "Department".
 <http://example.org/ex#manages> rdfs:domain <http://example.org/ex#Manager>;
@@ -328,89 +349,81 @@ foaf:name rdfs:domain foaf:Agent;
     rdfs:label "collaboratesWith".
 <http://example.org/alice> a <http://example.org/ex#Executive>;
     rdfs:label "Alice";
-    foaf:knows <http://example.org/eve>;
-    foaf:member <http://example.org/engineering>;
+    <http://xmlns.com/foaf/0.1/knows> <http://example.org/eve>;
+    <http://xmlns.com/foaf/0.1/member> <http://example.org/engineering>;
     <http://example.org/ex#manages> <http://example.org/bob>, <http://example.org/frank>.
-<http://example.org/bob> a <http://example.org/ex#Manager>;
-    rdfs:label "Bob";
-    foaf:knows <http://example.org/carol>;
-    foaf:member <http://example.org/engineering>;
+<http://example.org/bob> rdfs:label "Bob";
+    <http://xmlns.com/foaf/0.1/knows> <http://example.org/carol>;
+    <http://xmlns.com/foaf/0.1/member> <http://example.org/engineering>;
     <http://example.org/ex#manages> <http://example.org/carol>, <http://example.org/dave>.
-<http://example.org/carol> a <http://example.org/ex#Employee>;
-    rdfs:label "Carol";
-    foaf:member <http://example.org/engineering>;
+<http://example.org/carol> rdfs:label "Carol";
+    <http://xmlns.com/foaf/0.1/member> <http://example.org/engineering>;
     <http://example.org/ex#reportsTo> <http://example.org/bob>.
-<http://example.org/dave> a <http://example.org/ex#Employee>;
-    rdfs:label "Dave";
-    foaf:member <http://example.org/research>;
+<http://example.org/dave> rdfs:label "Dave";
+    <http://xmlns.com/foaf/0.1/member> <http://example.org/research>;
     <http://example.org/ex#reportsTo> <http://example.org/bob>;
     <http://example.org/ex#collaboratesWith> <http://example.org/eve>.
-<http://example.org/eve> a <http://example.org/ex#Employee>;
-    rdfs:label "Eve";
-    foaf:member <http://example.org/research>;
+<http://example.org/eve> rdfs:label "Eve";
+    <http://xmlns.com/foaf/0.1/member> <http://example.org/research>;
     <http://example.org/ex#reportsTo> <http://example.org/alice>.
 <http://example.org/frank> rdfs:label "Frank";
-    foaf:member <http://example.org/research>.
+    <http://xmlns.com/foaf/0.1/member> <http://example.org/research>.
 <http://example.org/engineering> a <http://example.org/ex#Department>;
     rdfs:label "Engineering".
 <http://example.org/research> a <http://example.org/ex#Department>;
     rdfs:label "Research".
-foaf:Person rdfs:subClassOf owl:Thing, foaf:Person;
-    owl:equivalentClass foaf:Person.
-foaf:Organization rdfs:subClassOf owl:Thing, foaf:Organization;
-    owl:equivalentClass foaf:Organization.
-foaf:Agent rdfs:subClassOf owl:Thing, foaf:Agent;
-    owl:equivalentClass foaf:Agent.
-foaf:knows rdfs:domain owl:Thing, foaf:Agent;
-    rdfs:range owl:Thing, foaf:Agent;
-    rdfs:subPropertyOf foaf:knows;
-    owl:equivalentProperty foaf:knows;
-    owl:subPropertyOf foaf:knows.
-foaf:member rdfs:domain owl:Thing;
-    rdfs:range owl:Thing, foaf:Agent;
-    rdfs:subPropertyOf foaf:member;
-    owl:equivalentProperty foaf:member;
-    owl:subPropertyOf foaf:member.
-foaf:name rdfs:domain owl:Thing;
-    rdfs:subPropertyOf foaf:name;
-    owl:equivalentProperty foaf:name;
-    owl:subPropertyOf foaf:name.
-<http://example.org/ex#Employee> rdfs:subClassOf owl:Thing, foaf:Agent, <http://example.org/ex#Employee>;
+<http://xmlns.com/foaf/0.1/Agent> rdfs:subClassOf owl:Thing, <http://xmlns.com/foaf/0.1/Agent>;
+    owl:equivalentClass <http://xmlns.com/foaf/0.1/Agent>.
+<http://xmlns.com/foaf/0.1/Person> rdfs:subClassOf owl:Thing, <http://xmlns.com/foaf/0.1/Person>;
+    owl:equivalentClass <http://xmlns.com/foaf/0.1/Person>.
+<http://xmlns.com/foaf/0.1/Organization> rdfs:subClassOf owl:Thing, <http://xmlns.com/foaf/0.1/Organization>;
+    owl:equivalentClass <http://xmlns.com/foaf/0.1/Organization>.
+<http://xmlns.com/foaf/0.1/knows> rdfs:domain owl:Thing, <http://xmlns.com/foaf/0.1/Agent>;
+    rdfs:range owl:Thing, <http://xmlns.com/foaf/0.1/Agent>;
+    rdfs:subPropertyOf <http://xmlns.com/foaf/0.1/knows>;
+    owl:equivalentProperty <http://xmlns.com/foaf/0.1/knows>;
+    owl:subPropertyOf <http://xmlns.com/foaf/0.1/knows>.
+<http://xmlns.com/foaf/0.1/member> rdfs:domain owl:Thing;
+    rdfs:range owl:Thing, <http://xmlns.com/foaf/0.1/Agent>;
+    rdfs:subPropertyOf <http://xmlns.com/foaf/0.1/member>;
+    owl:equivalentProperty <http://xmlns.com/foaf/0.1/member>;
+    owl:subPropertyOf <http://xmlns.com/foaf/0.1/member>.
+<http://example.org/ex#Employee> rdfs:subClassOf owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://example.org/ex#Employee>;
     owl:equivalentClass <http://example.org/ex#Employee>.
-<http://example.org/ex#Manager> rdfs:subClassOf owl:Thing, foaf:Person, foaf:Agent, <http://example.org/ex#Manager>;
+<http://example.org/ex#Manager> rdfs:subClassOf owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Manager>;
     owl:equivalentClass <http://example.org/ex#Manager>.
-<http://example.org/ex#Executive> rdfs:subClassOf owl:Thing, foaf:Person, foaf:Agent, <http://example.org/ex#Employee>, <http://example.org/ex#Executive>;
+<http://example.org/ex#Executive> rdfs:subClassOf owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>, <http://example.org/ex#Executive>;
     owl:equivalentClass <http://example.org/ex#Executive>.
-<http://example.org/ex#Department> rdfs:subClassOf owl:Thing, foaf:Agent, <http://example.org/ex#Department>;
+<http://example.org/ex#Department> rdfs:subClassOf owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://example.org/ex#Department>;
     owl:equivalentClass <http://example.org/ex#Department>.
-<http://example.org/ex#manages> rdfs:domain owl:Thing, foaf:Person, foaf:Agent, <http://example.org/ex#Employee>;
-    rdfs:range owl:Thing, foaf:Person, foaf:Agent;
+<http://example.org/ex#manages> rdfs:domain owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>;
+    rdfs:range owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>;
     rdfs:subPropertyOf <http://example.org/ex#manages>;
     owl:equivalentProperty <http://example.org/ex#manages>;
     owl:subPropertyOf <http://example.org/ex#manages>.
-<http://example.org/ex#reportsTo> rdfs:domain owl:Thing, foaf:Person, foaf:Agent;
-    rdfs:range owl:Thing, foaf:Person, foaf:Agent, <http://example.org/ex#Employee>;
+<http://example.org/ex#reportsTo> rdfs:domain owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>;
+    rdfs:range owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>;
     rdfs:subPropertyOf <http://example.org/ex#reportsTo>;
     owl:equivalentProperty <http://example.org/ex#reportsTo>;
     owl:subPropertyOf <http://example.org/ex#reportsTo>.
-<http://example.org/ex#collaboratesWith> rdfs:domain owl:Thing, foaf:Person, foaf:Agent;
-    rdfs:range owl:Thing, foaf:Person, foaf:Agent;
+<http://example.org/ex#collaboratesWith> rdfs:domain owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>;
+    rdfs:range owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>;
     rdfs:subPropertyOf <http://example.org/ex#collaboratesWith>;
     owl:equivalentProperty <http://example.org/ex#collaboratesWith>;
     owl:subPropertyOf <http://example.org/ex#collaboratesWith>.
-<http://example.org/alice> a owl:Thing, foaf:Person, foaf:Agent, <http://example.org/ex#Employee>, <http://example.org/ex#Manager>.
-<http://example.org/bob> a owl:Thing, foaf:Person, foaf:Agent, <http://example.org/ex#Employee>.
-<http://example.org/carol> a owl:Thing, foaf:Person, foaf:Agent.
-<http://example.org/dave> a owl:Thing, foaf:Person, foaf:Agent.
-<http://example.org/eve> a owl:Thing, foaf:Person, foaf:Agent;
+<http://example.org/alice> a owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>, <http://example.org/ex#Manager>.
+<http://example.org/bob> a owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>, <http://example.org/ex#Manager>.
+<http://example.org/carol> a owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>.
+<http://example.org/dave> a owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>.
+<http://example.org/eve> a owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>;
     <http://example.org/ex#collaboratesWith> <http://example.org/dave>.
-<http://example.org/frank> a owl:Thing, foaf:Person, foaf:Agent, <http://example.org/ex#Employee>.
-<http://example.org/engineering> a owl:Thing, foaf:Organization, foaf:Agent.
-<http://example.org/research> a owl:Thing, foaf:Organization, foaf:Agent.
+<http://example.org/frank> a owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Person>, <http://example.org/ex#Employee>.
+<http://example.org/engineering> a owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Organization>.
+<http://example.org/research> a owl:Thing, <http://xmlns.com/foaf/0.1/Agent>, <http://xmlns.com/foaf/0.1/Organization>.
 
 ```
 
-[Open this graph in Ontosphere ↗](https://thhanke.github.io/ontosphere/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fontosphere%2Fmain%2Fdocs%2Fmcp-demo%2Ffoaf-social-network%2Fgraph.ttl)
+[Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Ffoaf-social-network%2Fgraph.ttl)
 ```
 
 </details>

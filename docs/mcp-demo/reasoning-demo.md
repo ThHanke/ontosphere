@@ -25,7 +25,7 @@ then axioms. Starting in TBox view so every class and property node lands on the
 `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Executive","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Executive"}}}`
 
 ```tool-result
-[Ontosphere — 5 tools ✓]
+[VisGraph — 5 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://example.com/reasoning-demo#Person
 ✓ addNode: http://example.com/reasoning-demo#Employee
@@ -39,11 +39,11 @@ Canvas: 4 nodes, 0 links
 
 ---
 
-**Assistant:** All four classes are on canvas. Now the seven property nodes:
+**Assistant:** All four classes are on canvas. Now the six property nodes:
 
 
 <details>
-<summary>7 tool calls ✓</summary>
+<summary>6 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#knows","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"knows"}}}`
 `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasFriend","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasFriend"}}}`
@@ -51,19 +51,17 @@ Canvas: 4 nodes, 0 links
 `{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#isManagedBy","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"isManagedBy"}}}`
 `{"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#isColleagueOf","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"isColleagueOf"}}}`
 `{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#hasSupervisor","typeIri":"http://www.w3.org/2002/07/owl#ObjectProperty","label":"hasSupervisor"}}}`
-`{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#jobTitle","typeIri":"http://www.w3.org/2002/07/owl#AnnotationProperty","label":"jobTitle"}}}`
 
 ```tool-result
-[Ontosphere — 7 tools ✓]
+[VisGraph — 6 tools ✓]
 ✓ addNode: http://example.com/reasoning-demo#knows
 ✓ addNode: http://example.com/reasoning-demo#hasFriend
 ✓ addNode: http://example.com/reasoning-demo#manages
 ✓ addNode: http://example.com/reasoning-demo#isManagedBy
 ✓ addNode: http://example.com/reasoning-demo#isColleagueOf
 ✓ addNode: http://example.com/reasoning-demo#hasSupervisor
-✓ addNode: http://example.com/reasoning-demo#jobTitle
 
-Canvas: 11 nodes, 0 links
+Canvas: 10 nodes, 0 links
 ```
 
 </details>
@@ -76,7 +74,7 @@ Canvas: 11 nodes, 0 links
 
 
 <details>
-<summary>24 tool calls ✓</summary>
+<summary>22 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Employee","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Person"}}}`
 `{"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#Manager","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
@@ -85,7 +83,6 @@ Canvas: 11 nodes, 0 links
 `{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isManagedBy","predicateIri":"http://www.w3.org/2002/07/owl#inverseOf","objectIri":"http://example.com/reasoning-demo#manages"}}}`
 `{"jsonrpc":"2.0","id":18,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isColleagueOf","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#SymmetricProperty"}}}`
 `{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#TransitiveProperty"}}}`
-`{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#jobTitle","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subPropertyOf","objectIri":"http://www.w3.org/2000/01/rdf-schema#comment"}}}`
 `{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Person"}}}`
 `{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#knows","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Person"}}}`
 `{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasFriend","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Person"}}}`
@@ -98,13 +95,12 @@ Canvas: 11 nodes, 0 links
 `{"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#isColleagueOf","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
 `{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
 `{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
-`{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#jobTitle","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
 `{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 `{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
 `{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[Ontosphere — 24 tools ✓]
+[VisGraph — 22 tools ✓]
 ✓ addLink: s=Employee p=subClassOf o=Person
 ✓ addLink: s=Manager p=subClassOf o=Employee
 ✓ addLink: s=Executive p=subClassOf o=Manager
@@ -112,7 +108,6 @@ Canvas: 11 nodes, 0 links
 ✓ addLink: s=isManagedBy p=inverseOf o=manages
 ✓ addLink: s=isColleagueOf p=type o=SymmetricProperty
 ✓ addLink: s=hasSupervisor p=type o=TransitiveProperty
-✓ addLink: s=jobTitle p=subPropertyOf o=comment
 ✓ addLink: s=knows p=domain o=Person
 ✓ addLink: s=knows p=range o=Person
 ✓ addLink: s=hasFriend p=domain o=Person
@@ -125,12 +120,11 @@ Canvas: 11 nodes, 0 links
 ✓ addLink: s=isColleagueOf p=range o=Employee
 ✓ addLink: s=hasSupervisor p=domain o=Employee
 ✓ addLink: s=hasSupervisor p=range o=Manager
-✓ addLink: s=jobTitle p=domain o=Employee
 ✓ runLayout: elk-layered
 ✓ expandAll
 ✓ runLayout: elk-layered
 
-Canvas: 11 nodes, 18 links
+Canvas: 10 nodes, 17 links
 ```
 
 </details>
@@ -139,11 +133,11 @@ Canvas: 11 nodes, 18 links
 
 ---
 
-**You:** Now for the individuals: Alice is an Executive, Bob and Carol are Employees.
-Dave has no type yet — I want to see if the reasoner works it out.
+**You:** Now for the individuals. Alice is an Executive. Bob, Carol, and Dave have no explicit
+type — I want to see what the reasoner works out from the relationships alone.
 
-**Assistant:** Switching to ABox view. Dave intentionally gets no `typeIri` — his type will be
-inferred from the `manages rdfs:domain Manager` axiom once he asserts a `manages` edge.
+**Assistant:** Switching to ABox view. Only Alice gets a `typeIri` — the others are blank nodes
+whose types must be entirely inferred from the edges we assert next.
 
 
 <details>
@@ -151,39 +145,17 @@ inferred from the `manages rdfs:domain Manager` axiom once he asserts a `manages
 
 `{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"setViewMode","arguments":{"mode":"abox"}}}`
 `{"jsonrpc":"2.0","id":38,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#alice","typeIri":"http://example.com/reasoning-demo#Executive","label":"Alice"}}}`
-`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#bob","typeIri":"http://example.com/reasoning-demo#Employee","label":"Bob"}}}`
-`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#carol","typeIri":"http://example.com/reasoning-demo#Employee","label":"Carol"}}}`
+`{"jsonrpc":"2.0","id":39,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#bob","label":"Bob"}}}`
+`{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#carol","label":"Carol"}}}`
 `{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","label":"Dave"}}}`
 
 ```tool-result
-[Ontosphere — 5 tools ✓]
+[VisGraph — 5 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://example.com/reasoning-demo#alice
 ✓ addNode: http://example.com/reasoning-demo#bob
 ✓ addNode: http://example.com/reasoning-demo#carol
 ✓ addNode: http://example.com/reasoning-demo#dave
-
-Canvas: 4 nodes, 0 links
-```
-
-</details>
-
----
-
-**You:** Give Alice the title "Chief Executive" and Dave "Division Manager" using `ex:jobTitle`.
-
-**Assistant:** Loading the literal assertions as inline Turtle. Since `ex:jobTitle` is a
-subproperty of `rdfs:comment`, the reasoner will infer `rdfs:comment` values for both too.
-
-
-<details>
-<summary>1 tool call ✓</summary>
-
-`{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix ex: <http://example.com/reasoning-demo#> .\nex:alice ex:jobTitle \"Chief Executive\" .\nex:dave  ex:jobTitle \"Division Manager\" ."}}}`
-
-```tool-result
-[Ontosphere — 1 tool ✓]
-✓ loadRdf: loaded
 
 Canvas: 4 nodes, 0 links
 ```
@@ -213,7 +185,7 @@ can see the ABox shape before we run the reasoner:
 `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[Ontosphere — 9 tools ✓]
+[VisGraph — 9 tools ✓]
 ✓ addLink: s=alice p=manages o=carol
 ✓ addLink: s=dave p=manages o=bob
 ✓ addLink: s=alice p=hasFriend o=bob
@@ -229,13 +201,20 @@ Canvas: 4 nodes, 6 links
 
 </details>
 
-![ABox — individuals before reasoning](./reasoning-demo/02-before-reasoning.svg)
+![ABox — individuals before reasoning, no explicit types except Alice](./reasoning-demo/02-before-reasoning.svg)
 
 ---
 
 **You:** Okay, run the reasoner and show me what it inferred.
 
-**Assistant:** Running reasoning, then layout to surface the inferred edges:
+**Assistant:** Running reasoning, then layout to surface the inferred edges. Expected:
+- Dave gets Manager (domain of manages), then Employee and Person via subclass chain
+- Carol and Bob get Employee (range of manages / domain of hasSupervisor), then Person
+- Alice gets Manager, Employee, Person via subclass chain from Executive
+- isColleagueOf symmetry fires: Carol gets the inverse edge back to Bob
+- hasSupervisor transitivity: Carol gets inferred hasSupervisor Alice
+- isManagedBy inverse fires: Carol gets isManagedBy Alice, Bob gets isManagedBy Dave
+- hasFriend subPropertyOf knows: Alice gets knows Bob inferred
 
 
 <details>
@@ -246,8 +225,8 @@ Canvas: 4 nodes, 6 links
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[Ontosphere — 3 tools ✓]
-✓ runReasoning: 22911 triples inferred
+[VisGraph — 3 tools ✓]
+✓ runReasoning: 22905 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
 
@@ -272,7 +251,7 @@ Canvas: 4 nodes, 15 links
 `{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","expand":true}}}`
 
 ```tool-result
-[Ontosphere — 2 tools ✓]
+[VisGraph — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
@@ -297,8 +276,8 @@ not included here.
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
-[Ontosphere — 1 tool ✓]
-✓ exportGraph: 4629 chars
+[VisGraph — 1 tool ✓]
+✓ exportGraph: 8173 chars
 
 Canvas: 4 nodes, 15 links
 
@@ -320,118 +299,106 @@ Canvas: 4 nodes, 15 links
 @prefix skos: <http://www.w3.org/2004/02/skos/core#>.
 @prefix vaem: <http://www.linkedmodel.org/schema/vaem#>.
 @prefix voag: <http://voag.linkedmodel.org/schema/voag#>.
-@prefix ex: <http://example.com/reasoning-demo#>.
 
-ex:Person a owl:Class;
+<http://example.com/reasoning-demo#Person> a owl:Class;
     rdfs:label "Person".
-ex:Employee rdfs:subClassOf ex:Person;
+<http://example.com/reasoning-demo#Employee> rdfs:subClassOf <http://example.com/reasoning-demo#Person>;
     a owl:Class;
     rdfs:label "Employee".
-ex:Manager rdfs:subClassOf ex:Employee;
+<http://example.com/reasoning-demo#Manager> rdfs:subClassOf <http://example.com/reasoning-demo#Employee>;
     a owl:Class;
     rdfs:label "Manager".
-ex:Executive rdfs:subClassOf ex:Manager;
+<http://example.com/reasoning-demo#Executive> rdfs:subClassOf <http://example.com/reasoning-demo#Manager>;
     a owl:Class;
     rdfs:label "Executive".
-ex:knows rdfs:domain ex:Person;
-    rdfs:range ex:Person;
+<http://example.com/reasoning-demo#knows> rdfs:domain <http://example.com/reasoning-demo#Person>;
+    rdfs:range <http://example.com/reasoning-demo#Person>;
     a owl:ObjectProperty;
     rdfs:label "knows".
-ex:hasFriend rdfs:domain ex:Person;
-    rdfs:range ex:Person;
-    rdfs:subPropertyOf ex:knows;
+<http://example.com/reasoning-demo#hasFriend> rdfs:domain <http://example.com/reasoning-demo#Person>;
+    rdfs:range <http://example.com/reasoning-demo#Person>;
+    rdfs:subPropertyOf <http://example.com/reasoning-demo#knows>;
     a owl:ObjectProperty;
     rdfs:label "hasFriend".
-ex:manages rdfs:domain ex:Manager;
-    rdfs:range ex:Employee;
+<http://example.com/reasoning-demo#manages> rdfs:domain <http://example.com/reasoning-demo#Manager>;
+    rdfs:range <http://example.com/reasoning-demo#Employee>;
     a owl:ObjectProperty;
     rdfs:label "manages".
-ex:isManagedBy rdfs:domain ex:Employee;
-    rdfs:range ex:Manager;
-    owl:inverseOf ex:manages;
+<http://example.com/reasoning-demo#isManagedBy> rdfs:domain <http://example.com/reasoning-demo#Employee>;
+    rdfs:range <http://example.com/reasoning-demo#Manager>;
+    owl:inverseOf <http://example.com/reasoning-demo#manages>;
     a owl:ObjectProperty;
     rdfs:label "isManagedBy".
-ex:isColleagueOf rdfs:domain ex:Employee;
-    rdfs:range ex:Employee;
+<http://example.com/reasoning-demo#isColleagueOf> rdfs:domain <http://example.com/reasoning-demo#Employee>;
+    rdfs:range <http://example.com/reasoning-demo#Employee>;
     a owl:ObjectProperty, owl:SymmetricProperty;
     rdfs:label "isColleagueOf".
-ex:hasSupervisor rdfs:domain ex:Employee;
-    rdfs:range ex:Manager;
+<http://example.com/reasoning-demo#hasSupervisor> rdfs:domain <http://example.com/reasoning-demo#Employee>;
+    rdfs:range <http://example.com/reasoning-demo#Manager>;
     a owl:ObjectProperty, owl:TransitiveProperty;
     rdfs:label "hasSupervisor".
-ex:jobTitle rdfs:domain ex:Employee;
-    rdfs:subPropertyOf rdfs:comment;
-    a owl:AnnotationProperty;
-    rdfs:label "jobTitle".
-ex:alice a ex:Executive;
+<http://example.com/reasoning-demo#alice> a <http://example.com/reasoning-demo#Executive>;
     rdfs:label "Alice";
-    ex:hasFriend ex:bob;
-    ex:manages ex:carol;
-    ex:jobTitle "Chief Executive".
-ex:bob a ex:Employee;
-    rdfs:label "Bob";
-    ex:isColleagueOf ex:carol;
-    ex:hasSupervisor ex:alice.
-ex:carol a ex:Employee;
-    rdfs:label "Carol";
-    ex:hasSupervisor ex:bob.
-ex:dave rdfs:label "Dave";
-    ex:manages ex:bob;
-    ex:jobTitle "Division Manager".
-ex:Person rdfs:subClassOf owl:Thing, ex:Person;
-    owl:equivalentClass ex:Person.
-ex:Employee rdfs:subClassOf owl:Thing, ex:Employee;
-    owl:equivalentClass ex:Employee.
-ex:Manager rdfs:subClassOf owl:Thing, ex:Person, ex:Manager;
-    owl:equivalentClass ex:Manager.
-ex:Executive rdfs:subClassOf owl:Thing, ex:Person, ex:Employee, ex:Executive;
-    owl:equivalentClass ex:Executive.
-ex:knows rdfs:domain owl:Thing;
+    <http://example.com/reasoning-demo#hasFriend> <http://example.com/reasoning-demo#bob>;
+    <http://example.com/reasoning-demo#manages> <http://example.com/reasoning-demo#carol>.
+<http://example.com/reasoning-demo#bob> rdfs:label "Bob";
+    <http://example.com/reasoning-demo#isColleagueOf> <http://example.com/reasoning-demo#carol>;
+    <http://example.com/reasoning-demo#hasSupervisor> <http://example.com/reasoning-demo#alice>.
+<http://example.com/reasoning-demo#carol> rdfs:label "Carol";
+    <http://example.com/reasoning-demo#hasSupervisor> <http://example.com/reasoning-demo#bob>.
+<http://example.com/reasoning-demo#dave> rdfs:label "Dave";
+    <http://example.com/reasoning-demo#manages> <http://example.com/reasoning-demo#bob>.
+<http://example.com/reasoning-demo#Person> rdfs:subClassOf owl:Thing, <http://example.com/reasoning-demo#Person>;
+    owl:equivalentClass <http://example.com/reasoning-demo#Person>.
+<http://example.com/reasoning-demo#Employee> rdfs:subClassOf owl:Thing, <http://example.com/reasoning-demo#Employee>;
+    owl:equivalentClass <http://example.com/reasoning-demo#Employee>.
+<http://example.com/reasoning-demo#Manager> rdfs:subClassOf owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Manager>;
+    owl:equivalentClass <http://example.com/reasoning-demo#Manager>.
+<http://example.com/reasoning-demo#Executive> rdfs:subClassOf owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Executive>;
+    owl:equivalentClass <http://example.com/reasoning-demo#Executive>.
+<http://example.com/reasoning-demo#knows> rdfs:domain owl:Thing;
     rdfs:range owl:Thing;
-    rdfs:subPropertyOf ex:knows;
-    owl:equivalentProperty ex:knows;
-    owl:subPropertyOf ex:knows.
-ex:hasFriend rdfs:domain owl:Thing;
+    rdfs:subPropertyOf <http://example.com/reasoning-demo#knows>;
+    owl:equivalentProperty <http://example.com/reasoning-demo#knows>;
+    owl:subPropertyOf <http://example.com/reasoning-demo#knows>.
+<http://example.com/reasoning-demo#hasFriend> rdfs:domain owl:Thing;
     rdfs:range owl:Thing;
-    rdfs:subPropertyOf ex:hasFriend;
-    owl:equivalentProperty ex:hasFriend;
-    owl:subPropertyOf ex:hasFriend.
-ex:manages rdfs:domain owl:Thing, ex:Person, ex:Employee;
-    rdfs:range owl:Thing, ex:Person;
-    rdfs:subPropertyOf ex:manages;
-    owl:equivalentProperty ex:manages;
-    owl:subPropertyOf ex:manages.
-ex:isManagedBy rdfs:domain owl:Thing, ex:Person;
-    rdfs:range owl:Thing, ex:Person, ex:Employee;
-    rdfs:subPropertyOf ex:isManagedBy;
-    owl:equivalentProperty ex:isManagedBy;
-    owl:subPropertyOf ex:isManagedBy.
-ex:isColleagueOf rdfs:domain owl:Thing, ex:Person;
-    rdfs:range owl:Thing, ex:Person;
-    rdfs:subPropertyOf ex:isColleagueOf;
-    owl:equivalentProperty ex:isColleagueOf;
-    owl:subPropertyOf ex:isColleagueOf.
-ex:hasSupervisor rdfs:domain owl:Thing, ex:Person;
-    rdfs:range owl:Thing, ex:Person, ex:Employee;
-    rdfs:subPropertyOf ex:hasSupervisor;
-    owl:equivalentProperty ex:hasSupervisor;
-    owl:subPropertyOf ex:hasSupervisor.
-ex:jobTitle rdfs:domain owl:Thing, ex:Person.
-ex:alice a owl:Thing, ex:Person, ex:Employee, ex:Manager;
-    rdfs:comment "Chief Executive";
-    ex:knows ex:bob.
-ex:bob a owl:Thing, ex:Person, ex:Manager;
-    ex:isManagedBy ex:dave.
-ex:carol a owl:Thing, ex:Person;
-    ex:isManagedBy ex:alice;
-    ex:isColleagueOf ex:bob;
-    ex:hasSupervisor ex:alice.
-ex:dave a owl:Thing, ex:Person, ex:Employee, ex:Manager;
-    rdfs:comment "Division Manager".
+    rdfs:subPropertyOf <http://example.com/reasoning-demo#hasFriend>;
+    owl:equivalentProperty <http://example.com/reasoning-demo#hasFriend>;
+    owl:subPropertyOf <http://example.com/reasoning-demo#hasFriend>.
+<http://example.com/reasoning-demo#manages> rdfs:domain owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
+    rdfs:range owl:Thing, <http://example.com/reasoning-demo#Person>;
+    rdfs:subPropertyOf <http://example.com/reasoning-demo#manages>;
+    owl:equivalentProperty <http://example.com/reasoning-demo#manages>;
+    owl:subPropertyOf <http://example.com/reasoning-demo#manages>.
+<http://example.com/reasoning-demo#isManagedBy> rdfs:domain owl:Thing, <http://example.com/reasoning-demo#Person>;
+    rdfs:range owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
+    rdfs:subPropertyOf <http://example.com/reasoning-demo#isManagedBy>;
+    owl:equivalentProperty <http://example.com/reasoning-demo#isManagedBy>;
+    owl:subPropertyOf <http://example.com/reasoning-demo#isManagedBy>.
+<http://example.com/reasoning-demo#isColleagueOf> rdfs:domain owl:Thing, <http://example.com/reasoning-demo#Person>;
+    rdfs:range owl:Thing, <http://example.com/reasoning-demo#Person>;
+    rdfs:subPropertyOf <http://example.com/reasoning-demo#isColleagueOf>;
+    owl:equivalentProperty <http://example.com/reasoning-demo#isColleagueOf>;
+    owl:subPropertyOf <http://example.com/reasoning-demo#isColleagueOf>.
+<http://example.com/reasoning-demo#hasSupervisor> rdfs:domain owl:Thing, <http://example.com/reasoning-demo#Person>;
+    rdfs:range owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
+    rdfs:subPropertyOf <http://example.com/reasoning-demo#hasSupervisor>;
+    owl:equivalentProperty <http://example.com/reasoning-demo#hasSupervisor>;
+    owl:subPropertyOf <http://example.com/reasoning-demo#hasSupervisor>.
+<http://example.com/reasoning-demo#alice> a owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>;
+    <http://example.com/reasoning-demo#knows> <http://example.com/reasoning-demo#bob>.
+<http://example.com/reasoning-demo#bob> a owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>;
+    <http://example.com/reasoning-demo#isManagedBy> <http://example.com/reasoning-demo#dave>.
+<http://example.com/reasoning-demo#carol> a owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
+    <http://example.com/reasoning-demo#isManagedBy> <http://example.com/reasoning-demo#alice>;
+    <http://example.com/reasoning-demo#isColleagueOf> <http://example.com/reasoning-demo#bob>;
+    <http://example.com/reasoning-demo#hasSupervisor> <http://example.com/reasoning-demo#alice>.
+<http://example.com/reasoning-demo#dave> a owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>.
 
 ```
 
-[Open this graph in Ontosphere ↗](https://thhanke.github.io/ontosphere/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fontosphere%2Fmain%2Fdocs%2Fmcp-demo%2Freasoning-demo%2Fgraph.ttl)
+[Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Freasoning-demo%2Fgraph.ttl)
 ```
 
 </details>
