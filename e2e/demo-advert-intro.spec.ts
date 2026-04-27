@@ -23,7 +23,7 @@ test('advert-intro: relay demo — mock chat + Ontosphere side by side', async (
 
   // Mode explanation beat: FhGenie / OpenWebUI / ChatGPT
   // Hover each mode button so the viewer's eye is drawn to them
-  const chatFrame = page.frameLocator('iframe:first-child');
+  const chatFrame = page.frameLocator('iframe >> nth=0');
   await chatFrame.locator('#mode-fhgenie').hover();
   await runner.pauseMs(1_000);
   await chatFrame.locator('#mode-openwebui').hover();
@@ -41,13 +41,13 @@ test('advert-intro: relay demo — mock chat + Ontosphere side by side', async (
   // Single addNode scenario
   await runner.clickScenario('single');
   const singleResult = await runner.waitForResult(20_000);
-  expect(singleResult).toContain('[VisGraph — 1 tool ✓]');
+  expect(singleResult).toContain('[Ontosphere — 1 tool ✓]');
   await runner.pauseMs(2_000);
 
   // Clear and run full scenario
   await runner.clearChat();
   await runner.clickScenario('full');
   const fullResult = await runner.waitForResult(30_000);
-  expect(fullResult).toMatch(/\[VisGraph/);
+  expect(fullResult).toMatch(/\[Ontosphere/);
   await runner.pauseMs(3_000);
 });

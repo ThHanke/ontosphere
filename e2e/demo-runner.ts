@@ -13,25 +13,32 @@ export class DemoRunner {
 
   constructor(private page: Page, private baseURL: string) {}
 
+  private async waitForFrame(predicate: (f: Frame) => boolean, timeout = 15_000): Promise<Frame> {
+    const deadline = Date.now() + timeout;
+    while (Date.now() < deadline) {
+      const found = this.page.frames().find(predicate);
+      if (found) return found;
+      await this.page.waitForTimeout(200);
+    }
+    throw new Error('waitForFrame: timed out');
+  }
+
   /** Open demo-stage.html and wait for both iframes to be ready. */
   async openStage(): Promise<void> {
     await this.page.goto(`${this.baseURL}/demo-stage.html`);
 
-    // Resolve chat frame (relay-mock-chat.html)
-    this.chatFrameHandle = await this.page.waitForFrame(
-      frame => frame.url().includes('relay-mock-chat'),
-      { timeout: 15_000 },
-    );
-    this.chatFrame = this.page.frameLocator('iframe:first-child');
+    this.chatFrame = this.page.frameLocator('iframe >> nth=0');
+    this.appFrame  = this.page.frameLocator('iframe >> nth=1');
 
-    // Resolve app frame (root app)
-    this.appFrameHandle = await this.page.waitForFrame(
-      frame => frame.url() === `${this.baseURL}/` || frame.url() === `${this.baseURL}`,
-      { timeout: 15_000 },
+    this.chatFrameHandle = await this.waitForFrame(
+      f => f.url().includes('relay-mock-chat'),
     );
-    this.appFrame = this.page.frameLocator('iframe:last-child');
+    this.appFrameHandle = await this.waitForFrame(
+      f => f.url().startsWith(this.baseURL)
+        && !f.url().includes('relay-mock-chat')
+        && !f.url().includes('demo-stage'),
+    );
 
-    // Wait for __mcpTools to register in the app iframe
     await this.appFrameHandle.waitForFunction(
       () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
       { timeout: 20_000 },
@@ -65,9 +72,9 @@ export class DemoRunner {
     await this.chatFrame.locator(`#mode-${mode}`).click();
   }
 
-  /** Wait for the injected result to appear in the chat stream. */
+  /** Wait for a VisGraph result to appear in the chat stream. */
   async waitForResult(timeout = 15_000): Promise<string> {
-    const locator = this.chatFrame.locator('#chat-stream .msg-user').last();
+    const locator = this.chatFrame.locator('#chat-stream .msg-user', { hasText: '[Ontosphere' }).last();
     await locator.waitFor({ state: 'visible', timeout });
     return locator.innerText();
   }
