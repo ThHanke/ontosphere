@@ -568,8 +568,13 @@ export default function ReactodiaCanvas() {
           }
         }
 
-        // Re-fetch data + links for elements already on canvas whose triples changed
-        if (changed.length > 0) {
+        // Re-fetch data + links for elements already on canvas whose triples changed.
+        // Skip for the inferred graph: handleRunReasoning owns that update path and
+        // decorates links with VG_GRAPH_NAME_PROP before they first render. Letting
+        // this branch run for inferred subjects would re-fetch links without the
+        // decoration (inferredBySubject not yet populated), causing a one-frame flash
+        // of solid-blue inferred links before they turn amber.
+        if (changed.length > 0 && !isInferredGraph) {
           const changedSet = new Set(changed);
           // Remove all links whose source or target is in the changed set —
           // they'll be re-fetched below with the updated predicates from the store
