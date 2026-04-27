@@ -55,7 +55,7 @@
     #chat-stream {
       flex: 1;
       overflow-y: auto;
-      padding: 16px;
+      padding: 16px 16px 24px;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -244,6 +244,7 @@ function streamTextInto(el, text, onDone) {
     }
     el.textContent += (i === 0 ? '' : ' ') + words[i];
     i++;
+    stream.scrollTop = stream.scrollHeight;
     setTimeout(next, STREAM_DELAY_MS);
   }
   next();
