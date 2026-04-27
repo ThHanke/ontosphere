@@ -20,7 +20,8 @@ test('scene-ontology: AI builds a film scene ontology on BFO/RO upper ontology',
   await runner.captionPause('Ontosphere — AI builds a film scene ontology on BFO + RO', 2_500);
 
   for (const turn of turns) {
-    await runner.runSeedTurn(turn, 250);
+    const isReasoningTurn = turn.toolCalls.some(c => c.name === 'runReasoning');
+    await runner.runSeedTurn(turn, 250, { captionAfter: isReasoningTurn });
     await runner.pauseMs(600);
   }
 

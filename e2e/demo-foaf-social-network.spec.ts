@@ -20,7 +20,8 @@ test('foaf-social-network: AI builds a FOAF social graph with OWL-RL reasoning',
   await runner.captionPause('Ontosphere — AI builds a FOAF social & employment graph', 2_500);
 
   for (const turn of turns) {
-    await runner.runSeedTurn(turn, 250);
+    const isReasoningTurn = turn.toolCalls.some(c => c.name === 'runReasoning');
+    await runner.runSeedTurn(turn, 250, { captionAfter: isReasoningTurn });
     await runner.pauseMs(600);
   }
 

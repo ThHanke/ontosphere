@@ -20,7 +20,10 @@ test('reasoning-demo: AI builds an OWL ontology and runs OWL-RL reasoning', asyn
   await runner.captionPause('Ontosphere — AI builds an OWL ontology from scratch', 2_500);
 
   for (const turn of turns) {
-    await runner.runSeedTurn(turn, 250);
+    // For the reasoning turn, show the caption only after reasoning completes
+    // so inferred links are already visible when the subtitle appears.
+    const isReasoningTurn = turn.toolCalls.some(c => c.name === 'runReasoning');
+    await runner.runSeedTurn(turn, 250, { captionAfter: isReasoningTurn });
     await runner.pauseMs(600);
   }
 

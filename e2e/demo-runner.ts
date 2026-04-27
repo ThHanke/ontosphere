@@ -168,8 +168,12 @@ export class DemoRunner {
    * Execute a parsed seed turn: call each tool on the app frame,
    * pausing between calls for visibility.
    */
-  async runSeedTurn(turn: SeedTurn, delayMs = 300): Promise<void> {
-    if (turn.caption) await this.caption(turn.caption);
+  async runSeedTurn(
+    turn: SeedTurn,
+    delayMs = 300,
+    opts: { captionAfter?: boolean } = {},
+  ): Promise<void> {
+    if (turn.caption && !opts.captionAfter) await this.caption(turn.caption);
     for (const call of turn.toolCalls) {
       await this.page.evaluate(
         async ([name, args]: [string, Record<string, unknown>]) => {
@@ -180,6 +184,7 @@ export class DemoRunner {
       );
       await this.page.waitForTimeout(delayMs);
     }
+    if (turn.caption && opts.captionAfter) await this.caption(turn.caption);
   }
 
   /** Pause recording for a given number of milliseconds. */
