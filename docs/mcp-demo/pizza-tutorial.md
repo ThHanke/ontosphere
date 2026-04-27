@@ -25,7 +25,7 @@ Switching to TBox view (the ontology schema) and placing the root classes.
 `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 5 tools ✓]
+[Ontosphere — 5 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#Pizza
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#PizzaBase
@@ -58,7 +58,7 @@ pairs to cover every combination.
 `{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 4 tools ✓]
+[Ontosphere — 4 tools ✓]
 ✓ addLink: s=Pizza p=disjointWith o=PizzaBase
 ✓ addLink: s=Pizza p=disjointWith o=PizzaTopping
 ✓ addLink: s=PizzaBase p=disjointWith o=PizzaTopping
@@ -91,7 +91,7 @@ also disjoint: no base can be both thin and deep pan.
 `{"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":160}}}`
 
 ```tool-result
-[VisGraph — 6 tools ✓]
+[Ontosphere — 6 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#ThinAndCrispyBase
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#DeepPanBase
 ✓ addLink: s=ThinAndCrispyBase p=subClassOf o=PizzaBase
@@ -129,7 +129,7 @@ are also implicitly Pizzas through the chain.
 `{"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":160}}}`
 
 ```tool-result
-[VisGraph — 9 tools ✓]
+[Ontosphere — 9 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#NamedPizza
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#Margherita
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#AmericanHot
@@ -170,7 +170,7 @@ PizzaTopping through the chain.
 `{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":160}}}`
 
 ```tool-result
-[VisGraph — 9 tools ✓]
+[Ontosphere — 9 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#CheeseTopping
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#MeatTopping
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#VegetableTopping
@@ -210,7 +210,7 @@ it will flag an inconsistency.
 `{"jsonrpc":"2.0","id":40,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":160}}}`
 
 ```tool-result
-[VisGraph — 7 tools ✓]
+[Ontosphere — 7 tools ✓]
 ✓ addLink: s=CheeseTopping p=disjointWith o=MeatTopping
 ✓ addLink: s=CheeseTopping p=disjointWith o=VegetableTopping
 ✓ addLink: s=CheeseTopping p=disjointWith o=FishTopping
@@ -257,7 +257,7 @@ all the way up to CheeseTopping and then PizzaTopping — no extra assertions ne
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
 
 ```tool-result
-[VisGraph — 17 tools ✓]
+[Ontosphere — 17 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#MozzarellaTopping
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#ParmesanTopping
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#PeperoniSausageTopping
@@ -305,7 +305,7 @@ explicit type assertion.
 `{"jsonrpc":"2.0","id":64,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
 
 ```tool-result
-[VisGraph — 7 tools ✓]
+[Ontosphere — 7 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#hasTopping
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#hasBase
 ✓ addLink: s=hasTopping p=domain o=Pizza
@@ -348,7 +348,7 @@ on the real world.
 `{"jsonrpc":"2.0","id":76,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
 
 ```tool-result
-[VisGraph — 12 tools ✓]
+[Ontosphere — 12 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#isToppingOf
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#isBaseOf
 ✓ addLink: s=isToppingOf p=inverseOf o=hasTopping
@@ -389,7 +389,7 @@ you don't have to state the obvious if the schema already says it.
 `{"jsonrpc":"2.0","id":81,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 5 tools ✓]
+[Ontosphere — 5 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#pizza1
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#pizza2
@@ -426,7 +426,7 @@ we only assert the bottom level — the reasoner propagates membership upward.
 `{"jsonrpc":"2.0","id":90,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
 
 ```tool-result
-[VisGraph — 9 tools ✓]
+[Ontosphere — 9 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#mozz1
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#tom1
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#garlic1
@@ -467,7 +467,7 @@ so no conflict.
 `{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
 
 ```tool-result
-[VisGraph — 9 tools ✓]
+[Ontosphere — 9 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#pep1
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#mozz2
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#olive1
@@ -506,7 +506,7 @@ categories across the three pizzas. After connecting, we lay out and expand the 
 `{"jsonrpc":"2.0","id":107,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
 
 ```tool-result
-[VisGraph — 8 tools ✓]
+[Ontosphere — 8 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#anch1
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#tom2
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#thin2
@@ -544,7 +544,7 @@ fires on our data:
 `{"jsonrpc":"2.0","id":110,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
 
 ```tool-result
-[VisGraph — 3 tools ✓]
+[Ontosphere — 3 tools ✓]
 ✓ runReasoning: 23028 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
@@ -572,7 +572,7 @@ none of these were in our original assertions.
 `{"jsonrpc":"2.0","id":112,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza1","expand":true}}}`
 
 ```tool-result
-[VisGraph — 2 tools ✓]
+[Ontosphere — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
@@ -599,7 +599,7 @@ Each step was derived automatically from the subClassOf chain in the TBox.
 `{"jsonrpc":"2.0","id":114,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#mozz1","expand":true}}}`
 
 ```tool-result
-[VisGraph — 2 tools ✓]
+[Ontosphere — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 

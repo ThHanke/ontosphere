@@ -48,7 +48,7 @@ node then wiring the subclass chain and property axioms one by one. No bulk load
 `{"jsonrpc":"2.0","id":28,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000087","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://purl.obolibrary.org/obo/BFO_0000023"}}}`
 
 ```tool-result
-[VisGraph — 28 tools ✓]
+[Ontosphere — 28 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://purl.obolibrary.org/obo/BFO_0000001
 ✓ addNode: http://purl.obolibrary.org/obo/BFO_0000002
@@ -105,7 +105,7 @@ Canvas: 12 nodes, 15 links
 `{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#ConfrontationScene","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#ActionScene"}}}`
 
 ```tool-result
-[VisGraph — 10 tools ✓]
+[Ontosphere — 10 tools ✓]
 ✓ addNode: http://example.com/scene-ontology#Scene
 ✓ addNode: http://example.com/scene-ontology#ActionScene
 ✓ addNode: http://example.com/scene-ontology#DialogueScene
@@ -142,7 +142,7 @@ Canvas: 17 nodes, 20 links
 `{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#InteriorLocation","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://example.com/scene-ontology#Location"}}}`
 
 ```tool-result
-[VisGraph — 8 tools ✓]
+[Ontosphere — 8 tools ✓]
 ✓ addNode: http://example.com/scene-ontology#Character
 ✓ addNode: http://example.com/scene-ontology#Location
 ✓ addNode: http://example.com/scene-ontology#ExteriorLocation
@@ -186,7 +186,7 @@ Canvas: 21 nodes, 24 links
 `{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 17 tools ✓]
+[Ontosphere — 17 tools ✓]
 ✓ addNode: http://example.com/scene-ontology#SceneRole
 ✓ addNode: http://example.com/scene-ontology#ProtagonistRole
 ✓ addNode: http://example.com/scene-ontology#AntagonistRole
@@ -237,7 +237,7 @@ from the `has_role` relationships we assert next, since `RO:has_role rdfs:domain
 `{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/scene-ontology#samSupportingRole","typeIri":"http://example.com/scene-ontology#SupportingRole","label":"Sam — Supporting"}}}`
 
 ```tool-result
-[VisGraph — 11 tools ✓]
+[Ontosphere — 11 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://example.com/scene-ontology#rooftop
 ✓ addNode: http://example.com/scene-ontology#cafe
@@ -282,7 +282,7 @@ Canvas: 10 nodes, 0 links
 `{"jsonrpc":"2.0","id":63,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 15 tools ✓]
+[Ontosphere — 15 tools ✓]
 ✓ addLink: s=rooftopChase p=RO_0000057 o=jake
 ✓ addLink: s=rooftopChase p=RO_0000057 o=vera
 ✓ addLink: s=rooftopChase p=RO_0000066 o=rooftop
@@ -321,7 +321,7 @@ Canvas: 10 nodes, 12 links
 `{"jsonrpc":"2.0","id":66,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 3 tools ✓]
+[Ontosphere — 3 tools ✓]
 ✓ runReasoning: 23095 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
@@ -347,7 +347,7 @@ Canvas: 10 nodes, 22 links
 `{"jsonrpc":"2.0","id":68,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/scene-ontology#jake","expand":true}}}`
 
 ```tool-result
-[VisGraph — 2 tools ✓]
+[Ontosphere — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
@@ -371,7 +371,7 @@ Canvas: 10 nodes, 22 links
 `{"jsonrpc":"2.0","id":69,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
-[VisGraph — 1 tool ✓]
+[Ontosphere — 1 tool ✓]
 ✓ exportGraph: 18613 chars
 
 Canvas: 10 nodes, 22 links
@@ -574,7 +574,7 @@ Canvas: 10 nodes, 22 links
 
 ```
 
-[Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Fscene-ontology%2Fgraph.ttl)
+[Open this graph in Ontosphere ↗](https://thhanke.github.io/ontosphere/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fontosphere%2Fmain%2Fdocs%2Fmcp-demo%2Fscene-ontology%2Fgraph.ttl)
 ```
 
 </details>

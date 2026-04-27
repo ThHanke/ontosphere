@@ -635,7 +635,7 @@ async function run() {
       });
 
       if (typeof invokeSvgResult === 'string' && invokeSvgResult.length > 0) {
-        const suggested = `visgraph-full-${nowId}.svg`;
+        const suggested = `ontosphere-full-${nowId}.svg`;
         svgExportPath = path.join(outDir, `export-svg-${nowId}-${suggested}`);
         fs.writeFileSync(svgExportPath, invokeSvgResult, 'utf8');
         console.log('Saved SVG export from programmatic return to', svgExportPath);
@@ -663,7 +663,7 @@ async function run() {
       if (typeof invokePngResult === 'string' && invokePngResult.startsWith('data:image/png')) {
         const base64 = invokePngResult.split(',')[1] || '';
         const buf = Buffer.from(base64, 'base64');
-        const suggested = `visgraph-full-${nowId}.png`;
+        const suggested = `ontosphere-full-${nowId}.png`;
         pngExportPath = path.join(outDir, `export-png-${nowId}-${suggested}`);
         fs.writeFileSync(pngExportPath, buf);
         console.log('Saved PNG export from programmatic return to', pngExportPath);

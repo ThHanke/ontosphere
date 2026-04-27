@@ -33,7 +33,7 @@ every node and axiom will be visible on canvas.
 `{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://xmlns.com/foaf/0.1/member","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://xmlns.com/foaf/0.1/Organization"}}}`
 
 ```tool-result
-[VisGraph — 12 tools ✓]
+[Ontosphere — 12 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://xmlns.com/foaf/0.1/Agent
 ✓ addNode: http://xmlns.com/foaf/0.1/Person
@@ -85,7 +85,7 @@ Canvas: 5 nodes, 6 links
 `{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 21 tools ✓]
+[Ontosphere — 21 tools ✓]
 ✓ addNode: http://example.org/ex#Employee
 ✓ addNode: http://example.org/ex#Manager
 ✓ addNode: http://example.org/ex#Executive
@@ -139,7 +139,7 @@ until the reasoner fires.
 `{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/research","typeIri":"http://example.org/ex#Department","label":"Research"}}}`
 
 ```tool-result
-[VisGraph — 9 tools ✓]
+[Ontosphere — 9 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://example.org/alice
 ✓ addNode: http://example.org/bob
@@ -186,7 +186,7 @@ Canvas: 8 nodes, 0 links
 `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 19 tools ✓]
+[Ontosphere — 19 tools ✓]
 ✓ addLink: s=alice p=manages o=bob
 ✓ addLink: s=alice p=manages o=frank
 ✓ addLink: s=bob p=manages o=carol
@@ -233,7 +233,7 @@ Canvas: 8 nodes, 16 links
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 3 tools ✓]
+[Ontosphere — 3 tools ✓]
 ✓ runReasoning: 22948 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
@@ -259,7 +259,7 @@ Canvas: 8 nodes, 25 links
 `{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.org/frank","expand":true}}}`
 
 ```tool-result
-[VisGraph — 2 tools ✓]
+[Ontosphere — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
@@ -283,7 +283,7 @@ Canvas: 8 nodes, 25 links
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
-[VisGraph — 1 tool ✓]
+[Ontosphere — 1 tool ✓]
 ✓ exportGraph: 8756 chars
 
 Canvas: 8 nodes, 25 links
@@ -423,7 +423,7 @@ Canvas: 8 nodes, 25 links
 
 ```
 
-[Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Ffoaf-social-network%2Fgraph.ttl)
+[Open this graph in Ontosphere ↗](https://thhanke.github.io/ontosphere/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fontosphere%2Fmain%2Fdocs%2Fmcp-demo%2Ffoaf-social-network%2Fgraph.ttl)
 ```
 
 </details>
