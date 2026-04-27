@@ -14,7 +14,7 @@ import { RdfMetadataProvider } from '@/providers/RdfMetadataProvider';
 import { RdfValidationProvider } from '@/providers/RdfValidationProvider';
 import { workerQuadsToRdf, type WorkerQuad as ConverterQuad } from '@/providers/quadConverter';
 import type { WorkerQuad } from '@/utils/rdfSerialization';
-import { setWorkspaceContext, registerReasoningCallback } from '@/mcp/workspaceContext';
+import { setWorkspaceContext, registerReasoningCallback, registerSetViewMode } from '@/mcp/workspaceContext';
 import { TopBar } from './TopBar';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
 import { LeftSidebar } from './LeftSidebar';
@@ -67,6 +67,9 @@ const validationProvider = new RdfValidationProvider();
 // Track all subject IRIs ever seen (for initial load and incremental adds)
 const knownSubjects = new Set<string>();
 
+// Positions saved from authoring elements so emitSubject can restore them
+const pendingPositions = new Map<string, Reactodia.Vector>();
+
 
 /**
  * Flush all staged authoring state to the RDF store in one batch per subject.
@@ -81,8 +84,9 @@ async function flushAuthoringState(
 
   const removes: any[] = [];
   const adds: any[] = [];
+  const deleteIris: string[] = [];
 
-  // Collect canvas-model cleanup tasks to run after the RDF write
+  // Canvas-model cleanup runs before RDF writes to avoid race with onSubjectsChange
   const linksToRemove: Reactodia.Link[] = [];
   const elementsToRemove: Reactodia.Element[] = [];
 
@@ -115,14 +119,15 @@ async function flushAuthoringState(
       for (const [propIri, terms] of Object.entries(event.data.properties)) {
         for (const t of terms) adds.push({ subject: namedNode(event.data.id), predicate: namedNode(propIri), object: t });
       }
-    } else if (event.type === 'entityDelete') {
-      // Remove all quads for this subject via the data provider's internal dataset
-      const dataset = (dataProvider as any).inner?.dataset;
-      if (dataset) {
-        for (const q of dataset.iterateMatches(namedNode(event.data.id), null, null)) {
-          removes.push({ subject: namedNode((q.subject as any).value), predicate: namedNode((q.predicate as any).value), object: q.object });
-        }
+      // Always remove the authoring element — emitSubject will re-add it to the
+      // correct view (ABox or TBox) once the RDF write fires onSubjectsChange.
+      const el = model.elements.find(e => e instanceof Reactodia.EntityElement && e.data.id === event.data.id);
+      if (el) {
+        pendingPositions.set(event.data.id, { ...el.position });
+        elementsToRemove.push(el);
       }
+    } else if (event.type === 'entityDelete') {
+      deleteIris.push(event.data.id);
       const el = model.elements.find(e => e instanceof Reactodia.EntityElement && e.data.id === event.data.id);
       if (el) elementsToRemove.push(el);
     } else if (event.type === 'entityChange') {
@@ -165,15 +170,25 @@ async function flushAuthoringState(
     }
   }
 
-  if (removes.length > 0 || adds.length > 0) {
-    await rdfManager.applyBatch({ removes, adds }, 'urn:vg:data');
+  // Remove canvas elements/links BEFORE firing RDF writes so that onSubjectsChange
+  // sees them as absent and treats re-emitted IRIs as adds (not changes).
+  for (const link of linksToRemove) model.removeLink(link.id);
+  for (const el of elementsToRemove) model.removeElement(el.id);
+  for (const iri of deleteIris) {
+    knownSubjects.delete(iri);
+    dataProvider.removeSubjects([iri]);
   }
 
-  // Clean up canvas model — must happen in a microtask to stay outside React's render cycle
-  queueMicrotask(() => {
-    for (const link of linksToRemove) model.removeLink(link.id);
-    for (const el of elementsToRemove) model.removeElement(el.id);
-  });
+  // Write to RDF store — deleteIris go via removeAllQuadsForIri (hits all graphs),
+  // add/change/relationDelete triples go via syncBatch on urn:vg:data.
+  const rdfOps: Promise<void>[] = [];
+  if (removes.length > 0 || adds.length > 0) {
+    rdfOps.push(rdfManager.applyBatch({ removes, adds }, 'urn:vg:data'));
+  }
+  for (const iri of deleteIris) {
+    rdfOps.push(rdfManager.removeAllQuadsForIri(iri, 'urn:vg:data'));
+  }
+  await Promise.all(rdfOps);
 
   // Clear the authoring state — changes are now in the RDF store
   editor.setAuthoringState(Reactodia.AuthoringState.empty);
@@ -545,7 +560,12 @@ export default function ReactodiaCanvas() {
       // Defer model mutations out of the React lifecycle to avoid flushSync warnings
       queueMicrotask(async () => {
         for (const iri of addedFiltered) {
-          model.createElement(iri as Reactodia.ElementIri);
+          const el = model.createElement(iri as Reactodia.ElementIri);
+          const savedPos = pendingPositions.get(iri);
+          if (savedPos) {
+            el.setPosition(savedPos);
+            pendingPositions.delete(iri);
+          }
         }
 
         // Re-fetch data + links for elements already on canvas whose triples changed
@@ -636,12 +656,14 @@ export default function ReactodiaCanvas() {
             actions.setCanvasReady(true);
           }
         } else {
-          // Incremental add: only lay out the newly added elements so existing
-          // positions are preserved.
+          // Incremental add: only lay out elements without a saved position.
+          // Elements restored from pendingPositions already have their position set.
           const newElements = new Set(
             model.elements.filter(
               (e): e is Reactodia.EntityElement =>
-                e instanceof Reactodia.EntityElement && addedFiltered.includes(e.data.id)
+                e instanceof Reactodia.EntityElement &&
+                addedFiltered.includes(e.data.id) &&
+                !pendingPositions.has(e.data.id)
             )
           );
           console.debug('[canvas layout] incremental —', newElements.size, 'new elements added');
@@ -1035,6 +1057,10 @@ export default function ReactodiaCanvas() {
   React.useEffect(() => {
     registerReasoningCallback(handleRunReasoning);
   }, [handleRunReasoning]);
+
+  React.useEffect(() => {
+    registerSetViewMode(actions.setViewMode);
+  }, [actions.setViewMode]);
 
   const handleFileChange = React.useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

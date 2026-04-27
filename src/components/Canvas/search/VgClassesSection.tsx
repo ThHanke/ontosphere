@@ -4,7 +4,7 @@ import { useCallback, useRef } from 'react';
 import * as Reactodia from '@reactodia/workspace';
 import { mapAbortedToNull, highlightSubstring } from '@reactodia/workspace';
 
-import { TBOX_PROPERTY_TYPES } from '../../../providers/N3DataProvider';
+import { TBOX_PROPERTY_TYPES, ALL_TBOX_TYPES } from '../../../providers/N3DataProvider';
 import { useCanvasState } from '../../../hooks/useCanvasState';
 import { useSearchIndexContext } from './SearchIndexContext';
 import {
@@ -141,10 +141,17 @@ export function VgClassesSection({ onEntityCreated }: VgClassesSectionProps) {
   }, [classGraph, searchText, classHitCounts, translation, model.language]);
 
   const creatableClasses = React.useMemo((): ReadonlyMap<Reactodia.ElementTypeIri, boolean> => {
-    if (canvasState.viewMode !== 'abox') return new Map();
     const m = new Map<Reactodia.ElementTypeIri, boolean>();
-    for (const node of flattenTree(roots)) {
-      if (!TBOX_PROPERTY_TYPES.has(node.iri)) m.set(node.iri, true);
+    if (canvasState.viewMode === 'abox') {
+      // ABox: can create instances of any non-TBox class (regular ontology classes)
+      for (const node of flattenTree(roots)) {
+        if (!ALL_TBOX_TYPES.has(node.iri)) m.set(node.iri, true);
+      }
+    } else {
+      // TBox: can create new TBox entities (new owl:Class, owl:ObjectProperty, etc.)
+      for (const node of flattenTree(roots)) {
+        if (ALL_TBOX_TYPES.has(node.iri)) m.set(node.iri, true);
+      }
     }
     return m;
   }, [roots, canvasState.viewMode]);
