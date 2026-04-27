@@ -1,7 +1,7 @@
 # Reactodia vs React Flow: Performance Architecture Analysis
 
 **Date:** 2026-04-07
-**Scope:** Why reactodia renders knowledge graphs faster than visgraph's current React Flow implementation, and what notable architectural features it offers.
+**Scope:** Why reactodia renders knowledge graphs faster than ontosphere's current React Flow implementation, and what notable architectural features it offers.
 
 ---
 
@@ -19,7 +19,7 @@ The practical result: reactodia can render and interact with knowledge graphs co
 
 ## 2. Rendering Architecture Comparison
 
-| Aspect | Reactodia | Visgraph (React Flow) |
+| Aspect | Reactodia | Ontosphere (React Flow) |
 |---|---|---|
 | **Rendering primitives** | SVG `<path>` for edges, HTML DOM for nodes — direct, no wrapper components | React Flow's `<NodeRenderer>` and `<EdgeRenderer>` wrappers around your components |
 | **Update model** | 7-layer dependency DAG; only affected layers run | React reconciler; any state change triggers diff from root |
@@ -73,7 +73,7 @@ All change requests within the same frame are coalesced into a single update. If
 
 `BufferingQueue` extends this for batched item processing, useful when adding many nodes incrementally.
 
-**Why it matters:** React 18's automatic batching is good but doesn't align with the browser's rendering cycle. Reactodia's `Debouncer` ensures updates happen exactly once per animation frame — no more, no less. Visgraph has no equivalent coordination layer.
+**Why it matters:** React 18's automatic batching is good but doesn't align with the browser's rendering cycle. Reactodia's `Debouncer` ensures updates happen exactly once per animation frame — no more, no less. Ontosphere has no equivalent coordination layer.
 
 ---
 
@@ -116,7 +116,7 @@ enum RedrawFlags {
 
 Each element in the redraw batch carries a bitmask describing exactly what changed. `TemplatedElement.shouldComponentUpdate()` checks whether the specific change flags require a re-render. `LinkMarker` components use `shouldComponentUpdate() { return false; }` — they never re-render after mount.
 
-**Why it matters:** Visgraph's optimization boundary is `memo()` — either the component re-renders or it doesn't. Reactodia can say "re-render this node but only update its blur state, not its template."
+**Why it matters:** Ontosphere's optimization boundary is `memo()` — either the component re-renders or it doesn't. Reactodia can say "re-render this node but only update its blur state, not its template."
 
 ---
 
@@ -155,7 +155,7 @@ class DefaultLayouts {
 
 Layout algorithms (`forceLayout`, `flowLayout`, `defaultLayout`) run entirely in a Web Worker thread via `@reactodia/worker-proxy`, an RPC bridge. The main thread fires a layout request and continues handling user interactions. The result is posted back when ready.
 
-Visgraph's ELK and Dagre layouts are `async` but run on the main thread. For large graphs, the JavaScript execution still blocks the event loop during the heavy computation phase.
+Ontosphere's ELK and Dagre layouts are `async` but run on the main thread. For large graphs, the JavaScript execution still blocks the event loop during the heavy computation phase.
 
 **Why it matters:** Truly non-blocking layout means the UI remains interactive during layout calculation. Zoom, pan, selection — all continue responding while the layout runs.
 
@@ -239,7 +239,7 @@ Widget layers are plain `div` elements with `display: contents`, placed via Reac
 
 ---
 
-## 4. Visgraph Current State
+## 4. Ontosphere Current State
 
 ### What is already optimized
 
@@ -266,7 +266,7 @@ Widget layers are plain `div` elements with `display: contents`, placed via Reac
 Widgets and decorators can be explicitly placed at one of four canvas layers: `underlay`, `overLinkGeometry`, `overLinks`, `overElements`. This is useful for background grids, selection halos, edge decorators, and floating panels — each at the right visual depth without z-index hacks.
 
 ### Template-Based Node Rendering
-Node appearance is driven by templates that can be swapped per node type at runtime. The template system is decoupled from the data model — you can change how a node renders without changing its data. Visgraph hardcodes node types into `nodeTypes` at initialization.
+Node appearance is driven by templates that can be swapped per node type at runtime. The template system is decoupled from the data model — you can change how a node renders without changing its data. Ontosphere hardcodes node types into `nodeTypes` at initialization.
 
 ### Blurred / Overlay Element States
 Elements can be put into a "blurred" state (reduced opacity, non-interactive) while other elements are highlighted. This is a first-class rendering state tracked by `RedrawFlags.RecomputeBlurred`, not a CSS class toggle. Useful for focus modes in dense graphs.
@@ -275,7 +275,7 @@ Elements can be put into a "blurred" state (reduced opacity, non-interactive) wh
 The worker communication pattern is encapsulated in a reusable `connectWorker()` utility. Any computation-heavy function can be moved off-thread with minimal ceremony. This is a general-purpose pattern applicable beyond layout.
 
 ### Custom Link Routing with Geometry
-Link routes are computed as full geometry paths (not just start/end points). The router produces waypoints, curves, and vertex data. Unchanged routes preserve reference equality to avoid downstream re-renders. Visgraph's edge geometry is computed per-render inside `ObjectPropertyEdge` components.
+Link routes are computed as full geometry paths (not just start/end points). The router produces waypoints, curves, and vertex data. Unchanged routes preserve reference equality to avoid downstream re-renders. Ontosphere's edge geometry is computed per-render inside `ObjectPropertyEdge` components.
 
 ### `useFrameDebouncedStore` / `useLayerDebouncedStore` Hooks
 **File:** `src/coreUtils/hooks.ts`

@@ -82,17 +82,13 @@ describe('addNode', () => {
       label: 'Foo',
     });
 
-    expect(rdfManager.addTriple).toHaveBeenCalledTimes(2);
-    expect(rdfManager.addTriple).toHaveBeenCalledWith(
-      'http://example.org/foo',
-      'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
-      'http://www.w3.org/2002/07/owl#Class'
-    );
-    expect(rdfManager.addTriple).toHaveBeenCalledWith(
-      'http://example.org/foo',
-      'http://www.w3.org/2000/01/rdf-schema#label',
-      'Foo'
-    );
+    expect(rdfManager.applyBatch).toHaveBeenCalledTimes(1);
+    expect(rdfManager.applyBatch).toHaveBeenCalledWith({
+      adds: [
+        { s: 'http://example.org/foo', p: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', o: 'http://www.w3.org/2002/07/owl#Class' },
+        { s: 'http://example.org/foo', p: 'http://www.w3.org/2000/01/rdf-schema#label', o: 'Foo' },
+      ],
+    });
     expect(result).toEqual({ success: true, data: { iri: 'http://example.org/foo' } });
   });
 

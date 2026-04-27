@@ -1,4 +1,4 @@
-VisGraph — Browser-based RDF Knowledge Graph Editor
+Ontosphere — Browser-based RDF Knowledge Graph Editor
 ====================================================
 
 [![DOI](https://zenodo.org/badge/1049705027.svg)](https://doi.org/10.5281/zenodo.19605270)
@@ -6,7 +6,7 @@ VisGraph — Browser-based RDF Knowledge Graph Editor
 
 | I want to… | Start here |
 |------------|------------|
-| Try the live demo | [Open VisGraph ↗](https://thhanke.github.io/visgraph) |
+| Try the live demo | [Open Ontosphere ↗](https://thhanke.github.io/ontosphere) |
 | Connect an AI agent | [AI / MCP Integration](#ai--mcp-integration) |
 | Run it locally | [Quick start (development)](#quick-start-development) |
 | Load my own data | [Startup / URL parameters](#startup--url-parameters) |
@@ -27,7 +27,7 @@ VisGraph — Browser-based RDF Knowledge Graph Editor
   - [How it works](#how-it-works)
   - [Setup (Playwright / headless)](#setup-playwright--headless)
   - [Recommended workflow](#recommended-workflow)
-  - [Using VisGraph with any AI](#using-visgraph-with-any-ai)
+  - [Using Ontosphere with any AI](#using-ontosphere-with-any-ai)
     - [Claude Code / Playwright](#claude-code--playwright-full-automation)
     - [AI Relay Bridge (ChatGPT, Gemini, Claude.ai)](#chatgpt-gemini-claudeai--ai-relay-bridge)
 - [Contributing](#contributing--development-notes)
@@ -35,7 +35,7 @@ VisGraph — Browser-based RDF Knowledge Graph Editor
 
 Overview
 --------
-VisGraph is a browser-based [RDF](https://www.w3.org/RDF/)/ontology knowledge graph editor. It loads RDF from local files, remote URLs, or SPARQL/Fuseki endpoints; lets users author nodes and edges directly on the canvas; runs [OWL-RL](https://www.w3.org/TR/owl2-profiles/#OWL_2_RL) reasoning with visual differentiation of inferred triples; and applies multi-algorithm layout ([Dagre](https://github.com/dagrejs/dagre), [ELK](https://github.com/kieler/elkjs)) and automatic clustering for large graphs. Additional features include namespace management with live URI renaming, a drag-and-drop workflow template catalog, and a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for AI-agent integration. All computation runs entirely client-side in the browser against an in-memory RDF store backed by Web Workers — no backend required.
+Ontosphere is a browser-based [RDF](https://www.w3.org/RDF/)/ontology knowledge graph editor. It loads RDF from local files, remote URLs, or SPARQL/Fuseki endpoints; lets users author nodes and edges directly on the canvas; runs [OWL-RL](https://www.w3.org/TR/owl2-profiles/#OWL_2_RL) reasoning with visual differentiation of inferred triples; and applies multi-algorithm layout ([Dagre](https://github.com/dagrejs/dagre), [ELK](https://github.com/kieler/elkjs)) and automatic clustering for large graphs. Additional features include namespace management with live URI renaming, a drag-and-drop workflow template catalog, and a [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for AI-agent integration. All computation runs entirely client-side in the browser against an in-memory RDF store backed by Web Workers — no backend required.
 
 Key capabilities
 ----------------
@@ -70,7 +70,7 @@ Quick start (development)
 
 Startup / URL parameters
 ------------------------
-VisGraph supports several URL query parameters that control what is loaded on startup.
+Ontosphere supports several URL query parameters that control what is loaded on startup.
 
 ### RDF data URL
 
@@ -85,7 +85,7 @@ VisGraph supports several URL query parameters that control what is loaded on st
    ?rdfUrl=https://example.org/mydata.ttl
    ```
 
-2. **SPARQL endpoints** — URLs whose path ends with `/sparql` or `/query` are recognised automatically. VisGraph issues a `CONSTRUCT { ?s ?p ?o } WHERE { { ?s ?p ?o } UNION { GRAPH ?g { ?s ?p ?o } } }` query.
+2. **SPARQL endpoints** — URLs whose path ends with `/sparql` or `/query` are recognised automatically. Ontosphere issues a `CONSTRUCT { ?s ?p ?o } WHERE { { ?s ?p ?o } UNION { GRAPH ?g { ?s ?p ?o } } }` query.
    ```
    ?rdfUrl=https://example.org/fuseki/$/sparql
    ```
@@ -108,7 +108,7 @@ VisGraph supports several URL query parameters that control what is loaded on st
 &apiKeyHeader=Authorization
 ```
 
-The API key is sent only with the RDF fetch request. CORS: the server must allow the VisGraph origin with credentials (wildcard `*` origins are incompatible with authenticated requests).
+The API key is sent only with the RDF fetch request. CORS: the server must allow the Ontosphere origin with credentials (wildcard `*` origins are incompatible with authenticated requests).
 
 ### Ontology pre-loading
 
@@ -176,7 +176,7 @@ Reasoning demo
 --------------
 The reasoning demo ontology showcases OWL-RL inference directly in the browser:
 
-https://thhanke.github.io/visgraph/?rdfUrl=https://raw.githubusercontent.com/ThHanke/visgraph/refs/heads/main/public/reasoning-demo.ttl
+https://thhanke.github.io/ontosphere/?rdfUrl=https://raw.githubusercontent.com/ThHanke/ontosphere/refs/heads/main/public/reasoning-demo.ttl
 
 The demo (`public/reasoning-demo.ttl`) defines a small employee hierarchy (Person → Employee → Manager → Executive) with ABox assertions that drive five inference patterns:
 
@@ -190,7 +190,7 @@ Click **Run reasoning** in the toolbar. Inferred triples appear as amber dashed 
 
 CORS and proxies
 ----------------
-VisGraph fetches remote RDF directly from the browser. If the remote host does not allow cross-origin requests, the fetch will be blocked.
+Ontosphere fetches remote RDF directly from the browser. If the remote host does not allow cross-origin requests, the fetch will be blocked.
 
 Workarounds:
 - Use CORS-enabled hosting for the RDF file.
@@ -204,7 +204,7 @@ Using the UI
 
 The annotated diagram below identifies the numbered UI elements described in this section.
 
-![VisGraph UI overview](public/ui-overview.svg)
+![Ontosphere UI overview](public/ui-overview.svg)
 
 ### Top bar — left group
 
@@ -314,7 +314,7 @@ Troubleshooting
 AI / MCP Integration
 --------------------
 
-VisGraph exposes a full [Model Context Protocol](https://modelcontextprotocol.io) tool surface so AI agents can build and reason over knowledge graphs through natural-language chat.
+Ontosphere exposes a full [Model Context Protocol](https://modelcontextprotocol.io) tool surface so AI agents can build and reason over knowledge graphs through natural-language chat.
 
 ### How it works
 
@@ -341,7 +341,7 @@ await page.addInitScript(() => {
 
 // After page load:
 await page.evaluate(async () => {
-  const mod = await import('/src/mcp/visgraphMcpServer.ts');
+  const mod = await import('/src/mcp/ontosphereMcpServer.ts');
   await mod.registerMcpTools();
 });
 
@@ -397,36 +397,36 @@ node scripts/run-demo.mjs docs/mcp-demo/seeds/scene-ontology.md
 
 Full tool declarations with input schemas: [public/.well-known/mcp.json](public/.well-known/mcp.json)
 
-### Using VisGraph with any AI
+### Using Ontosphere with any AI
 
-The demo scripts work against the **live deployment** — no local server needed. Any AI that can drive a browser (Claude Code, headless Playwright, computer-use agents) can use VisGraph directly via its MCP tools.
+The demo scripts work against the **live deployment** — no local server needed. Any AI that can drive a browser (Claude Code, headless Playwright, computer-use agents) can use Ontosphere directly via its MCP tools.
 
 #### Claude Code / Playwright (full automation)
 
 Point the demo scripts at the deployed app:
 
 ```sh
-node scripts/mcp-demo-reasoning.mjs --url https://thhanke.github.io/visgraph
-node scripts/mcp-demo-foaf.mjs       --url https://thhanke.github.io/visgraph
+node scripts/mcp-demo-reasoning.mjs --url https://thhanke.github.io/ontosphere
+node scripts/mcp-demo-foaf.mjs       --url https://thhanke.github.io/ontosphere
 ```
 
 The script opens a headless browser, navigates to the URL, registers the MCP tools, then drives the full workflow — building TBox + ABox, running reasoning, taking snapshots, exporting Turtle — exactly as shown in the demo documents.
 
 #### ChatGPT, Gemini, Claude.ai — AI Relay Bridge
 
-The **AI Relay Bridge** connects any AI chat tab to VisGraph with no server, extension, or copy-paste. A bookmarklet watches the AI's output for backtick-wrapped JSON-RPC 2.0 tool calls, executes them in VisGraph via a BroadcastChannel popup, and injects JSON-RPC responses back into the chat input automatically.
+The **AI Relay Bridge** connects any AI chat tab to Ontosphere with no server, extension, or copy-paste. A bookmarklet watches the AI's output for backtick-wrapped JSON-RPC 2.0 tool calls, executes them in Ontosphere via a BroadcastChannel popup, and injects JSON-RPC responses back into the chat input automatically.
 
 ➡️ **[Full setup guide: docs/relay-bridge.md](docs/relay-bridge.md)**
 
 **Setup (one time):**
-1. Open VisGraph, expand the **AI Relay** sidebar panel
-2. Drag the **VisGraph Relay** button to your browser bookmark bar
+1. Open Ontosphere, expand the **AI Relay** sidebar panel
+2. Drag the **Ontosphere Relay** button to your browser bookmark bar
 3. Go to your AI chat tab and click the bookmark — a small relay popup opens
 
 **Starter prompt** (paste into your AI chat after clicking the bookmarklet):
 
 ```text
-You are connected to VisGraph via a relay. A script in this tab intercepts your tool calls, runs them in VisGraph, and injects results back as a user message.
+You are connected to Ontosphere via a relay. A script in this tab intercepts your tool calls, runs them in Ontosphere, and injects results back as a user message.
 
 Output format — one JSON-RPC 2.0 call per line, backtick-wrapped:
 `{"jsonrpc":"2.0","id":<N>,"method":"tools/call","params":{"name":"<toolName>","arguments":{...}}}`

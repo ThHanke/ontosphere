@@ -1,6 +1,6 @@
-# VisGraph — Agent Guide
+# Ontosphere — Agent Guide
 
-VisGraph is a browser-based RDF/ontology knowledge graph editor with a full
+Ontosphere is a browser-based RDF/ontology knowledge graph editor with a full
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io) tool surface.
 AI agents can build, query, reason over, and export knowledge graphs through
 natural-language chat — no backend required.
@@ -8,7 +8,7 @@ natural-language chat — no backend required.
 ## Live instance
 
 ```
-https://thhanke.github.io/visgraph/
+https://thhanke.github.io/ontosphere/
 ```
 
 Local dev (after `npm install && npm run dev`):
@@ -30,7 +30,7 @@ The manifest is served at `/.well-known/mcp.json` — a W3C-compatible MCP
 discovery document with full JSON Schema input declarations for every tool.
 
 ```
-https://thhanke.github.io/visgraph/.well-known/mcp.json
+https://thhanke.github.io/ontosphere/.well-known/mcp.json
 ```
 
 **Key tools** (30+ total — see manifest for full schemas):
@@ -71,10 +71,10 @@ await page.evaluate(async () => {
 
 ### Option B — AI Relay Bridge (ChatGPT, Claude.ai, Gemini, …)
 
-Any AI chat that can emit inline JSON-RPC 2.0 tool calls can control VisGraph
+Any AI chat that can emit inline JSON-RPC 2.0 tool calls can control Ontosphere
 via the **relay bookmarklet** — no browser extension, no server.
 
-1. Open VisGraph and drag the **"⚡ VisGraph Relay"** button from the left
+1. Open Ontosphere and drag the **"⚡ Ontosphere Relay"** button from the left
    sidebar → **AI Relay** section to your bookmark bar.
 2. Open your AI chat tab and click the bookmarklet.
 3. Paste the starter prompt below; the relay intercepts tool calls and injects
@@ -85,10 +85,10 @@ Full setup: [docs/relay-bridge.md](docs/relay-bridge.md)
 **Relay starter prompt:**
 
 ```
-You are connected to VisGraph via a relay. A script in this tab intercepts
+You are connected to Ontosphere via a relay. A script in this tab intercepts
 your JSON-RPC 2.0 tool calls (wrapped in backtick fences), runs them in
-VisGraph, and injects results back as a user message. All computation runs
-client-side. Full tool list: https://thhanke.github.io/visgraph/.well-known/mcp.json
+Ontosphere, and injects results back as a user message. All computation runs
+client-side. Full tool list: https://thhanke.github.io/ontosphere/.well-known/mcp.json
 ```
 
 ## Graph architecture (read before building)
@@ -152,7 +152,7 @@ node scripts/run-demo.mjs docs/mcp-demo/seeds/foaf-social-network.md
 
 ## URL startup parameters
 
-Agents can deep-link VisGraph with pre-loaded data:
+Agents can deep-link Ontosphere with pre-loaded data:
 
 | Parameter | Description |
 |-----------|-------------|
@@ -162,7 +162,7 @@ Agents can deep-link VisGraph with pre-loaded data:
 
 Example:
 ```
-https://thhanke.github.io/visgraph/?rdfUrl=https://example.org/data.ttl&reasoning=true
+https://thhanke.github.io/ontosphere/?rdfUrl=https://example.org/data.ttl&reasoning=true
 ```
 
 ## Discovering property IRIs

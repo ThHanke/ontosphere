@@ -25,7 +25,7 @@ then axioms. Starting in TBox view so every class and property node lands on the
 `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#Executive","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"Executive"}}}`
 
 ```tool-result
-[VisGraph — 5 tools ✓]
+[Ontosphere — 5 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://example.com/reasoning-demo#Person
 ✓ addNode: http://example.com/reasoning-demo#Employee
@@ -54,7 +54,7 @@ Canvas: 4 nodes, 0 links
 `{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#jobTitle","typeIri":"http://www.w3.org/2002/07/owl#AnnotationProperty","label":"jobTitle"}}}`
 
 ```tool-result
-[VisGraph — 7 tools ✓]
+[Ontosphere — 7 tools ✓]
 ✓ addNode: http://example.com/reasoning-demo#knows
 ✓ addNode: http://example.com/reasoning-demo#hasFriend
 ✓ addNode: http://example.com/reasoning-demo#manages
@@ -104,7 +104,7 @@ Canvas: 11 nodes, 0 links
 `{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 24 tools ✓]
+[Ontosphere — 24 tools ✓]
 ✓ addLink: s=Employee p=subClassOf o=Person
 ✓ addLink: s=Manager p=subClassOf o=Employee
 ✓ addLink: s=Executive p=subClassOf o=Manager
@@ -156,7 +156,7 @@ inferred from the `manages rdfs:domain Manager` axiom once he asserts a `manages
 `{"jsonrpc":"2.0","id":41,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","label":"Dave"}}}`
 
 ```tool-result
-[VisGraph — 5 tools ✓]
+[Ontosphere — 5 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://example.com/reasoning-demo#alice
 ✓ addNode: http://example.com/reasoning-demo#bob
@@ -182,7 +182,7 @@ subproperty of `rdfs:comment`, the reasoner will infer `rdfs:comment` values for
 `{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix ex: <http://example.com/reasoning-demo#> .\nex:alice ex:jobTitle \"Chief Executive\" .\nex:dave  ex:jobTitle \"Division Manager\" ."}}}`
 
 ```tool-result
-[VisGraph — 1 tool ✓]
+[Ontosphere — 1 tool ✓]
 ✓ loadRdf: loaded
 
 Canvas: 4 nodes, 0 links
@@ -213,7 +213,7 @@ can see the ABox shape before we run the reasoner:
 `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 9 tools ✓]
+[Ontosphere — 9 tools ✓]
 ✓ addLink: s=alice p=manages o=carol
 ✓ addLink: s=dave p=manages o=bob
 ✓ addLink: s=alice p=hasFriend o=bob
@@ -246,7 +246,7 @@ Canvas: 4 nodes, 6 links
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 3 tools ✓]
+[Ontosphere — 3 tools ✓]
 ✓ runReasoning: 22911 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
@@ -272,7 +272,7 @@ Canvas: 4 nodes, 15 links
 `{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.com/reasoning-demo#dave","expand":true}}}`
 
 ```tool-result
-[VisGraph — 2 tools ✓]
+[Ontosphere — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
@@ -297,7 +297,7 @@ not included here.
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
-[VisGraph — 1 tool ✓]
+[Ontosphere — 1 tool ✓]
 ✓ exportGraph: 4629 chars
 
 Canvas: 4 nodes, 15 links
@@ -431,7 +431,7 @@ ex:dave a owl:Thing, ex:Person, ex:Employee, ex:Manager;
 
 ```
 
-[Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Freasoning-demo%2Fgraph.ttl)
+[Open this graph in Ontosphere ↗](https://thhanke.github.io/ontosphere/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fontosphere%2Fmain%2Fdocs%2Fmcp-demo%2Freasoning-demo%2Fgraph.ttl)
 ```
 
 </details>

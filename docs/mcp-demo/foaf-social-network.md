@@ -21,7 +21,7 @@
 `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n@prefix owl:  <http://www.w3.org/2002/07/owl#> .\nfoaf:Person a owl:Class ; rdfs:label \"Person\" .\nfoaf:Organization a owl:Class ; rdfs:label \"Organization\" .\nfoaf:Agent a owl:Class ; rdfs:label \"Agent\" .\nfoaf:Person rdfs:subClassOf foaf:Agent .\nfoaf:Organization rdfs:subClassOf foaf:Agent .\nfoaf:knows a owl:ObjectProperty ; rdfs:domain foaf:Person ; rdfs:range foaf:Person ; rdfs:label \"knows\" .\nfoaf:member a owl:ObjectProperty ; rdfs:domain foaf:Agent ; rdfs:range foaf:Organization ; rdfs:label \"member of\" .\nfoaf:name a owl:DatatypeProperty ; rdfs:domain foaf:Agent ; rdfs:label \"name\" ."}}}`
 
 ```tool-result
-[VisGraph — 2 tools ✓]
+[Ontosphere — 2 tools ✓]
 ✓ setViewMode
 ✓ loadRdf: loaded
 
@@ -63,7 +63,7 @@ Canvas: 6 nodes, 7 links
 `{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 21 tools ✓]
+[Ontosphere — 21 tools ✓]
 ✓ addNode: http://example.org/ex#Employee
 ✓ addNode: http://example.org/ex#Manager
 ✓ addNode: http://example.org/ex#Executive
@@ -114,7 +114,7 @@ Canvas: 13 nodes, 17 links
 `{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://example.org/research","typeIri":"http://example.org/ex#Department","label":"Research"}}}`
 
 ```tool-result
-[VisGraph — 9 tools ✓]
+[Ontosphere — 9 tools ✓]
 ✓ setViewMode
 ✓ addNode: http://example.org/alice
 ✓ addNode: http://example.org/bob
@@ -161,7 +161,7 @@ Canvas: 8 nodes, 0 links
 `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 19 tools ✓]
+[Ontosphere — 19 tools ✓]
 ✓ addLink: s=alice p=manages o=bob
 ✓ addLink: s=alice p=manages o=frank
 ✓ addLink: s=bob p=manages o=carol
@@ -208,7 +208,7 @@ Canvas: 8 nodes, 16 links
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
-[VisGraph — 3 tools ✓]
+[Ontosphere — 3 tools ✓]
 ✓ runReasoning: 22947 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
@@ -234,7 +234,7 @@ Canvas: 8 nodes, 25 links
 `{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://example.org/frank","expand":true}}}`
 
 ```tool-result
-[VisGraph — 2 tools ✓]
+[Ontosphere — 2 tools ✓]
 ✓ focusNode
 ✓ expandNode
 
@@ -258,7 +258,7 @@ Canvas: 8 nodes, 25 links
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"exportGraph","arguments":{"format":"turtle"}}}`
 
 ```tool-result
-[VisGraph — 1 tool ✓]
+[Ontosphere — 1 tool ✓]
 ✓ exportGraph: 7300 chars
 
 Canvas: 8 nodes, 25 links
@@ -410,7 +410,7 @@ foaf:name rdfs:domain owl:Thing;
 
 ```
 
-[Open this graph in VisGraph ↗](https://thhanke.github.io/visgraph/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fvisgraph%2Fmain%2Fdocs%2Fmcp-demo%2Ffoaf-social-network%2Fgraph.ttl)
+[Open this graph in Ontosphere ↗](https://thhanke.github.io/ontosphere/?url=https%3A%2F%2Fraw.githubusercontent.com%2FThHanke%2Fontosphere%2Fmain%2Fdocs%2Fmcp-demo%2Ffoaf-social-network%2Fgraph.ttl)
 ```
 
 </details>
