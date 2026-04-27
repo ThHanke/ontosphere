@@ -192,6 +192,55 @@ export class DemoRunner {
     await this.page.waitForTimeout(ms);
   }
 
+  // ── Stage-mode (side-by-side) helpers ────────────────────────────────────
+
+  /**
+   * Add a message to the mock chat frame.
+   * role 'user' appears instantly; role 'ai' streams word-by-word.
+   */
+  async addChatMessage(role: 'user' | 'ai', text: string): Promise<void> {
+    await this.chatFrameHandle.evaluate(
+      ([r, t]) => { (window as any).addMessage(r, t); },
+      [role, text] as [string, string],
+    );
+  }
+
+  /**
+   * Wait for the current AI message to finish streaming.
+   * The mock chat sets status-bar text to 'AI done' when stream completes.
+   */
+  async waitForChatStream(timeout = 60_000): Promise<void> {
+    await this.chatFrame
+      .locator('#status-bar')
+      .filter({ hasText: /AI done/ })
+      .waitFor({ state: 'visible', timeout });
+  }
+
+  /** Set the mock chat word-streaming speed (ms per word). Default is 18. */
+  async setStreamSpeed(msPerWord: number): Promise<void> {
+    await this.chatFrameHandle.evaluate(
+      (ms) => { (window as any).STREAM_DELAY_MS = ms; },
+      msPerWord,
+    );
+  }
+
+  /**
+   * Call an MCP tool on the app iframe (stage mode).
+   * Use this instead of runSeedTurn when the app is loaded inside demo-stage.html.
+   */
+  async callToolOnStage(
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<void> {
+    await this.appFrameHandle.evaluate(
+      async ([n, a]: [string, Record<string, unknown>]) => {
+        const tool = (window as any).__mcpTools?.[n];
+        if (tool) await tool(a);
+      },
+      [name, args] as [string, Record<string, unknown>],
+    );
+  }
+
   /**
    * Show a caption overlay at the bottom of the viewport.
    * Stays visible until clearCaption() or the next caption() call.

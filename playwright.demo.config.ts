@@ -4,7 +4,7 @@ export default defineConfig({
   testDir: './e2e',
   testMatch: 'demo-*.spec.ts',
   outputDir: 'test-results/demo',
-  timeout: 120_000,
+  timeout: 600_000,
   fullyParallel: false,
   projects: [
     {
