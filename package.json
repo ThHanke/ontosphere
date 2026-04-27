@@ -42,6 +42,8 @@
     "test": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:real": "playwright test e2e/relay-bookmarklet.real.spec.ts",
+    "demo:video": "playwright test --config=playwright.demo.config.ts",
+    "demo:video:report": "playwright show-report test-results/demo",
     "generate:mcp": "node scripts/generate-mcp-json.mjs",
     "demo": "node scripts/run-demo.mjs",
     "demo:reasoning": "node scripts/run-demo.mjs docs/mcp-demo/seeds/reasoning-demo.md",

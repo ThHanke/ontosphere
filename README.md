@@ -30,6 +30,7 @@ Ontosphere — Browser-based RDF Knowledge Graph Editor
   - [Using Ontosphere with any AI](#using-ontosphere-with-any-ai)
     - [Claude Code / Playwright](#claude-code--playwright-full-automation)
     - [AI Relay Bridge (ChatGPT, Gemini, Claude.ai)](#chatgpt-gemini-claudeai--ai-relay-bridge)
+- [Recording demo videos](#recording-demo-videos)
 - [Contributing](#contributing--development-notes)
 - [License & authors](#license--authors)
 
@@ -436,6 +437,29 @@ Call help first to get full instructions and the tool list:
 ```
 
 The relay handles execution and result feedback automatically — no manual copy-paste needed.
+
+Recording demo videos
+---------------------
+Demo videos are produced by writing a prose screenplay and asking Claude to execute it.
+No Playwright knowledge required — just describe what the video should show.
+
+**Workflow:**
+
+1. Write a screenplay in `docs/demo-scripts/<name>.md` — plain English prose, no YAML or JSON.
+2. Ask Claude: *"Record a demo video from this screenplay: `docs/demo-scripts/<name>.md`"*
+3. Claude generates `e2e/demo-<name>.spec.ts` using the runner primitives and commits it.
+4. Start the dev server (`npm run dev`).
+5. Run:
+   ```sh
+   npm run demo:video
+   ```
+6. Find the recording at `test-results/demo/demo-<name>/video.webm`.
+
+The runner opens `public/demo-stage.html` — mock chat on the left and the Ontosphere app on the right,
+side by side at 1920×1080. The mock chat simulates what real AI chat interfaces (ChatGPT, OpenWebUI,
+FhGenie) send; every screenplay should include a beat that makes this clear to the viewer.
+
+See `AGENTS.md` for full runner primitive reference and screenplay requirements.
 
 Contributing / Development notes
 ---------------------------------

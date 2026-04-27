@@ -215,3 +215,60 @@ After `loadOntology`, `pmd:` registers as `https://w3id.org/pmd/co/`. Check with
 - [docs/relay-bridge.md](docs/relay-bridge.md) — relay bridge setup guide
 - [public/.well-known/mcp.json](public/.well-known/mcp.json) — machine-readable tool manifest
 - [README.md](README.md) — full feature docs and quick start
+
+---
+
+## Recording demo videos
+
+Demo videos are produced by writing a prose screenplay and asking Claude to execute it.
+
+### Workflow
+
+1. Write a screenplay in `docs/demo-scripts/<name>.md` — plain English, no YAML or JSON required.
+2. Ask Claude: *"Record a demo video from this screenplay: `docs/demo-scripts/<name>.md`"*
+3. Claude reads the screenplay and writes `e2e/demo-<name>.spec.ts` using the runner primitives below.
+4. Commit the generated spec.
+5. Start the dev server (`npm run dev` or equivalent on port 8080).
+6. Run: `npm run demo:video`
+7. Find the video at `test-results/demo/demo-<name>/video.webm` (not committed to git).
+
+### Screenplay requirements
+
+Every screenplay **must** include a "mode explanation" beat: hover or highlight the UI mode buttons
+(FhGenie, OpenWebUI, ChatGPT) and pause so the viewer understands the mock chat simulates those real
+chat interfaces — swap in any of them and the relay works identically.
+
+### Stage page
+
+The runner opens `public/demo-stage.html` — mock chat on the left, Ontosphere app on the right,
+side by side at full viewport (1920×1080). Both iframes point to `localhost:8080` (same origin,
+so the bookmarklet relay communication works).
+
+### Runner primitives (`e2e/demo-runner.ts`)
+
+```typescript
+const runner = new DemoRunner(page, BASE_URL);
+
+runner.openStage()                             // navigate to demo-stage.html, await __mcpTools
+runner.injectBookmarklet()                     // inject relay bookmarklet, await popup
+runner.clickScenario(name)                     // 'single' | 'batch' | 'full' | 'prefixed' | 'unknown-tool'
+runner.switchMode(mode)                        // 'fhgenie' | 'openwebui' | 'chatgpt'
+runner.waitForResult(timeout?)                 // wait for result in chat stream, returns text
+runner.clearChat()                             // clear chat
+runner.pauseMs(ms)                             // pause for pacing
+```
+
+For the mode explanation beat, access the chat iframe directly:
+
+```typescript
+const chatFrame = page.frameLocator('iframe:first-child');
+await chatFrame.locator('#mode-fhgenie').hover();
+await chatFrame.locator('#mode-openwebui').hover();
+await chatFrame.locator('#mode-chatgpt').hover();
+```
+
+### Environment
+
+- `DEMO_BASE_URL` env var overrides the default `http://localhost:8080`.
+- `headless: false` — recording runs a visible browser window; local-only.
+- Config: `playwright.demo.config.ts` (separate from CI config).
