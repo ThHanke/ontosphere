@@ -47,7 +47,17 @@ for (const name of specNames) {
     // Convert to mp4 for broad playback compatibility
     const mp4 = path.join(OUTPUT_DIR, `${name}.mp4`);
     try {
-      execFileSync('ffmpeg', ['-y', '-i', dest, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', mp4], { stdio: 'pipe' });
+      execFileSync('ffmpeg', [
+        '-y', '-i', dest,
+        '-c:v', 'libx264',
+        '-crf', '20',
+        '-preset', 'slow',
+        '-profile:v', 'high',
+        '-level:v', '4.2',
+        '-pix_fmt', 'yuv420p',
+        '-movflags', '+faststart',
+        mp4,
+      ], { stdio: 'pipe' });
       const mp4size = (fs.statSync(mp4).size / 1024).toFixed(0);
       console.log(`✓ docs/demo-videos/${name}.mp4   (${mp4size} KB)`);
     } catch {

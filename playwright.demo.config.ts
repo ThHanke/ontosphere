@@ -13,7 +13,7 @@ export default defineConfig({
         browserName: 'chromium',
         headless: false,
         viewport: { width: 1920, height: 1080 },
-        video: 'on',
+        video: { mode: 'on', size: { width: 1920, height: 1080 } },
         baseURL: 'http://localhost:8080',
       },
     },
