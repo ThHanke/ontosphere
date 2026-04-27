@@ -440,26 +440,24 @@ The relay handles execution and result feedback automatically — no manual copy
 
 Recording demo videos
 ---------------------
-Demo videos are produced by writing a prose screenplay and asking Claude to execute it.
-No Playwright knowledge required — just describe what the video should show.
+See [docs/demo-scripts/HOWTO.md](docs/demo-scripts/HOWTO.md) for the full guide.
 
-**Workflow:**
+Two styles of demo video are supported:
 
-1. Write a screenplay in `docs/demo-scripts/<name>.md` — plain English prose, no YAML or JSON.
-2. Ask Claude: *"Record a demo video from this screenplay: `docs/demo-scripts/<name>.md`"*
-3. Claude generates `e2e/demo-<name>.spec.ts` using the runner primitives and commits it.
-4. Start the dev server (`npm run dev`).
-5. Run:
-   ```sh
-   npm run demo:video
-   ```
-6. Find the recording at `docs/demo-videos/demo-<name>/video.webm`.
+**Seed-driven** — write a seed markdown file in `docs/mcp-demo/seeds/` with JSON-RPC
+tool calls embedded in backtick blocks. The runner parses the seed and executes each
+turn directly against `window.__mcpTools`. Existing seeds: `foaf-social-network`,
+`reasoning-demo`, `scene-ontology`, `pizza-tutorial`.
 
-The runner opens `public/demo-stage.html` — mock chat on the left and the Ontosphere app on the right,
-side by side at 1920×1080. The mock chat simulates what real AI chat interfaces (ChatGPT, OpenWebUI,
-FhGenie) send; every screenplay should include a beat that makes this clear to the viewer.
+**Chat-style (side-by-side)** — open `demo-stage.html` (mock chat left, app right),
+inject messages programmatically via `addChatMessage()`, and call tools on the app
+iframe via `callToolOnStage()`. No relay popup needed. Example: `pizza-tutorial-chat`.
 
-See `AGENTS.md` for full runner primitive reference and screenplay requirements.
+To re-record all videos:
+```sh
+npm run dev        # terminal 1
+npm run demo:video # terminal 2 — produces .webm + .mp4 in docs/demo-videos/
+```
 
 Contributing / Development notes
 ---------------------------------
