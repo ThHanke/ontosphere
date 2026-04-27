@@ -51,10 +51,10 @@ export const RelaySection: React.FC<RelaySectionProps> = ({ bookmarkletHref, con
           ref={bookmarkletRef}
           draggable
           onClick={(e) => e.preventDefault()}
-          aria-label="Drag to bookmark bar to install VisGraph Relay"
+          aria-label="Drag to bookmark bar to install Ontosphere Relay"
         >
           <Zap className="h-3.5 w-3.5 mr-1.5" />
-          VisGraph Relay
+          Ontosphere Relay
         </a>
       </Button>
 

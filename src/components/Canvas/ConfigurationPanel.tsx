@@ -300,7 +300,7 @@ export const ConfigurationPanel = ({
         <DialogHeader>
           <DialogTitle>Application Configuration</DialogTitle>
           <DialogDescription>
-            Manage persistent settings and preferences for the visgraph.
+            Manage persistent settings and preferences for Ontosphere.
           </DialogDescription>
         </DialogHeader>
 

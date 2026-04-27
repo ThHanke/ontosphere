@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VisGraph Relay Bridge</title>
+  <title>Ontosphere Relay Bridge</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -68,7 +68,7 @@
   </style>
 </head>
 <body>
-  <h1>⬡ VisGraph Relay Bridge</h1>
+  <h1>⬡ Ontosphere Relay Bridge</h1>
 
   <div class="status-row">
     <div class="dot" id="dot-opener"></div>
@@ -77,7 +77,7 @@
   </div>
   <div class="status-row">
     <div class="dot" id="dot-bc"></div>
-    <span class="label">VisGraph app (BC)</span>
+    <span class="label">Ontosphere app (BC)</span>
     <span class="value" id="val-bc">listening…</span>
   </div>
 
@@ -90,7 +90,7 @@
     Example: <code>window.open(location.href, 'vg-relay', 'width=320,height=200')</code>
   </div>
 
-  <p class="note">Keep this window open while using VisGraph with AI.</p>
+  <p class="note">Keep this window open while using Ontosphere with AI.</p>
 
   <script>
     // ── DOM refs ────────────────────────────────────────────────────────────
@@ -101,7 +101,7 @@
     const activity  = document.getElementById('activity');
     const standaloneMsg = document.getElementById('standalone-msg');
 
-    const CHANNEL_NAME = 'visgraph-relay-v1';
+    const CHANNEL_NAME = 'ontosphere-relay-v1';
 
     // ── Helpers ─────────────────────────────────────────────────────────────
     function setActivity(html) {
@@ -174,11 +174,11 @@
           }
         }
       };
-      // Send heartbeat so the VisGraph app can show a real connection indicator.
+      // Send heartbeat so the Ontosphere app can show a real connection indicator.
       bc.postMessage({ type: 'vg-ping' });
       const pingInterval = setInterval(function () {
         if (!bc) { clearInterval(pingInterval); return; }
-        // Include sessionId so VisGraph can detect relay reconnects after reload
+        // Include sessionId so Ontosphere can detect relay reconnects after reload
         const ping = lastSessionId ? { type: 'vg-ping', sessionId: lastSessionId } : { type: 'vg-ping' };
         bc.postMessage(ping);
       }, 10000);

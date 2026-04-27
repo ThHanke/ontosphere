@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>VisGraph - Knowledge Graph Builder</title>
-    
+    <title>Ontosphere - Knowledge Graph Builder</title>
+
 
     <!-- Inline theme preloader: apply persisted theme (light/dark/system) before React mounts to avoid FOUC.
          Also supports forcing theme via the "theme" URL query parameter (e.g. ?theme=dark) for dev/testing. -->
     <script>
       try {
         (function() {
-          var key = 'visgraph-theme';
+          var key = 'ontosphere-theme';
           var raw = null;
           try { raw = localStorage.getItem(key); } catch(e) { raw = null; }
           // Allow overriding via ?theme=dark or ?theme=light in the URL for testing
@@ -37,17 +37,17 @@
       } catch (e) { /* ignore */ }
     </script>
     <meta name="description" content="Build beautiful knowledge graphs with ontologies - A modern, lightweight web application for semantic data visualization" />
-    <meta name="author" content="VisGraph" />
+    <meta name="author" content="Ontosphere" />
 
-    <meta property="og:title" content="VisGraph - Knowledge Graph Builder" />
+    <meta property="og:title" content="Ontosphere - Knowledge Graph Builder" />
     <meta property="og:description" content="Build beautiful knowledge graphs with ontologies - A modern, lightweight web application for semantic data visualization" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/VisGraph.svg" />
+    <meta property="og:image" content="/ontosphere.svg" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="/VisGraph.svg" />
-    <link rel="icon" href="/favicon.ico" />
-    <link rel="mask-icon" href="/VisGraph.svg" color="#1d8f9f" />
+    <meta name="twitter:image" content="/ontosphere.svg" />
+    <link rel="icon" href="/ontosphere.svg" type="image/svg+xml" />
+    <link rel="mask-icon" href="/ontosphere.svg" color="#7c63e0" />
   </head>
 
   <body>

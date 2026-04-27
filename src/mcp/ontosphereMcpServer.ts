@@ -1,4 +1,4 @@
-// src/mcp/visgraphMcpServer.ts
+// src/mcp/ontosphereMcpServer.ts
 import { mcpManifest } from './manifest';
 import { graphTools } from './tools/graph';
 import { nodeTools } from './tools/nodes';

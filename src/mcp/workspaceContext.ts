@@ -2,7 +2,7 @@
 import type * as Reactodia from '@reactodia/workspace';
 import type { N3DataProvider } from '@/providers/N3DataProvider';
 
-const CHANNEL_NAME = 'visgraph-relay-v1';
+const CHANNEL_NAME = 'ontosphere-relay-v1';
 
 interface WorkspaceRefs {
   ctx: Reactodia.WorkspaceContext;

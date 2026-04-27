@@ -2,7 +2,7 @@
 import { toast } from 'sonner';
 import type { McpResult } from './types';
 
-const CHANNEL_NAME = 'visgraph-relay-v1';
+const CHANNEL_NAME = 'ontosphere-relay-v1';
 const RETRY_COUNT = 3;
 const RETRY_DELAY_MS = 200;
 
@@ -98,7 +98,7 @@ async function handleCall(
   const tools = await waitForMcpTools(RETRY_COUNT);
 
   if (!tools) {
-    const error = 'VisGraph workspace not yet initialised';
+    const error = 'Ontosphere workspace not yet initialised';
     channel.postMessage({ type: 'vg-result', requestId, result: { success: false, error } });
     channel.postMessage({ type: 'vg-ready' });
     toast.error(`✗ ${tool}: ${error}`);

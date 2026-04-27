@@ -8,7 +8,7 @@
 
 type Theme = 'light' | 'dark' | 'system';
 
-const STORAGE_KEY = 'visgraph-theme';
+const STORAGE_KEY = 'ontosphere-theme';
 const DARK_CLASS = 'dark';
 
 function getStoredTheme(): Theme | null {

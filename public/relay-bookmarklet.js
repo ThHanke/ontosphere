@@ -1,5 +1,5 @@
 /**
- * VisGraph Relay Bookmarklet — full readable source
+ * Ontosphere Relay Bookmarklet — full readable source
  *
  * Injected into an AI chat tab.  It:
  *   1. Opens (or reuses) the relay popup window (relay.html).
@@ -74,7 +74,7 @@
     badge.title = 'Click to reopen relay popup';
 
     var span = document.createElement('span');
-    span.textContent = '🟢 VisGraph Relay Active';
+    span.textContent = '🟢 Ontosphere Relay Active';
 
     var x = document.createElement('span');
     x.textContent = '×';
@@ -410,7 +410,7 @@
   /* ── Format and inject combined batch result ───────────────────────────── */
   function injectCombinedResult(results, finalSummary, finalSvg) {
     var allOk = results.every(function (r) { return r.ok; });
-    var lines = ['[VisGraph — ' + results.length + ' tool' + (results.length !== 1 ? 's' : '') + (allOk ? ' ✓' : ' (some failed)') + ']'];
+    var lines = ['[Ontosphere — ' + results.length + ' tool' + (results.length !== 1 ? 's' : '') + (allOk ? ' ✓' : ' (some failed)') + ']'];
     results.forEach(function (r) {
       var resp;
       if (r.ok) {
@@ -466,7 +466,7 @@
         error: { code: -32000, message: timedOutTool + ' did not respond within ' + (CALL_TIMEOUT_MS / 1000) + ' s. A follow-up result will be injected automatically.', data: { tool: timedOutTool, lateResult: true } },
       });
       results.push({ tool: timedOutTool, mcpId: timedOutId, ok: false, result: { success: false, error: 'timeout' } });
-      var lines = ['[VisGraph — ⏱ ' + timedOutTool + ' timed out]'];
+      var lines = ['[Ontosphere — ⏱ ' + timedOutTool + ' timed out]'];
       results.forEach(function (r) {
         var rr = (r.tool === timedOutTool && !r.ok) ? resp : r.ok
           ? JSON.stringify({ jsonrpc: '2.0', id: r.mcpId != null ? r.mcpId : null, result: { content: [{ type: 'text', text: briefData(r.result && r.result.data) }] } })
@@ -488,7 +488,7 @@
     if (data && data.type === 'vg-ping') {
       if (data.sessionId) {
         if (knownSessionId && knownSessionId !== data.sessionId) {
-          showToast('VisGraph reloaded — graph data was lost', false);
+          showToast('Ontosphere reloaded — graph data was lost', false);
           clearTimeout(callTimeoutTimer);
           isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null;
           batchResults = []; callQueue = []; lastSummary = null; lateResult = null;
@@ -509,7 +509,7 @@
       var lresp = lok
         ? JSON.stringify({ jsonrpc: '2.0', id: lr.mcpId != null ? lr.mcpId : null, result: { content: [{ type: 'text', text: briefData(data.result && data.result.data) }] } })
         : JSON.stringify({ jsonrpc: '2.0', id: lr.mcpId != null ? lr.mcpId : null, error: { code: -32000, message: String((data.result && data.result.error) || 'failed'), data: { tool: lr.tool } } });
-      var ll = ['[VisGraph — late result for ' + lr.tool + (lok ? ' ✓' : ' ✗') + ']', '`' + lresp + '`'];
+      var ll = ['[Ontosphere — late result for ' + lr.tool + (lok ? ' ✓' : ' ✗') + ']', '`' + lresp + '`'];
       if (data.summary) { ll.push(''); ll.push(data.summary); }
       if (data.svg) { ll.push(''); ll.push('Current graph (SVG):'); ll.push(data.svg); }
       injectResult(ll.join('\n'));
