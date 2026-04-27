@@ -8,6 +8,7 @@ npm run demo:video   # terminal 2
 ```
 
 Outputs `docs/demo-videos/<name>.webm` + `.mp4`. Commit both.
+`demo:video` runs Playwright then automatically calls `scripts/collect-demo-videos.mjs`, which copies videos from the hashed Playwright output dir to `docs/demo-videos/<name>.*`.
 
 > **Requires `ffmpeg`** for `.mp4` conversion. If missing, only `.webm` is written and a warning is printed.
 > Install: `sudo apt install ffmpeg` (Debian/Ubuntu) or `brew install ffmpeg` (macOS).
