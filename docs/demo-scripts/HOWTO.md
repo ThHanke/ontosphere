@@ -9,6 +9,9 @@ npm run demo:video   # terminal 2
 
 Outputs `docs/demo-videos/<name>.webm` + `.mp4`. Commit both.
 
+> **Requires `ffmpeg`** for `.mp4` conversion. If missing, only `.webm` is written and a warning is printed.
+> Install: `sudo apt install ffmpeg` (Debian/Ubuntu) or `brew install ffmpeg` (macOS).
+
 ## Create a new demo video
 
 1. Write screenplay in `docs/demo-scripts/<name>.md` — plain English prose (see `advert-intro.md` as example)
@@ -22,7 +25,7 @@ Seed files (`docs/mcp-demo/seeds/*.md`) already contain the full AI workflow as 
 To turn one into a video, create a spec that calls `DemoRunner.parseSeed()` + `runSeedTurn()`:
 
 ```ts
-const turns = DemoRunner.parseSeed(path.resolve(__dirname, '../docs/mcp-demo/seeds/my-seed.md'));
+const turns = DemoRunner.parseSeed('docs/mcp-demo/seeds/my-seed.md'); // relative to repo root
 await runner.openApp();
 for (const turn of turns) {
   await runner.runSeedTurn(turn, 250);
