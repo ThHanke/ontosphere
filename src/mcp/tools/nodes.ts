@@ -235,24 +235,31 @@ const getNodeDetails: McpTool = {
       const iri = expandIri(raw.iri);
       if (iri.startsWith('Unknown prefix:')) return { success: false, error: iri };
 
-      const { items } = await rdfManager.fetchQuadsPage({
-        graphName: 'urn:vg:data',
-        filter: { subject: iri },
-        limit: 0,
-      });
+      const [{ items: dataItems }, { items: inferredItems }] = await Promise.all([
+        rdfManager.fetchQuadsPage({ graphName: 'urn:vg:data',     filter: { subject: iri }, limit: 0 }),
+        rdfManager.fetchQuadsPage({ graphName: 'urn:vg:inferred', filter: { subject: iri }, limit: 0 }),
+      ]);
 
       let label = '';
-      const types: string[] = [];
-      const properties: Array<{ predicate: string; object: string; objectType: 'iri' | 'literal' | 'bnode' }> = [];
+      const typeSet = new Set<string>();
+      const properties: Array<{ predicate: string; object: string; objectType: 'iri' | 'literal' | 'bnode'; inferred?: boolean }> = [];
 
-      for (const q of (items ?? [])) {
+      for (const q of (dataItems ?? [])) {
         const objectType = classifyObject(q.object);
         properties.push({ predicate: q.predicate, object: q.object, objectType });
         if (q.predicate === RDFS_LABEL_IRI && !label) label = q.object;
-        if (q.predicate === RDF_TYPE_IRI) types.push(q.object);
+        if (q.predicate === RDF_TYPE_IRI) typeSet.add(q.object);
+      }
+      for (const q of (inferredItems ?? [])) {
+        if (q.predicate === RDFS_LABEL_IRI && !label) label = q.object;
+        if (q.predicate === RDF_TYPE_IRI) typeSet.add(q.object);
+        else {
+          const objectType = classifyObject(q.object);
+          properties.push({ predicate: q.predicate, object: q.object, objectType, inferred: true });
+        }
       }
 
-      return { success: true, data: { iri, label, types, properties } };
+      return { success: true, data: { iri, label, types: [...typeSet], properties } };
     } catch (e) {
       return { success: false, error: String(e) };
     }

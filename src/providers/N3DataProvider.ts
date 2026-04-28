@@ -57,6 +57,7 @@ export const TBOX_PROPERTY_TYPES = new Set([
 export const TBOX_CLASS_TYPES = new Set([
   'http://www.w3.org/2002/07/owl#Class',
   'http://www.w3.org/2000/01/rdf-schema#Class',
+  'http://www.w3.org/2002/07/owl#Restriction',
 ]);
 
 /** Union of all TBox metatypes — a node with any of these is an ontology concept. */

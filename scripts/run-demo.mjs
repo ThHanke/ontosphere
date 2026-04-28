@@ -61,7 +61,7 @@ const seedBasename = path.basename(seedPath, '.md').replace(/^seeds\//, '');
 const defaultOut = path.join(ROOT, 'docs', 'mcp-demo', `${seedBasename}.md`);
 const outPath = path.resolve(argVal('--out') ?? defaultOut);
 const noServer = argv.includes('--no-start-server') || argv.includes('-n');
-const idleMs = parseInt(argVal('--idle') ?? '2500', 10);
+const idleMs = parseInt(argVal('--idle') ?? '0', 10);
 const baseUrl = argVal('--url') ?? undefined;
 
 // ── seed parser ──────────────────────────────────────────────────────────────
@@ -234,6 +234,7 @@ async function run() {
 
   const outputParts = [];
   let pendingBatch = null; // calls executed but awaiting the tool-result segment
+  let lastBatchHadFocus = false;
 
   for (const seg of segments) {
     if (seg.type === 'prose') {
@@ -251,14 +252,15 @@ async function run() {
         console.log(`→ ${parsed.name}`, JSON.stringify(parsed.args).slice(0, 120));
         const result = await callTool(page, parsed.name, parsed.args);
         batch.push({ name: parsed.name, args: parsed.args, result });
-        await sleep(300);
       }
       const stateAfter = await callTool(page, 'getGraphState', {});
-      pendingBatch = { batch, stateAfter, rawLines: seg.rawLines };
+      const hasFocus = batch.some(b => b.name === 'focusNode');
+      pendingBatch = { batch, stateAfter, rawLines: seg.rawLines, hasFocus };
 
     } else if (seg.type === 'tool-result') {
       if (pendingBatch) {
-        const { batch, stateAfter, rawLines } = pendingBatch;
+        const { batch, stateAfter, rawLines, hasFocus } = pendingBatch;
+        lastBatchHadFocus = hasFocus ?? false;
         pendingBatch = null;
         const content = buildResultBlock(batch, stateAfter, { imgDir, demoName });
         const n = batch.length;
@@ -275,9 +277,8 @@ async function run() {
       }
 
     } else if (seg.type === 'snapshot') {
-      // fitCanvas, then export SVG
-      await callTool(page, 'fitCanvas', {});
-      await sleep(600);
+      if (!lastBatchHadFocus) await callTool(page, 'fitCanvas', {});
+      lastBatchHadFocus = false;
       const r = await callTool(page, 'exportImage', { format: 'svg' });
       const filename = `${String(++snapCount).padStart(2, '0')}-${seg.slug}.svg`;
       if (r?.success && r.data?.content) {

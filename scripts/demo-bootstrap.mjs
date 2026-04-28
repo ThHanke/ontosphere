@@ -86,18 +86,23 @@ export async function startBrowser(opts = {}) {
 
   let serverProc = null;
   if (!noServer && baseUrl.startsWith('http://localhost')) {
-    console.log('Starting dev server…');
-    serverProc = spawn('npm', ['run', 'dev'], {
-      cwd: ROOT,
-      stdio: 'ignore',
-      detached: true,
-      env: { ...process.env },
-    });
-    if (!await waitFor(baseUrl, 120000)) {
-      console.error('Dev server not ready after 2 min');
-      process.exit(1);
+    const alreadyUp = await httpGet(baseUrl, 1000);
+    if (alreadyUp) {
+      console.log('Dev server already running');
+    } else {
+      console.log('Starting dev server…');
+      serverProc = spawn('npm', ['run', 'dev'], {
+        cwd: ROOT,
+        stdio: 'ignore',
+        detached: true,
+        env: { ...process.env },
+      });
+      if (!await waitFor(baseUrl, 120000)) {
+        console.error('Dev server not ready after 2 min');
+        process.exit(1);
+      }
+      console.log('Dev server ready');
     }
-    console.log('Dev server ready');
   }
 
   const browser = await chromium.launch({ headless: true });
