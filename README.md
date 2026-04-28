@@ -18,6 +18,7 @@ Ontosphere — Browser-based RDF Knowledge Graph Editor
 - [Key capabilities](#key-capabilities)
 - [Quick start (development)](#quick-start-development)
 - [Startup / URL parameters](#startup--url-parameters)
+- [Reasoning](#reasoning)
 - [Reasoning demo](#reasoning-demo)
 - [CORS and proxies](#cors-and-proxies)
 - [Using the UI](#using-the-ui)
@@ -173,21 +174,56 @@ All startup mechanisms are additive and run in this order:
 - `window.__VG_STARTUP_URL` — programmatic URL override (takes precedence over `rdfUrl`).
 - `VITE_STARTUP_URL` environment variable — build-time default startup URL.
 
+Reasoning
+---------
+
+Ontosphere runs [OWL-RL](https://www.w3.org/TR/owl2-profiles/#OWL_2_RL) inference entirely in the browser using the **N3.js BGP-only Reasoner**. Inferred triples appear as amber dashed edges; inferred types and annotations appear in amber italic. A reasoning report lists all inferred triples grouped by rule. Reasoning is idempotent — running it again produces no additional triples. Use **Clear inferred** to remove all inferred triples without affecting asserted data.
+
+**Supported OWL constructs:**
+
+| Construct | Rule(s) | Notes |
+|-----------|---------|-------|
+| `rdfs:subClassOf` (transitivity) | `cax-sco`, `scm-sco` | Full transitive closure |
+| `owl:equivalentClass` | `cax-eqc1/2`, `scm-eqc1/2` | Bidirectional; derives `rdfs:subClassOf` |
+| `owl:someValuesFrom` restrictions | `cls-svf1/2`, `scm-svf1/2` | Used in description-logic classification (e.g. pizza patterns) |
+| `owl:allValuesFrom` restrictions | `cls-avf` | Filler type propagation |
+| `owl:hasValue` restrictions | `cls-hv1/2` | Fixed-value property constraints |
+| `owl:inverseOf` | `prp-inv1/2` | Both directions |
+| `owl:SymmetricProperty` | `prp-symp` | |
+| `owl:TransitiveProperty` | `prp-trp` | |
+| `rdfs:subPropertyOf` | `prp-spo1` | |
+| `rdfs:domain` / `rdfs:range` | `prp-domain`, `prp-range` | |
+| `owl:disjointWith` violations | `cax-dw` | Raises consistency violation |
+
+**Not supported — requires full EYE reasoner:**
+
+| Construct | Reason |
+|-----------|--------|
+| `owl:intersectionOf` membership | Requires `list:in` / `e:findall` built-ins |
+| `owl:unionOf` membership | Requires `list:in` built-in |
+| `owl:oneOf` enumeration | Requires `list:in` built-in |
+| `owl:AllDisjointClasses` / `owl:AllDisjointProperties` | Requires `list:in` + `log:notEqualTo` |
+| `owl:propertyChainAxiom` | Requires `e:propertyChainExtension` built-in |
+| `owl:FunctionalProperty` / `owl:InverseFunctionalProperty` | Generates `owl:sameAs` — explosive inference; excluded |
+| `owl:maxCardinality` / cardinality restrictions | Generates `owl:sameAs` — explosive inference; excluded |
+| `owl:sameAs` equality closure (eq-* rules) | Fires on every triple — O(n²) cost; excluded |
+
+N3.js is a BGP-only reasoner: any rule using EYE/SWAP built-ins (`e:findall`, `list:in`, `log:notEqualTo`) is silently ignored. The rule files in `public/reasoning-rules/` contain comments marking all such rules `[REQUIRES EYE]`. Full OWL-RL support (intersectionOf, unionOf, cardinality) requires migrating to [`eyereasoner`](https://www.npmjs.com/package/eyereasoner) (SWI-Prolog compiled to WASM) — tracked in `docs/plans/2026-04-28-006-feat-migrate-eyereasoner-plan.md`.
+
+**Performance:** Reasoning completes in under 2 seconds for typical ontologies (hundreds to a few thousand triples). There is currently no way to abort a running reasoning job; a page reload is required if reasoning hangs.
+
 Reasoning demo
 --------------
-The reasoning demo ontology showcases OWL-RL inference directly in the browser:
+The reasoning demo showcases OWL-RL inference on a small employee ontology:
+[Open demo ↗](https://thhanke.github.io/ontosphere/?rdfUrl=https://raw.githubusercontent.com/ThHanke/ontosphere/refs/heads/main/public/reasoning-demo.ttl)
 
-https://thhanke.github.io/ontosphere/?rdfUrl=https://raw.githubusercontent.com/ThHanke/ontosphere/refs/heads/main/public/reasoning-demo.ttl
+The demo (`public/reasoning-demo.ttl`) defines a Person → Employee → Manager → Executive hierarchy with ABox assertions that drive five inference patterns:
 
-The demo (`public/reasoning-demo.ttl`) defines a small employee hierarchy (Person → Employee → Manager → Executive) with ABox assertions that drive five inference patterns:
-
-1. **rdfs:subPropertyOf** — `ex:hasFriend` is a sub-property of `ex:knows`, so `alice hasFriend bob` infers `alice knows bob`.
-2. **owl:inverseOf** — `ex:isManagedBy` is the inverse of `ex:manages`, so `alice manages carol` infers `carol isManagedBy alice`.
-3. **owl:SymmetricProperty** — `ex:isColleagueOf` is symmetric, so `bob isColleagueOf carol` infers the reverse direction.
-4. **owl:TransitiveProperty** — `ex:hasSupervisor` is transitive, so `bob → alice` and `alice → dave` infers `bob → dave`.
-5. **rdfs:domain** — `ex:dave` has no explicit type, but because he is the subject of `ex:manages` (domain `ex:Manager`), the reasoner infers `dave rdf:type ex:Manager`.
-
-Click **Run reasoning** in the toolbar. Inferred triples appear as amber dashed edges. Running again is idempotent. Use **Clear inferred** to remove all inferred triples without affecting asserted data.
+1. **rdfs:subPropertyOf** — `ex:hasFriend` sub-property of `ex:knows`: `alice hasFriend bob` → `alice knows bob`.
+2. **owl:inverseOf** — `ex:isManagedBy` inverse of `ex:manages`: `alice manages carol` → `carol isManagedBy alice`.
+3. **owl:SymmetricProperty** — `ex:isColleagueOf` is symmetric: `bob isColleagueOf carol` → reverse direction.
+4. **owl:TransitiveProperty** — `ex:hasSupervisor` is transitive: `bob→alice`, `alice→dave` → `bob→dave`.
+5. **rdfs:domain** — `ex:dave` has no type; because he is subject of `ex:manages` (domain `ex:Manager`), the reasoner infers `dave rdf:type ex:Manager`.
 
 CORS and proxies
 ----------------
