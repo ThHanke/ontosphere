@@ -27,6 +27,8 @@ import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
 const RDF_TYPE_IRI = RDF_TYPE;
 const RDFS_LABEL_IRI = RDFS_LABEL;
 
+let _cachedQueryEngine: any = null;
+
 /**
  * Create a graph term from a graph name string.
  * Returns defaultGraph() for "default" or null/undefined, otherwise creates a namedNode.
@@ -1845,10 +1847,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           if (!sparql) throw new Error("sparqlQuery: sparql string required");
           const limit = typeof payload?.limit === "number" ? payload.limit : 200;
 
-          const { QueryEngine } = await import("@comunica/query-sparql-rdfjs");
+          if (!_cachedQueryEngine) {
+            const { QueryEngine } = await import("@comunica/query-sparql-rdfjs");
+            _cachedQueryEngine = new QueryEngine();
+          }
           const store = getSharedStore();
-          const engine = new QueryEngine();
-          const queryResult = await engine.query(sparql, { sources: [store] });
+          const queryResult = await _cachedQueryEngine.query(sparql, { sources: [store] });
 
           if (queryResult.resultType === "bindings") {
             const bindingsStream = await queryResult.execute();

@@ -576,6 +576,17 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
     const { ontologyUrl } = payload as { ontologyUrl: unknown };
     assertString(ontologyUrl as string, "unloadOntologySubjects.ontologyUrl must be a string");
   },
+  sparqlQuery(payload) {
+    assertPlainObject(payload, "sparqlQuery payload must be an object");
+    const { sparql, graphName, limit } = payload as { sparql: unknown; graphName: unknown; limit: unknown };
+    assertString(sparql, "sparqlQuery.sparql must be a string");
+    if (typeof graphName !== "undefined") {
+      assertString(graphName as string, "sparqlQuery.graphName must be a string when provided");
+    }
+    if (typeof limit !== "undefined") {
+      invariant(typeof limit === "number", "sparqlQuery.limit must be a number when provided");
+    }
+  },
 };
 
 export function validateRdfWorkerCommandInput(

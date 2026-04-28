@@ -2,7 +2,8 @@
 
 > Rebuilds the Manchester Pizza Tutorial ontology using only MCP tool calls, then runs OWL-RL
 > reasoning to infer types from domain/range axioms, propagate types via subClassOf chains,
-> and fire inverse property rules.
+> fire inverse property rules, and classify ABox individuals into their named pizza types
+> via owl:equivalentClass + owl:someValuesFrom restrictions.
 > Seed file — do not edit the rendered file; edit this and regenerate.
 
 ---
@@ -250,6 +251,79 @@ slug: tbox-complete
 
 ---
 
+**You:** Now define equivalentClass axioms so the reasoner can infer which named pizza type each individual belongs to.
+
+**Assistant:** In OWL, a named pizza class can be made *defined* by stating what is necessary and
+sufficient to be a member. We use anonymous blank-node `owl:someValuesFrom` restrictions as
+characteristic markers — each pizza carries at least one topping that is unique to its type.
+Linking the blank-node restriction to the named class with `owl:equivalentClass` turns the
+subclass into a *defined* class: any individual that satisfies the restriction is automatically
+classified as that pizza, with no extra type assertion needed.
+
+The blank-node pattern is the correct OWL DL encoding:
+`owl:equivalentClass [ a owl:Restriction; owl:onProperty P; owl:someValuesFrom C ]`.
+Using *named* restriction IRIs instead would cause the OWL-RL `scm-svf1` rule to merge all
+restrictions sharing the same property into one equivalence group — collapsing all named pizza
+types into a single class. Anonymous blank nodes never enter the class hierarchy by name, so
+each restriction stays isolated. We load these axioms with `loadRdf` inline Turtle.
+
+The characteristic toppings we exploit:
+
+- **Margherita** — identified by TomatoTopping (tomato is the hallmark ingredient; unique to pizza1 in this ABox)
+- **AmericanHot** — identified by PeperoniSausageTopping (unique to pizza2)
+- **FruttiDiMare** — identified by AnchoviesTopping (unique to pizza3)
+
+Note: full OWL-DL definitions use `owl:intersectionOf` combining multiple `someValuesFrom`
+restrictions. OWL-RL with n3.js does not support the `e:findall` builtin required for
+`cls-int1`, so we use a single characteristic topping per class — sufficient for correct
+inference over this ABox.
+
+`{"jsonrpc":"2.0","id":115,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix pizza: <http://www.pizza-ontology.com/pizza.owl#> .\n\npizza:Margherita owl:equivalentClass [\n    rdf:type owl:Restriction ;\n    owl:onProperty pizza:hasTopping ;\n    owl:someValuesFrom pizza:TomatoTopping\n] .\npizza:AmericanHot owl:equivalentClass [\n    rdf:type owl:Restriction ;\n    owl:onProperty pizza:hasTopping ;\n    owl:someValuesFrom pizza:PeperoniSausageTopping\n] .\npizza:FruttiDiMare owl:equivalentClass [\n    rdf:type owl:Restriction ;\n    owl:onProperty pizza:hasTopping ;\n    owl:someValuesFrom pizza:AnchoviesTopping\n] ."}}}`
+`{"jsonrpc":"2.0","id":116,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
+
+```tool-result
+<!-- runner fills this in -->
+```
+
+```snapshot
+caption: owl:equivalentClass + anonymous owl:someValuesFrom restriction — each NamedPizza class is now defined; blank nodes stay isolated so no type collapse occurs
+slug: tbox-equiv-class-axioms
+```
+
+---
+
+**You:** Now define VegetarianPizza — a pizza that has at least one vegetable topping.
+
+**Assistant:** VegetarianPizza is a NamedPizza defined by having some VegetableTopping. The
+`cls-svf1` rule will fire whenever an individual has a VegetableTopping via hasTopping —
+automatically classifying it as VegetarianPizza without any explicit type assertion.
+
+This also sets up an important lesson about the **Open World Assumption**: because OWL
+assumes the world may contain facts we have not yet stated, a pizza without any *asserted*
+meat toppings cannot be concluded to be vegetarian. The reasoner infers VegetarianPizza
+only from *positive* evidence — the presence of a VegetableTopping — not from the
+*absence* of meat. Full closure would require `owl:allValuesFrom` combined with an
+intersection, which needs the EYE reasoner's `e:findall` builtin (not available in OWL-RL
+via n3.js). As a result, FruttiDiMare — which has a GarlicTopping — will *also* be
+inferred as VegetarianPizza, which is semantically wrong but demonstrates exactly why
+closure axioms exist.
+
+`{"jsonrpc":"2.0","id":128,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#VegetarianPizza","typeIri":"http://www.w3.org/2002/07/owl#Class","label":"VegetarianPizza"}}}`
+`{"jsonrpc":"2.0","id":129,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#VegetarianPizza","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://www.pizza-ontology.com/pizza.owl#NamedPizza"}}}`
+`{"jsonrpc":"2.0","id":130,"method":"tools/call","params":{"name":"loadRdf","arguments":{"turtle":"@prefix owl: <http://www.w3.org/2002/07/owl#> .\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n@prefix pizza: <http://www.pizza-ontology.com/pizza.owl#> .\n\npizza:VegetarianPizza owl:equivalentClass [\n    rdf:type owl:Restriction ;\n    owl:onProperty pizza:hasTopping ;\n    owl:someValuesFrom pizza:VegetableTopping\n] ."}}}`
+`{"jsonrpc":"2.0","id":131,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
+
+```tool-result
+<!-- runner fills this in -->
+```
+
+```snapshot
+caption: VegetarianPizza ≡ ∃hasTopping.VegetableTopping — a defined class that will expose the Open World Assumption after reasoning
+slug: tbox-vegetarian-pizza
+```
+
+---
+
 **You:** The TBox is complete. Switch to ABox and add three untyped pizza individuals.
 
 **Assistant:** The ABox is the instance data — real individuals, not classes.
@@ -274,28 +348,26 @@ slug: abox-untyped-pizzas
 
 ---
 
-**You:** Build pizza1 — a Margherita-style pizza. Add its toppings and base.
+**You:** Build pizza1 — a Margherita pizza. Add its toppings and base.
 
-**Assistant:** Each topping individual is typed at the most specific leaf class only.
-The subClassOf chain (e.g. MozzarellaTopping ⊆ CheeseTopping ⊆ PizzaTopping) means
-we only assert the bottom level — the reasoner propagates membership upward.
+**Assistant:** Margherita is defined by exactly two ingredients: Mozzarella and Tomato.
+No garlic, no peperoni — the recipe and the ontology agree. Each individual is typed at
+the most specific leaf class; the subClassOf chain propagates membership upward automatically.
 
 `{"jsonrpc":"2.0","id":82,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#mozz1","typeIri":"http://www.pizza-ontology.com/pizza.owl#MozzarellaTopping","label":"mozz"}}}`
 `{"jsonrpc":"2.0","id":83,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#tom1","typeIri":"http://www.pizza-ontology.com/pizza.owl#TomatoTopping","label":"tomato"}}}`
-`{"jsonrpc":"2.0","id":84,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#garlic1","typeIri":"http://www.pizza-ontology.com/pizza.owl#GarlicTopping","label":"garlic"}}}`
-`{"jsonrpc":"2.0","id":85,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#thin1","typeIri":"http://www.pizza-ontology.com/pizza.owl#ThinAndCrispyBase","label":"thin & crispy"}}}`
-`{"jsonrpc":"2.0","id":86,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#mozz1"}}}`
-`{"jsonrpc":"2.0","id":87,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#tom1"}}}`
-`{"jsonrpc":"2.0","id":88,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#garlic1"}}}`
-`{"jsonrpc":"2.0","id":89,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin1"}}}`
-`{"jsonrpc":"2.0","id":90,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
+`{"jsonrpc":"2.0","id":84,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#thin1","typeIri":"http://www.pizza-ontology.com/pizza.owl#ThinAndCrispyBase","label":"thin & crispy"}}}`
+`{"jsonrpc":"2.0","id":85,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#mozz1"}}}`
+`{"jsonrpc":"2.0","id":86,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#tom1"}}}`
+`{"jsonrpc":"2.0","id":87,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin1"}}}`
+`{"jsonrpc":"2.0","id":88,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
 
 ```tool-result
 <!-- runner fills this in -->
 ```
 
 ```snapshot
-caption: pizza1 (Margherita-style) — toppings typed only at leaf level; no type on pizza1 itself yet
+caption: pizza1 (Margherita) — Mozzarella + Tomato, no type asserted yet; TomatoTopping will be the characteristic that triggers classification
 slug: pizza1-built
 ```
 
@@ -328,16 +400,18 @@ slug: pizza2-built
 
 ---
 
-**You:** And pizza3 — a FruttiDiMare with anchovies, tomato, and a thin base.
+**You:** And pizza3 — a FruttiDiMare with anchovies, garlic, and a thin base.
 
-**Assistant:** Pizza3 gets a fish topping, completing our coverage of three different topping
-categories across the three pizzas. After connecting, we lay out and expand the full ABox.
+**Assistant:** The official Manchester tutorial defines FruttiDiMare with GarlicTopping as one
+of its ingredients — garlic is the correct accompaniment to seafood here, not a Margherita
+ingredient. Anchovies are unique to this pizza in our ABox, making them the characteristic
+topping the reasoner will use for classification.
 
 `{"jsonrpc":"2.0","id":100,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#anch1","typeIri":"http://www.pizza-ontology.com/pizza.owl#AnchoviesTopping","label":"anchovies"}}}`
-`{"jsonrpc":"2.0","id":101,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#tom2","typeIri":"http://www.pizza-ontology.com/pizza.owl#TomatoTopping","label":"tomato"}}}`
+`{"jsonrpc":"2.0","id":101,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#garlic1","typeIri":"http://www.pizza-ontology.com/pizza.owl#GarlicTopping","label":"garlic"}}}`
 `{"jsonrpc":"2.0","id":102,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#thin2","typeIri":"http://www.pizza-ontology.com/pizza.owl#ThinAndCrispyBase","label":"thin & crispy"}}}`
 `{"jsonrpc":"2.0","id":103,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza3","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#anch1"}}}`
-`{"jsonrpc":"2.0","id":104,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza3","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#tom2"}}}`
+`{"jsonrpc":"2.0","id":104,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza3","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#garlic1"}}}`
 `{"jsonrpc":"2.0","id":105,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza3","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin2"}}}`
 `{"jsonrpc":"2.0","id":106,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
 `{"jsonrpc":"2.0","id":107,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
@@ -347,8 +421,36 @@ categories across the three pizzas. After connecting, we lay out and expand the 
 ```
 
 ```snapshot
-caption: ABox complete — three untyped pizzas, each with leaf-typed toppings and a base, ready for reasoning
+caption: ABox — three untyped pizzas with correct ingredients: Margherita (mozz+tomato), AmericanHot (peperoni+mozz+olive), FruttiDiMare (anchovies+garlic)
 slug: abox-before-reasoning
+```
+
+---
+
+**You:** Add a fourth pizza — purely vegetable toppings, no type asserted. We'll use this to demonstrate the Open World Assumption.
+
+**Assistant:** pizza4 has only an OliveTopping and a TomatoTopping — both VegetableToppings.
+We give it no type at all. After reasoning, the VegetarianPizza equivalentClass axiom will
+fire and classify it — but we also need to observe what the reasoner says about pizza3
+(FruttiDiMare), which has a garlic (VegetableTopping) alongside its anchovies.
+
+`{"jsonrpc":"2.0","id":135,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza4","label":"pizza4"}}}`
+`{"jsonrpc":"2.0","id":136,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#olive2","typeIri":"http://www.pizza-ontology.com/pizza.owl#OliveTopping","label":"olive"}}}`
+`{"jsonrpc":"2.0","id":137,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#tom2","typeIri":"http://www.pizza-ontology.com/pizza.owl#TomatoTopping","label":"tomato"}}}`
+`{"jsonrpc":"2.0","id":138,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#thin3","typeIri":"http://www.pizza-ontology.com/pizza.owl#ThinAndCrispyBase","label":"thin & crispy"}}}`
+`{"jsonrpc":"2.0","id":139,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza4","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#olive2"}}}`
+`{"jsonrpc":"2.0","id":140,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza4","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#tom2"}}}`
+`{"jsonrpc":"2.0","id":141,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza4","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin3"}}}`
+`{"jsonrpc":"2.0","id":142,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":143,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
+
+```tool-result
+<!-- runner fills this in -->
+```
+
+```snapshot
+caption: pizza4 — olive + tomato, no type; set up to expose what OWL-RL can and cannot infer about vegetarian status
+slug: pizza4-built
 ```
 
 ---
@@ -360,8 +462,12 @@ fires on our data:
 
 - **rdfs2 (domain):** pizza1/2/3 used hasTopping → their type is inferred as Pizza
 - **rdfs3 (range):** toppings used as hasTopping objects → inferred as PizzaTopping
-- **rdfs9 (subClassOf propagation):** mozz1 is MozzarellaTopping → also CheeseTopping → also PizzaTopping; anch1 is AnchoviesTopping → FishTopping → PizzaTopping; etc.
+- **rdfs9 / cax-sco (subClassOf propagation):** mozz1 is MozzarellaTopping → also CheeseTopping → also PizzaTopping; anch1 is AnchoviesTopping → FishTopping → PizzaTopping; etc.
 - **prp-inv (inverseOf):** every hasTopping edge generates an isToppingOf edge back; every hasBase edge generates an isBaseOf edge back
+- **cls-svf1 (someValuesFrom):** pizza1 hasTopping tom1 and tom1 is TomatoTopping → pizza1 is `_:b` (the anonymous Margherita restriction); pizza2 has PeperoniSausageTopping → `_:b` (AmericanHot restriction); pizza3 has AnchoviesTopping → `_:b` (FruttiDiMare restriction)
+- **scm-eqc1 + cax-sco (equivalentClass → subClassOf):** Margherita≡`_:b` → `_:b` rdfs:subClassOf Margherita → pizza1 a **Margherita**; same for pizza2 → **AmericanHot**; pizza3 → **FruttiDiMare**
+- **cax-sco again:** Margherita ⊆ NamedPizza ⊆ Pizza → pizza1 also gets NamedPizza (Pizza already inferred by rdfs2)
+- **scm-svf1 + VegetarianPizza:** TomatoTopping ⊆ VegetableTopping → Margherita restriction ⊆ VegetarianPizza restriction (scm-svf1); pizza1 a Margherita restriction → pizza1 a VegetarianPizza restriction → pizza1 is **VegetarianPizza** (cax-sco); pizza4 likewise; pizza3 (FruttiDiMare) also has garlic (VegetableTopping) — see OWA note below
 
 `{"jsonrpc":"2.0","id":108,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
 `{"jsonrpc":"2.0","id":109,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
@@ -381,8 +487,11 @@ slug: after-reasoning
 **You:** Focus on pizza1 and show what the reasoner gave it.
 
 **Assistant:** Panning to pizza1 and expanding its card. The annotation panel will show
-the inferred rdf:type Pizza alongside the isToppingOf back-links from all three toppings —
-none of these were in our original assertions.
+the inferred rdf:type assertions — Pizza (domain axiom), an anonymous blank-node restriction
+`_:b` (cls-svf1 fires because tom1 is TomatoTopping), **Margherita** (scm-eqc1 makes `_:b`
+a subClassOf Margherita → cax-sco lifts pizza1), and **VegetarianPizza** (scm-svf1 derives
+Margherita restriction ⊆ VegetarianPizza restriction because TomatoTopping ⊆ VegetableTopping,
+then cax-sco propagates). Not one of these types was explicitly stated in the ABox.
 
 `{"jsonrpc":"2.0","id":111,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza1"}}}`
 `{"jsonrpc":"2.0","id":112,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza1","expand":true}}}`
@@ -392,7 +501,7 @@ none of these were in our original assertions.
 ```
 
 ```snapshot
-caption: pizza1 gets type Pizza from the domain axiom — zero explicit type assertions needed
+caption: pizza1 inferred as Margherita AND VegetarianPizza — tomato fires cls-svf1 for both characterisations; cax-eqc2 lifts each to its named class
 slug: pizza1-inferred
 ```
 
@@ -414,4 +523,37 @@ Each step was derived automatically from the subClassOf chain in the TBox.
 ```snapshot
 caption: mozz1 — one asserted type, two inferred: MozzarellaTopping → CheeseTopping → PizzaTopping via subClassOf chain
 slug: mozz1-inferred
+```
+
+---
+
+**You:** Focus on pizza4. Did the reasoner classify it as VegetarianPizza? And what about pizza3?
+
+**Assistant:** Focusing on pizza4 first. It has OliveTopping and TomatoTopping — both
+VegetableToppings. The reasoner fired `cls-svf1` on each: pizza4 satisfies
+VegetarianPizzaCharacterisation, so `cax-eqc2` classifies it as VegetarianPizza. ✓
+
+Now the important part: focus on pizza3 (FruttiDiMare). It has GarlicTopping, which is a
+VegetableTopping. So pizza3 is *also* inferred as VegetarianPizza — even though it carries
+AnchoviesTopping (a FishTopping), which makes it clearly non-vegetarian in the real world.
+
+This is the **Open World Assumption** in action. The reasoner does not reason by absence:
+it cannot conclude "pizza3 has no meat toppings, therefore it is vegetarian" correctly,
+because under OWA there might be unstated toppings. But it *can* (and does) infer
+VegetarianPizza positively from the garlic. To block this, a correct definition needs an
+`owl:allValuesFrom` closure restricting toppings to non-meat classes — combined with
+`owl:intersectionOf`. OWL-RL with n3.js does not support `cls-int1` (requires the EYE
+reasoner's `e:findall`), so fixing this classification requires either a full OWL-DL
+reasoner or a SHACL constraint.
+
+`{"jsonrpc":"2.0","id":144,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza4"}}}`
+`{"jsonrpc":"2.0","id":145,"method":"tools/call","params":{"name":"expandNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza4","expand":true}}}`
+
+```tool-result
+<!-- runner fills this in -->
+```
+
+```snapshot
+caption: pizza4 correctly classified as VegetarianPizza; pizza3 (FruttiDiMare) also gets VegetarianPizza — the Open World Assumption at work
+slug: owa-vegetarian-lesson
 ```
