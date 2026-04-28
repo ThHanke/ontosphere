@@ -23,11 +23,12 @@ import { WELL_KNOWN } from "../utils/wellKnownOntologies.ts";
 import { ensureDefaultNamespaceMap } from "../constants/namespaces.ts";
 import { RDF_TYPE, RDFS_LABEL, SHACL } from "../constants/vocabularies.ts";
 import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
+import { QueryEngine } from "@comunica/query-sparql-rdfjs";
 
 const RDF_TYPE_IRI = RDF_TYPE;
 const RDFS_LABEL_IRI = RDFS_LABEL;
 
-let _cachedQueryEngine: any = null;
+let _cachedQueryEngine: QueryEngine | null = null;
 
 /**
  * Create a graph term from a graph name string.
@@ -1848,11 +1849,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const limit = typeof payload?.limit === "number" ? payload.limit : 200;
 
           if (!_cachedQueryEngine) {
-            const { QueryEngine } = await import("@comunica/query-sparql-rdfjs");
             _cachedQueryEngine = new QueryEngine();
           }
           const store = getSharedStore();
-          const queryResult = await _cachedQueryEngine.query(sparql, { sources: [store] });
+          // unionDefaultGraph: true makes plain BGP patterns match quads from all named graphs
+          // (urn:vg:data, urn:vg:inferred, etc.) not just the empty default graph.
+          const queryResult = await _cachedQueryEngine.query(sparql, { sources: [store], unionDefaultGraph: true });
 
           if (queryResult.resultType === "bindings") {
             const bindingsStream = await queryResult.execute();
