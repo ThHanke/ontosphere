@@ -48,13 +48,14 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'queryGraph',
-    description: 'Run a SPARQL query or update against asserted data (urn:vg:data). Workspace namespace prefixes are injected automatically. Supported forms: SELECT (return bindings), CONSTRUCT (return triples, read-only), INSERT DATA, DELETE DATA, DELETE WHERE, DELETE...INSERT...WHERE. For OWL-RL inference use runReasoning instead.',
+    description: 'Run a SPARQL query or update against the RDF store. Workspace namespace prefixes are injected automatically so you can use short prefix:local notation. Asserted data is in urn:vg:data; inferred triples (after runReasoning) are in urn:vg:inferred — plain BGP patterns match both. Supported forms: SELECT (returns {rows, total, truncated}), CONSTRUCT (returns {triples, total, truncated}), INSERT DATA, DELETE DATA, DELETE WHERE, DELETE…INSERT…WHERE (returns {updated:true}). Results are capped at limit (default 200, max 1000); truncated:true means more rows exist — use SPARQL OFFSET for pagination. For OWL-RL inference use runReasoning instead.',
     inputSchema: {
       type: 'object',
-      properties: {
-        sparql: { type: 'string' },
-      },
       required: ['sparql'],
+      properties: {
+        sparql: { type: 'string', description: 'SPARQL query or update. Prefix notation supported (e.g. ex:Alice, owl:Class).' },
+        limit: { type: 'integer', default: 200, description: 'Max rows/triples returned (default 200, max 1000). Ignored for UPDATE queries. Check truncated:true in response for more results; use SPARQL OFFSET to paginate.' },
+      },
     },
   },
   {
