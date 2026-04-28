@@ -226,11 +226,11 @@ Canvas: 4 nodes, 6 links
 
 ```tool-result
 [Ontosphere — 3 tools ✓]
-✓ runReasoning: 22905 triples inferred
+✓ runReasoning: 4492 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
 
-Canvas: 4 nodes, 15 links
+Canvas: 4 nodes, 11 links
 ```
 
 </details>
@@ -255,7 +255,7 @@ Canvas: 4 nodes, 15 links
 ✓ focusNode
 ✓ expandNode
 
-Canvas: 4 nodes, 15 links
+Canvas: 4 nodes, 11 links
 ```
 
 </details>
@@ -277,9 +277,9 @@ not included here.
 
 ```tool-result
 [Ontosphere — 1 tool ✓]
-✓ exportGraph: 8173 chars
+✓ exportGraph: 4877 chars
 
-Canvas: 4 nodes, 15 links
+Canvas: 4 nodes, 11 links
 
 ```turtle
 @prefix dc: <http://purl.org/dc/elements/1.1/>.
@@ -294,11 +294,6 @@ Canvas: 4 nodes, 15 links
 @prefix spw: <https://thhanke.github.io/PyodideSemanticWorkflow#>.
 @prefix dcterms: <http://purl.org/dc/terms/>.
 @prefix p-plan: <http://purl.org/net/p-plan#>.
-@prefix dtype: <http://www.linkedmodel.org/schema/dtype#>.
-@prefix qudt: <http://qudt.org/schema/qudt/>.
-@prefix skos: <http://www.w3.org/2004/02/skos/core#>.
-@prefix vaem: <http://www.linkedmodel.org/schema/vaem#>.
-@prefix voag: <http://voag.linkedmodel.org/schema/voag#>.
 
 <http://example.com/reasoning-demo#Person> a owl:Class;
     rdfs:label "Person".
@@ -348,53 +343,17 @@ Canvas: 4 nodes, 15 links
     <http://example.com/reasoning-demo#hasSupervisor> <http://example.com/reasoning-demo#bob>.
 <http://example.com/reasoning-demo#dave> rdfs:label "Dave";
     <http://example.com/reasoning-demo#manages> <http://example.com/reasoning-demo#bob>.
-<http://example.com/reasoning-demo#Person> rdfs:subClassOf owl:Thing, <http://example.com/reasoning-demo#Person>;
-    owl:equivalentClass <http://example.com/reasoning-demo#Person>.
-<http://example.com/reasoning-demo#Employee> rdfs:subClassOf owl:Thing, <http://example.com/reasoning-demo#Employee>;
-    owl:equivalentClass <http://example.com/reasoning-demo#Employee>.
-<http://example.com/reasoning-demo#Manager> rdfs:subClassOf owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Manager>;
-    owl:equivalentClass <http://example.com/reasoning-demo#Manager>.
-<http://example.com/reasoning-demo#Executive> rdfs:subClassOf owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Executive>;
-    owl:equivalentClass <http://example.com/reasoning-demo#Executive>.
-<http://example.com/reasoning-demo#knows> rdfs:domain owl:Thing;
-    rdfs:range owl:Thing;
-    rdfs:subPropertyOf <http://example.com/reasoning-demo#knows>;
-    owl:equivalentProperty <http://example.com/reasoning-demo#knows>;
-    owl:subPropertyOf <http://example.com/reasoning-demo#knows>.
-<http://example.com/reasoning-demo#hasFriend> rdfs:domain owl:Thing;
-    rdfs:range owl:Thing;
-    rdfs:subPropertyOf <http://example.com/reasoning-demo#hasFriend>;
-    owl:equivalentProperty <http://example.com/reasoning-demo#hasFriend>;
-    owl:subPropertyOf <http://example.com/reasoning-demo#hasFriend>.
-<http://example.com/reasoning-demo#manages> rdfs:domain owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
-    rdfs:range owl:Thing, <http://example.com/reasoning-demo#Person>;
-    rdfs:subPropertyOf <http://example.com/reasoning-demo#manages>;
-    owl:equivalentProperty <http://example.com/reasoning-demo#manages>;
-    owl:subPropertyOf <http://example.com/reasoning-demo#manages>.
-<http://example.com/reasoning-demo#isManagedBy> rdfs:domain owl:Thing, <http://example.com/reasoning-demo#Person>;
-    rdfs:range owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
-    rdfs:subPropertyOf <http://example.com/reasoning-demo#isManagedBy>;
-    owl:equivalentProperty <http://example.com/reasoning-demo#isManagedBy>;
-    owl:subPropertyOf <http://example.com/reasoning-demo#isManagedBy>.
-<http://example.com/reasoning-demo#isColleagueOf> rdfs:domain owl:Thing, <http://example.com/reasoning-demo#Person>;
-    rdfs:range owl:Thing, <http://example.com/reasoning-demo#Person>;
-    rdfs:subPropertyOf <http://example.com/reasoning-demo#isColleagueOf>;
-    owl:equivalentProperty <http://example.com/reasoning-demo#isColleagueOf>;
-    owl:subPropertyOf <http://example.com/reasoning-demo#isColleagueOf>.
-<http://example.com/reasoning-demo#hasSupervisor> rdfs:domain owl:Thing, <http://example.com/reasoning-demo#Person>;
-    rdfs:range owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
-    rdfs:subPropertyOf <http://example.com/reasoning-demo#hasSupervisor>;
-    owl:equivalentProperty <http://example.com/reasoning-demo#hasSupervisor>;
-    owl:subPropertyOf <http://example.com/reasoning-demo#hasSupervisor>.
-<http://example.com/reasoning-demo#alice> a owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>;
+<http://example.com/reasoning-demo#Manager> rdfs:subClassOf <http://example.com/reasoning-demo#Person>.
+<http://example.com/reasoning-demo#Executive> rdfs:subClassOf <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>.
+<http://example.com/reasoning-demo#alice> a <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>;
     <http://example.com/reasoning-demo#knows> <http://example.com/reasoning-demo#bob>.
-<http://example.com/reasoning-demo#bob> a owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>;
+<http://example.com/reasoning-demo#bob> a <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>;
     <http://example.com/reasoning-demo#isManagedBy> <http://example.com/reasoning-demo#dave>.
-<http://example.com/reasoning-demo#carol> a owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
+<http://example.com/reasoning-demo#carol> a <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>;
     <http://example.com/reasoning-demo#isManagedBy> <http://example.com/reasoning-demo#alice>;
     <http://example.com/reasoning-demo#isColleagueOf> <http://example.com/reasoning-demo#bob>;
     <http://example.com/reasoning-demo#hasSupervisor> <http://example.com/reasoning-demo#alice>.
-<http://example.com/reasoning-demo#dave> a owl:Thing, <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>.
+<http://example.com/reasoning-demo#dave> a <http://example.com/reasoning-demo#Person>, <http://example.com/reasoning-demo#Employee>, <http://example.com/reasoning-demo#Manager>.
 
 ```
 

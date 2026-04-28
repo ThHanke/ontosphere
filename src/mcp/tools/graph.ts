@@ -240,7 +240,7 @@ const exportGraph: McpTool = {
 // ---------------------------------------------------------------------------
 const exportImage: McpTool = {
   name: 'exportImage',
-  description: 'Export the current diagram canvas as SVG (default) or PNG. Use noCss: true to strip embedded CSS for smaller token-efficient output — recommended for AI relay use.',
+  description: 'Export the current diagram canvas as SVG (default) or PNG. Use noCss: true to strip embedded CSS for smaller token-efficient output — recommended for AI relay use. Use focusIri to crop the export to a specific node and all its neighbours currently on canvas.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -255,30 +255,83 @@ const exportImage: McpTool = {
         default: false,
         description: 'Strip embedded CSS from SVG output to reduce token count. Nodes lose visual styling but topology remains readable.',
       },
+      focusIri: {
+        type: 'string',
+        description: 'IRI of a node to crop the export around. The exported viewBox covers that node plus all its direct neighbours currently on canvas, plus padding.',
+      },
+      focusPadding: {
+        type: 'number',
+        default: 80,
+        description: 'Padding in canvas units around the focused neighbourhood (default 80).',
+      },
     },
   },
   async handler(params): Promise<McpResult> {
     try {
-      const { format = 'svg', noCss = false } = (params ?? {}) as { format?: string; noCss?: boolean };
+      const { format = 'svg', noCss = false, focusIri, focusPadding = 80 } =
+        (params ?? {}) as { format?: string; noCss?: boolean; focusIri?: string; focusPadding?: number };
       let canvas: Reactodia.CanvasApi | undefined;
+      let ctx: Reactodia.WorkspaceContext | undefined;
       try {
-        const { ctx } = getWorkspaceRefs();
+        ({ ctx } = getWorkspaceRefs());
         canvas = ctx.view.findAnyCanvas();
       } catch {
         return { success: false, error: 'Canvas not available' };
       }
       if (!canvas) return { success: false, error: 'Canvas not available' };
 
+      let contentBox: { x: number; y: number; width: number; height: number } | undefined;
+      if (focusIri && ctx) {
+        // Collect the focal element + all elements it is connected to on canvas.
+        const elementById = new Map<string, Reactodia.Element>();
+        for (const el of ctx.model.elements) {
+          elementById.set(el.id, el);
+        }
+        const focalEl = ctx.model.elements.find(
+          e => e instanceof Reactodia.EntityElement && (e as Reactodia.EntityElement).iri === focusIri
+        ) as Reactodia.EntityElement | undefined;
+
+        if (focalEl) {
+          const neighbourhood = new Set<Reactodia.Element>([focalEl]);
+          for (const lk of ctx.model.links) {
+            const srcId = lk.sourceId as unknown as string;
+            const tgtId = lk.targetId as unknown as string;
+            if (srcId === focalEl.id) {
+              const tgt = elementById.get(tgtId);
+              if (tgt) neighbourhood.add(tgt);
+            } else if (tgtId === focalEl.id) {
+              const src = elementById.get(srcId);
+              if (src) neighbourhood.add(src);
+            }
+          }
+
+          // Union bounding box of the neighbourhood.
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const el of neighbourhood) {
+            const size = canvas.renderingState.getElementSize(el) ?? { width: 160, height: 80 };
+            minX = Math.min(minX, el.position.x);
+            minY = Math.min(minY, el.position.y);
+            maxX = Math.max(maxX, el.position.x + size.width);
+            maxY = Math.max(maxY, el.position.y + size.height);
+          }
+          contentBox = {
+            x: minX - focusPadding,
+            y: minY - focusPadding,
+            width: (maxX - minX) + focusPadding * 2,
+            height: (maxY - minY) + focusPadding * 2,
+          };
+        }
+      }
+
       if (format === 'svg') {
-        let content = await canvas.exportSvg({ addXmlHeader: true });
+        let content = await canvas.exportSvg({ addXmlHeader: true, contentBox });
         if (noCss) {
-          // Strip <style>...</style> blocks to reduce token count
           content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
         }
         return { success: true, data: { content } };
       }
       if (format === 'png') {
-        const content = await canvas.exportRaster({ mimeType: 'image/png' });
+        const content = await canvas.exportRaster({ mimeType: 'image/png', contentBox });
         return { success: true, data: { content } };
       }
       return { success: false, error: `Unknown format: ${format}` };

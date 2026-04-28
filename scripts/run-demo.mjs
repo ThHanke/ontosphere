@@ -234,7 +234,7 @@ async function run() {
 
   const outputParts = [];
   let pendingBatch = null; // calls executed but awaiting the tool-result segment
-  let lastBatchHadFocus = false;
+  let lastFocusIri = null; // IRI from the last focusNode call, for exportImage contentBox
 
   for (const seg of segments) {
     if (seg.type === 'prose') {
@@ -254,13 +254,14 @@ async function run() {
         batch.push({ name: parsed.name, args: parsed.args, result });
       }
       const stateAfter = await callTool(page, 'getGraphState', {});
-      const hasFocus = batch.some(b => b.name === 'focusNode');
-      pendingBatch = { batch, stateAfter, rawLines: seg.rawLines, hasFocus };
+      const focusCall = batch.find(b => b.name === 'focusNode');
+      const focusIri = focusCall ? (focusCall.args?.iri ?? null) : null;
+      pendingBatch = { batch, stateAfter, rawLines: seg.rawLines, focusIri };
 
     } else if (seg.type === 'tool-result') {
       if (pendingBatch) {
-        const { batch, stateAfter, rawLines, hasFocus } = pendingBatch;
-        lastBatchHadFocus = hasFocus ?? false;
+        const { batch, stateAfter, rawLines, focusIri } = pendingBatch;
+        lastFocusIri = focusIri ?? null;
         pendingBatch = null;
         const content = buildResultBlock(batch, stateAfter, { imgDir, demoName });
         const n = batch.length;
@@ -277,10 +278,14 @@ async function run() {
       }
 
     } else if (seg.type === 'snapshot') {
-      if (!lastBatchHadFocus) await callTool(page, 'fitCanvas', {});
-      lastBatchHadFocus = false;
-      const r = await callTool(page, 'exportImage', { format: 'svg' });
+      const focusIri = lastFocusIri;
+      lastFocusIri = null;
+      if (!focusIri) await callTool(page, 'fitCanvas', {});
       const filename = `${String(++snapCount).padStart(2, '0')}-${seg.slug}.svg`;
+      const exportArgs = focusIri
+        ? { format: 'svg', focusIri }
+        : { format: 'svg' };
+      const r = await callTool(page, 'exportImage', exportArgs);
       if (r?.success && r.data?.content) {
         fs.writeFileSync(path.join(imgDir, filename), r.data.content, 'utf8');
         console.log(`  snapshot → ${filename}`);

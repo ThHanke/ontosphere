@@ -361,6 +361,7 @@ the most specific leaf class; the subClassOf chain propagates membership upward 
 `{"jsonrpc":"2.0","id":86,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#tom1"}}}`
 `{"jsonrpc":"2.0","id":87,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin1"}}}`
 `{"jsonrpc":"2.0","id":88,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
+`{"jsonrpc":"2.0","id":200,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza1"}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -388,6 +389,7 @@ so no conflict.
 `{"jsonrpc":"2.0","id":97,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza2","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#olive1"}}}`
 `{"jsonrpc":"2.0","id":98,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza2","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#deep1"}}}`
 `{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
+`{"jsonrpc":"2.0","id":201,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza2"}}}`
 
 ```tool-result
 <!-- runner fills this in -->
@@ -443,6 +445,7 @@ fire and classify it — but we also need to observe what the reasoner says abou
 `{"jsonrpc":"2.0","id":141,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza4","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin3"}}}`
 `{"jsonrpc":"2.0","id":142,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
 `{"jsonrpc":"2.0","id":143,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
+`{"jsonrpc":"2.0","id":202,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza4"}}}`
 
 ```tool-result
 <!-- runner fills this in -->

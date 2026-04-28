@@ -503,7 +503,7 @@ the most specific leaf class; the subClassOf chain propagates membership upward 
 
 
 <details>
-<summary>7 tool calls ✓</summary>
+<summary>8 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":82,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#mozz1","typeIri":"http://www.pizza-ontology.com/pizza.owl#MozzarellaTopping","label":"mozz"}}}`
 `{"jsonrpc":"2.0","id":83,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#tom1","typeIri":"http://www.pizza-ontology.com/pizza.owl#TomatoTopping","label":"tomato"}}}`
@@ -512,9 +512,10 @@ the most specific leaf class; the subClassOf chain propagates membership upward 
 `{"jsonrpc":"2.0","id":86,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#tom1"}}}`
 `{"jsonrpc":"2.0","id":87,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza1","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin1"}}}`
 `{"jsonrpc":"2.0","id":88,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
+`{"jsonrpc":"2.0","id":200,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza1"}}}`
 
 ```tool-result
-[Ontosphere — 7 tools ✓]
+[Ontosphere — 8 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#mozz1
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#tom1
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#thin1
@@ -522,6 +523,7 @@ the most specific leaf class; the subClassOf chain propagates membership upward 
 ✓ addLink: s=pizza1 p=hasTopping o=tom1
 ✓ addLink: s=pizza1 p=hasBase o=thin1
 ✓ runLayout: dagre-lr
+✓ focusNode
 
 Canvas: 10 nodes, 3 links
 ```
@@ -540,7 +542,7 @@ so no conflict.
 
 
 <details>
-<summary>9 tool calls ✓</summary>
+<summary>10 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":91,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pep1","typeIri":"http://www.pizza-ontology.com/pizza.owl#PeperoniSausageTopping","label":"peperoni"}}}`
 `{"jsonrpc":"2.0","id":92,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#mozz2","typeIri":"http://www.pizza-ontology.com/pizza.owl#MozzarellaTopping","label":"mozz"}}}`
@@ -551,9 +553,10 @@ so no conflict.
 `{"jsonrpc":"2.0","id":97,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza2","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#olive1"}}}`
 `{"jsonrpc":"2.0","id":98,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza2","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#deep1"}}}`
 `{"jsonrpc":"2.0","id":99,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
+`{"jsonrpc":"2.0","id":201,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza2"}}}`
 
 ```tool-result
-[Ontosphere — 9 tools ✓]
+[Ontosphere — 10 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#pep1
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#mozz2
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#olive1
@@ -563,6 +566,7 @@ so no conflict.
 ✓ addLink: s=pizza2 p=hasTopping o=olive1
 ✓ addLink: s=pizza2 p=hasBase o=deep1
 ✓ runLayout: dagre-lr
+✓ focusNode
 
 Canvas: 14 nodes, 7 links
 ```
@@ -622,7 +626,7 @@ fire and classify it — but we also need to observe what the reasoner says abou
 
 
 <details>
-<summary>9 tool calls ✓</summary>
+<summary>10 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":135,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza4","label":"pizza4"}}}`
 `{"jsonrpc":"2.0","id":136,"method":"tools/call","params":{"name":"addNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#olive2","typeIri":"http://www.pizza-ontology.com/pizza.owl#OliveTopping","label":"olive"}}}`
@@ -633,9 +637,10 @@ fire and classify it — but we also need to observe what the reasoner says abou
 `{"jsonrpc":"2.0","id":141,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza4","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin3"}}}`
 `{"jsonrpc":"2.0","id":142,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
 `{"jsonrpc":"2.0","id":143,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
+`{"jsonrpc":"2.0","id":202,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza4"}}}`
 
 ```tool-result
-[Ontosphere — 9 tools ✓]
+[Ontosphere — 10 tools ✓]
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#pizza4
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#olive2
 ✓ addNode: http://www.pizza-ontology.com/pizza.owl#tom2
@@ -645,6 +650,7 @@ fire and classify it — but we also need to observe what the reasoner says abou
 ✓ addLink: s=pizza4 p=hasBase o=thin3
 ✓ expandAll
 ✓ runLayout: dagre-lr
+✓ focusNode
 
 Canvas: 21 nodes, 13 links
 ```
@@ -679,11 +685,11 @@ fires on our data:
 
 ```tool-result
 [Ontosphere — 3 tools ✓]
-✓ runReasoning: 9052 triples inferred
+✓ runReasoning: 9094 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
 
-Canvas: 21 nodes, 13 links
+Canvas: 21 nodes, 26 links
 ```
 
 </details>
@@ -713,7 +719,7 @@ then cax-sco propagates). Not one of these types was explicitly stated in the AB
 ✓ focusNode
 ✓ expandNode
 
-Canvas: 21 nodes, 13 links
+Canvas: 21 nodes, 26 links
 ```
 
 </details>
@@ -740,7 +746,7 @@ Each step was derived automatically from the subClassOf chain in the TBox.
 ✓ focusNode
 ✓ expandNode
 
-Canvas: 21 nodes, 13 links
+Canvas: 21 nodes, 26 links
 ```
 
 </details>
@@ -780,7 +786,7 @@ reasoner or a SHACL constraint.
 ✓ focusNode
 ✓ expandNode
 
-Canvas: 21 nodes, 13 links
+Canvas: 21 nodes, 26 links
 ```
 
 </details>
