@@ -188,6 +188,18 @@ describe("sparqlQuery worker command (Comunica integration)", () => {
       .toEqual([`${EX}Alice`, `${EX}Bob`].sort());
   }, 60000);
 
+  it("invalid SPARQL rejects the promise with a parse error", async () => {
+    let caughtError: unknown = null;
+    try {
+      // "SELECT WHERE { }" — missing variables, Comunica parser rejects this
+      await rdfManager.sparqlQuery("SELECT WHERE { }");
+    } catch (e) {
+      caughtError = e;
+    }
+    expect(caughtError).not.toBeNull();
+    expect(String(caughtError)).toMatch(/parse error/i);
+  }, 10000);
+
   it("no test data present before loading returns zero rows", async () => {
     const result = await rdfManager.sparqlQuery(
       `SELECT ?s WHERE { ?s a <http://example.org/sparql-test/Person> }`

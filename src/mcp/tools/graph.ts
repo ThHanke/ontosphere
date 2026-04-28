@@ -4,7 +4,7 @@ import type { McpTool, McpResult } from '@/mcp/types';
 import { rdfManager } from '@/utils/rdfManager';
 import { getWorkspaceRefs, applyViewMode } from '@/mcp/workspaceContext';
 import { mcpManifest, mcpServerDescription } from '@/mcp/manifest';
-import { Parser as SparqlParser } from 'sparqljs';
+import { Parser as SparqlParser, Generator as SparqlGenerator } from 'sparqljs';
 import { resolveOntologyLoadUrl, WELL_KNOWN_PREFIXES } from '@/utils/wellKnownOntologies';
 import { useSettingsStore } from '@/stores/settingsStore';
 
@@ -149,15 +149,18 @@ const queryGraph: McpTool = {
   },
   async handler(params): Promise<McpResult> {
     try {
-      const { sparql: rawSparql, limit = 200 } = params as { sparql: string; limit?: number };
+      const { sparql: rawSparql, limit: rawLimit = 200 } = params as { sparql: string; limit?: number };
       if (!rawSparql) return { success: false, error: 'sparql is required' };
 
-      const sparql = injectPrefixes(rawSparql);
+      const MAX_LIMIT = 1000;
+      const effectiveLimit = Math.min(Math.max(1, rawLimit), MAX_LIMIT);
+
+      const sparqlWithPrefixes = injectPrefixes(rawSparql);
 
       // Validate parse before sending to worker (gives better error messages)
       let parsed: any;
       try {
-        parsed = new SparqlParser().parse(sparql);
+        parsed = new SparqlParser().parse(sparqlWithPrefixes);
       } catch (e) {
         return { success: false, error: `SPARQL parse error: ${String(e)}` };
       }
@@ -165,11 +168,19 @@ const queryGraph: McpTool = {
         return { success: false, error: 'ASK queries are not supported. Use SELECT or CONSTRUCT.' };
       }
 
-      const workerResult = await rdfManager.sparqlQuery(sparql, { limit });
+      // Inject LIMIT into the query planner if the query has none — avoids streaming
+      // the full result set through Comunica before the worker breaks the stream.
+      let sparql = sparqlWithPrefixes;
+      if (parsed.type === 'query' && parsed.limit == null) {
+        parsed.limit = effectiveLimit;
+        try { sparql = new SparqlGenerator().stringify(parsed); } catch (_) { /* keep original */ }
+      }
+
+      const workerResult = await rdfManager.sparqlQuery(sparql, { limit: effectiveLimit });
 
       if (workerResult.type === 'select') {
         const rows: Array<Record<string, string>> = workerResult.rows ?? [];
-        return { success: true, data: { rows, total: rows.length, truncated: rows.length >= limit } };
+        return { success: true, data: { rows, total: rows.length, truncated: rows.length >= effectiveLimit } };
       }
 
       if (workerResult.type === 'construct') {
@@ -179,7 +190,7 @@ const queryGraph: McpTool = {
           data: {
             triples,
             total: triples.length,
-            truncated: triples.length >= limit,
+            truncated: triples.length >= effectiveLimit,
             ...(triples.length === 0
               ? { notice: 'CONSTRUCT matched 0 triples. Check that WHERE patterns match asserted data.' }
               : {}),
