@@ -16,7 +16,7 @@ test('pizza-tutorial: Manchester Pizza Ontology — class hierarchy, disjointnes
   const turns = DemoRunner.parseSeed(SEED);
 
   await runner.openApp();
-  await runner.captionPause('Ontosphere — rebuilding the Manchester Pizza Tutorial in OWL', 2_500);
+  await runner.captionPause('Ontosphere — rebuilding the Manchester Pizza Tutorial with OWL-RL-like reasoning', 2_500);
 
   for (const turn of turns) {
     const isReasoningTurn = turn.toolCalls.some(c => c.name === 'runReasoning');
@@ -24,7 +24,7 @@ test('pizza-tutorial: Manchester Pizza Ontology — class hierarchy, disjointnes
     await runner.pauseMs(600);
   }
 
-  await runner.captionPause('Pizza types, topping superclasses, and inverse edges — all inferred by OWL-RL', 3_500);
+  await runner.captionPause('Pizza types, topping superclasses, and inverse edges — all inferred by OWL-RL-like reasoning', 3_500);
   await runner.clearCaption();
   await runner.pauseMs(1_500);
 });

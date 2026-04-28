@@ -16,7 +16,7 @@ const BASE_URL = process.env.DEMO_BASE_URL || 'http://localhost:8080';
 const P = 'http://www.pizza-ontology.com/pizza.owl#';
 const OWL = 'http://www.w3.org/2002/07/owl#';
 const RDFS = 'http://www.w3.org/2000/01/rdf-schema#';
-const RDF  = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#';
+
 
 // ── Shorthand helpers ──────────────────────────────────────────────────────
 const cls  = (name: string) => ({ iri: P + name, typeIri: OWL + 'Class',          label: name });
@@ -30,11 +30,10 @@ const dom   = (s: string, o: string) => ({ subjectIri: P+s, predicateIri: RDFS+'
 const ran   = (s: string, o: string) => ({ subjectIri: P+s, predicateIri: RDFS+'range',       objectIri: P+o });
 const inv   = (s: string, o: string) => ({ subjectIri: P+s, predicateIri: OWL+'inverseOf',    objectIri: P+o });
 const link  = (s: string, p: string, o: string) => ({ subjectIri: P+s, predicateIri: P+p, objectIri: P+o });
-const type  = (s: string, o: string) => ({ subjectIri: P+s, predicateIri: RDF+'type',         objectIri: OWL+o });
 const layout = (alg: string, spacing = 160) => ['runLayout', { algorithm: alg, spacing }] as const;
 const EXPAND = ['expandAll', {}] as const;
 
-type ToolCall = [string, Record<string, unknown>];
+type ToolCall = readonly [string, Record<string, unknown>];
 
 interface Turn {
   user: string;
@@ -180,10 +179,10 @@ const TURNS: Turn[] = [
     viewMs: 2500,
   },
 
-  // ── 9. inverseOf + FunctionalProperty ─────────────────────────────────────
+  // ── 9. inverseOf ──────────────────────────────────────────────────────────
   {
-    user: "Can we also go the other direction — from a topping back to its pizza? And is there any constraint on how many bases a pizza can have?",
-    ai: "Yes — owl:inverseOf lets you declare that isToppingOf is the mirror of hasTopping, so asserting pizza1 hasTopping mozz1 automatically gives you mozz1 isToppingOf pizza1 for free. For cardinality, owl:FunctionalProperty says each subject can have at most one value — perfect for hasBase since a pizza has exactly one base. I'll add the two inverse properties and mark hasBase as functional.",
+    user: "Can we also go the other direction — from a topping back to its pizza?",
+    ai: "Yes — owl:inverseOf lets you declare that isToppingOf is the mirror of hasTopping, so asserting pizza1 hasTopping mozz1 automatically gives you mozz1 isToppingOf pizza1 for free without any extra work. The reasoner fires the prp-inv rules and generates all inverse edges in one pass. I'll add isToppingOf and isBaseOf as inverses of their counterparts now.",
     tools: [
       ['addNode', prop('isToppingOf')],
       ['addNode', prop('isBaseOf')],
@@ -193,14 +192,30 @@ const TURNS: Turn[] = [
       ['addLink', ran('isToppingOf', 'Pizza')],
       ['addLink', dom('isBaseOf',    'PizzaBase')],
       ['addLink', ran('isBaseOf',    'Pizza')],
-      ['addLink', type('hasBase',    'FunctionalProperty')],
       EXPAND,
       layout('elk-layered', 130),
     ],
     viewMs: 3000,
   },
 
-  // ── 10. Switch to ABox ────────────────────────────────────────────────────
+  // ── 10. equivalentClass restrictions ─────────────────────────────────────
+  {
+    user: "So the reasoner can infer pizza1 is a Pizza from the domain — but how would it ever know it's a Margherita specifically?",
+    ai: "That requires owl:equivalentClass with a someValuesFrom restriction: Margherita is declared equivalent to the class of all things that have at least one TomatoTopping. When pizza1 hasTopping tom1 and tom1 is a TomatoTopping, the cls-svf1 rule fires and concludes pizza1 satisfies the restriction — so pizza1 is a Margherita. Restrictions need blank nodes so they cannot be written with addLink; we load them as inline Turtle instead.",
+    tools: [
+      ['loadRdf', { turtle:
+        '@prefix owl: <http://www.w3.org/2002/07/owl#> .\n' +
+        '@prefix pizza: <http://www.pizza-ontology.com/pizza.owl#> .\n' +
+        'pizza:Margherita owl:equivalentClass [ a owl:Restriction ; owl:onProperty pizza:hasTopping ; owl:someValuesFrom pizza:TomatoTopping ] .\n' +
+        'pizza:AmericanHot owl:equivalentClass [ a owl:Restriction ; owl:onProperty pizza:hasTopping ; owl:someValuesFrom pizza:PeperoniSausageTopping ] .\n' +
+        'pizza:FruttiDiMare owl:equivalentClass [ a owl:Restriction ; owl:onProperty pizza:hasTopping ; owl:someValuesFrom pizza:AnchoviesTopping ] .',
+      }],
+      layout('elk-layered', 130),
+    ],
+    viewMs: 3000,
+  },
+
+  // ── 11. Switch to ABox ───────────────────────────────────────────────────
   {
     user: "We've been building the schema — the TBox, right? When do we add actual pizzas?",
     ai: "Exactly right: the TBox is the terminological box containing classes and properties — the schema. The ABox, or assertion box, is where you describe specific named individuals and their properties — the data. I'll now switch to the ABox and add three untyped pizza individuals: pizza1, pizza2, and pizza3. Their Pizza type will be inferred by the reasoner.",
@@ -214,25 +229,24 @@ const TURNS: Turn[] = [
     viewMs: 2500,
   },
 
-  // ── 11. pizza1 — Margherita ───────────────────────────────────────────────
+  // ── 12. pizza1 — Margherita ───────────────────────────────────────────────
   {
     user: "Let's build the first one — a Margherita-style pizza. What do I need to say about pizza1?",
-    ai: "For a Margherita you need mozzarella, tomato, and garlic toppings connected with hasTopping, and a thin-and-crispy base connected with hasBase. We leave the type of pizza1 unasserted — that's intentional, because we want the reasoner to figure it out. I'll create the topping and base individuals, then link them all to pizza1.",
+    ai: "For a Margherita you need mozzarella and tomato toppings connected with hasTopping, and a thin-and-crispy base connected with hasBase — just two toppings, that's the classic recipe. We leave the type of pizza1 unasserted — that's intentional, because we want the reasoner to figure it out. I'll create the topping and base individuals, then link them to pizza1.",
     tools: [
-      ['addNode', ind('mozz1',   'MozzarellaTopping', 'mozz')],
-      ['addNode', ind('tom1',    'TomatoTopping',      'tomato')],
-      ['addNode', ind('garlic1', 'GarlicTopping',      'garlic')],
-      ['addNode', ind('thin1',   'ThinAndCrispyBase',  'thin & crispy')],
+      ['addNode', ind('mozz1', 'MozzarellaTopping', 'mozz')],
+      ['addNode', ind('tom1',  'TomatoTopping',      'tomato')],
+      ['addNode', ind('thin1', 'ThinAndCrispyBase',  'thin & crispy')],
       ['addLink', link('pizza1', 'hasTopping', 'mozz1')],
       ['addLink', link('pizza1', 'hasTopping', 'tom1')],
-      ['addLink', link('pizza1', 'hasTopping', 'garlic1')],
       ['addLink', link('pizza1', 'hasBase',    'thin1')],
       layout('dagre-lr', 190),
+      ['focusNode', { iri: P + 'pizza1' }],
     ],
     viewMs: 2500,
   },
 
-  // ── 12. pizza2 — AmericanHot ──────────────────────────────────────────────
+  // ── 13. pizza2 — AmericanHot ──────────────────────────────────────────────
   {
     user: "Now pizza2 — an AmericanHot. What makes it different?",
     ai: "An AmericanHot has peperoni sausage alongside mozzarella and olive, and traditionally sits on a deep pan base. Like pizza1, we assert the toppings and base but leave the pizza type for the reasoner to infer. Note that peperoni is a MeatTopping and mozzarella is a CheeseTopping — they're disjoint categories, but that's fine, each individual belongs to exactly one category. I'll add and connect them now.",
@@ -246,28 +260,30 @@ const TURNS: Turn[] = [
       ['addLink', link('pizza2', 'hasTopping', 'olive1')],
       ['addLink', link('pizza2', 'hasBase',    'deep1')],
       layout('dagre-lr', 190),
+      ['focusNode', { iri: P + 'pizza2' }],
     ],
     viewMs: 2500,
   },
 
-  // ── 13. pizza3 — FruttiDiMare ─────────────────────────────────────────────
+  // ── 14. pizza3 — FruttiDiMare ─────────────────────────────────────────────
   {
     user: "And pizza3 — the FruttiDiMare?",
-    ai: "FruttiDiMare is seafood-based, so it gets anchovies and tomato as its toppings on a thin-and-crispy base. Again we intentionally leave pizza3's type unstated — the whole point is to let the reasoner derive it. I'll add the individuals and connect them to pizza3.",
+    ai: "FruttiDiMare is seafood-based, so it gets anchovies and garlic as its toppings on a thin-and-crispy base — garlic is the classic accompaniment to seafood in Italian cooking. Again we intentionally leave pizza3's type unstated — the whole point is to let the reasoner derive it. I'll add the individuals and connect them to pizza3.",
     tools: [
-      ['addNode', ind('anch1', 'AnchoviesTopping', 'anchovies')],
-      ['addNode', ind('tom2',  'TomatoTopping',     'tomato')],
-      ['addNode', ind('thin2', 'ThinAndCrispyBase', 'thin & crispy')],
+      ['addNode', ind('anch1',   'AnchoviesTopping', 'anchovies')],
+      ['addNode', ind('garlic1', 'GarlicTopping',    'garlic')],
+      ['addNode', ind('thin2',   'ThinAndCrispyBase', 'thin & crispy')],
       ['addLink', link('pizza3', 'hasTopping', 'anch1')],
-      ['addLink', link('pizza3', 'hasTopping', 'tom2')],
+      ['addLink', link('pizza3', 'hasTopping', 'garlic1')],
       ['addLink', link('pizza3', 'hasBase',    'thin2')],
       EXPAND,
       layout('dagre-lr', 190),
+      ['focusNode', { iri: P + 'pizza3' }],
     ],
     viewMs: 3000,
   },
 
-  // ── 14. Run reasoning ─────────────────────────────────────────────────────
+  // ── 15. Run reasoning ─────────────────────────────────────────────────────
   {
     user: "So what exactly does OWL-RL reasoning actually do with all of this?",
     ai: "OWL-RL applies a fixed set of forward-chaining rules to derive new facts that are logically entailed by your TBox and ABox together. It propagates subClassOf chains, uses domain and range constraints to infer types, fires inverse property rules, and uses disjointness axioms to detect contradictions. I'll now run the reasoner over our ontology to materialise all inferred triples.",
@@ -279,10 +295,10 @@ const TURNS: Turn[] = [
     viewMs: 4000,
   },
 
-  // ── 15. Inspect pizza1 ────────────────────────────────────────────────────
+  // ── 16. Inspect pizza1 ────────────────────────────────────────────────────
   {
     user: "What did the reasoner figure out about pizza1?",
-    ai: "Because pizza1 uses hasTopping, the domain axiom fires and the reasoner infers pizza1 is a Pizza — with no explicit type assertion from us. It also generates the inverse isToppingOf edges back from each topping individual. Let me focus the view on pizza1 so you can see all its inferred type triples and the back-links.",
+    ai: "Three things happened: the domain axiom fired and inferred pizza1 is a Pizza; cls-svf1 fired because pizza1 hasTopping tom1 and tom1 is a TomatoTopping, satisfying the Margherita restriction — so pizza1 is inferred as a Margherita; and prp-inv generated the inverse isToppingOf back-links from each topping. Let me focus on pizza1 so you can see those inferred types.",
     tools: [
       ['focusNode',  { iri: P + 'pizza1' }],
       ['expandNode', { iri: P + 'pizza1', expand: true }],
@@ -290,7 +306,7 @@ const TURNS: Turn[] = [
     viewMs: 4000,
   },
 
-  // ── 16. Inspect mozz1 ─────────────────────────────────────────────────────
+  // ── 17. Inspect mozz1 ─────────────────────────────────────────────────────
   {
     user: "What about mozz1 — what did the reasoner work out about that individual?",
     ai: "The reasoner sees mozz1 was linked via hasTopping, so the range constraint fires and infers mozz1 is a PizzaTopping. Then it walks the subClassOf chain upward: MozzarellaTopping is a CheeseTopping which is a PizzaTopping, giving mozz1 all three types at once from a single asserted type. I'll focus the view on mozz1 so you can see that full inherited type chain laid out explicitly.",
@@ -332,7 +348,7 @@ test('pizza-tutorial-chat: OWL pizza tutorial as AI tutor lesson, side-by-side',
 
   // End card
   await runner.captionPause(
-    'Manchester Pizza Tutorial — built step by step with OWL-RL reasoning',
+    'Manchester Pizza Tutorial — built step by step with OWL-RL-like reasoning',
     4_000,
   );
 });

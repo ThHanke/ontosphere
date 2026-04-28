@@ -18,7 +18,11 @@ export const mcpServerDescription =
 export const mcpManifest: McpToolManifestEntry[] = [
   {
     name: 'loadRdf',
-    description: 'Load ABox instance data — subjects appear as canvas nodes. Use for individual/data triples. To load a schema or ontology without adding canvas nodes, use loadOntology instead.',
+    description:
+      'Load ABox instance data — subjects appear as canvas nodes. Use for individual/data triples. To load a schema or ontology without adding canvas nodes, use loadOntology instead. ' +
+      'OWL RESTRICTIONS: loadRdf is the only way to assert axioms that require blank nodes, such as owl:someValuesFrom / owl:allValuesFrom / owl:hasValue restrictions and owl:equivalentClass with anonymous class expressions. ' +
+      'Pattern (Turtle): `:MyClass owl:equivalentClass [ a owl:Restriction ; owl:onProperty :hasP ; owl:someValuesFrom :C ] .` ' +
+      'The blank-node restriction individual appears in the TBox canvas view after loading.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -66,11 +70,24 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'exportImage',
-    description: 'Export the canvas diagram as SVG text (default, token-efficient) or PNG data URI. Call fitCanvas first to ensure all nodes are visible.',
+    description:
+      'Export the canvas diagram as SVG text (default, token-efficient) or PNG data URI. ' +
+      'Full canvas: call fitCanvas first, then exportImage. ' +
+      'Focused view: pass focusIri — the export viewBox tightly frames that node and all its direct canvas neighbours (ideal for per-individual snapshots). ' +
+      'Use SVG format in demo scripts — it scales cleanly at any resolution and is token-efficient.',
     inputSchema: {
       type: 'object',
       properties: {
         format: { type: 'string', enum: ['svg', 'png'], default: 'svg' },
+        focusIri: {
+          type: 'string',
+          description: 'IRI of a canvas node. When set, the exported viewBox is clipped to the bounding box of that node and all its direct canvas neighbours. Omit for a full-canvas export.',
+        },
+        focusPadding: {
+          type: 'integer',
+          default: 80,
+          description: 'Padding (canvas units) around the focal neighbourhood bounding box. Default 80.',
+        },
       },
     },
   },
@@ -147,7 +164,9 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'addLink',
-    description: 'Add a directed object-property triple (edge) between two canvas nodes: subjectIri --predicateIri--> objectIri. The edge appears on canvas immediately. Both subject and object must already be canvas nodes.',
+    description:
+      'Add a directed object-property triple (edge) between two canvas nodes: subjectIri --predicateIri--> objectIri. The edge appears on canvas immediately. Both subject and object must already be canvas nodes. ' +
+      'BLANK NODE LIMITATION: addLink only connects named (IRI) nodes. OWL axioms that require blank nodes — owl:someValuesFrom, owl:allValuesFrom, owl:hasValue, owl:onProperty restrictions, owl:intersectionOf, owl:unionOf, owl:equivalentClass with anonymous restrictions — CANNOT be added with addLink. Use loadRdf with inline Turtle instead (see loadRdf description).',
     inputSchema: {
       type: 'object',
       properties: {
