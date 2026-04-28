@@ -182,14 +182,16 @@ describe('getNodes', () => {
 
 describe('getNodeDetails', () => {
   it('returns label, types, and all properties from asserted graph', async () => {
-    (rdfManager.fetchQuadsPage as ReturnType<typeof vi.fn>).mockResolvedValue({
-      items: [
-        { subject: 'http://example.org/Alice', predicate: RDF_TYPE, object: 'http://example.org/Person', graph: 'urn:vg:data' },
-        { subject: 'http://example.org/Alice', predicate: RDFS_LABEL, object: 'Alice', graph: 'urn:vg:data' },
-        { subject: 'http://example.org/Alice', predicate: 'http://example.org/age', object: '30', graph: 'urn:vg:data' },
-      ],
-      total: 3,
-    });
+    (rdfManager.fetchQuadsPage as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce({
+        items: [
+          { subject: 'http://example.org/Alice', predicate: RDF_TYPE, object: 'http://example.org/Person', graph: 'urn:vg:data' },
+          { subject: 'http://example.org/Alice', predicate: RDFS_LABEL, object: 'Alice', graph: 'urn:vg:data' },
+          { subject: 'http://example.org/Alice', predicate: 'http://example.org/age', object: '30', graph: 'urn:vg:data' },
+        ],
+        total: 3,
+      })
+      .mockResolvedValueOnce({ items: [], total: 0 });
 
     const result = await getNodeDetails.handler({ iri: 'http://example.org/Alice' });
     expect(result).toEqual({
