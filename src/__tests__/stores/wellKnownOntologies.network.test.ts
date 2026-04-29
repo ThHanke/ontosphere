@@ -4,10 +4,8 @@ import { Readable } from "node:stream";
 import { Parser as N3Parser } from "n3";
 import { WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from "../../utils/wellKnownOntologies";
 
-const SKIP_PREFIXES = new Set([
-  "qudt", "unit", "dcterms", "dc", "org", "pmdco", "tto",
-  "iof-core", "iof-mat", "iof-qual", "schema",
-]);
+// iof-mat and iof-qual: all known spec + GitHub URLs return 404 as of 2026-04
+const SKIP_PREFIXES = new Set(["iof-mat", "iof-qual"]);
 
 async function fetchAndParse(url: string): Promise<number> {
   const resp = await fetch(url, {
@@ -65,11 +63,11 @@ describe("well-known ontology reachability", () => {
 
     testFn(
       `${entry.prefix} — ${loadUrl} resolves and parses as RDF`,
+      { timeout: 30000 },
       async () => {
         const count = await fetchAndParse(loadUrl);
         expect(count).toBeGreaterThan(0);
       },
-      { timeout: 30000 },
     );
   }
 });

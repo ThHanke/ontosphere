@@ -88,11 +88,13 @@ export const WELL_KNOWN_PREFIXES = [
     prefix: "pmdco",
     url: "https://w3id.org/pmd/co/",
     name: "PMD Core",
+    ontologyUrl: "https://raw.githubusercontent.com/materialdigital/core-ontology/main/pmdco.ttl",
   },
   {
     prefix: "tto",
     url: "https://w3id.org/pmd/ao/tto/",
     name: "PMD Tensile Test",
+    ontologyUrl: "https://raw.githubusercontent.com/materialdigital/tensile-test-ontology/main/tto.ttl",
   },
   {
     prefix: "iof-core",
@@ -149,6 +151,7 @@ export const WELL_KNOWN_PREFIXES = [
     prefix: "schema",
     url: "https://schema.org/",
     name: "Schema.org",
+    ontologyUrl: "https://schema.org/version/latest/schemaorg-current-https.ttl",
   },
   {
     prefix: "sh",
