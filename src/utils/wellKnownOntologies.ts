@@ -272,7 +272,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://www.w3.org/2002/12/cal/ical#",
     name: "iCal - iCalendar Vocabulary",
     description: "Calendar events: meetings, recurring schedules, alarms and calendar components",
-    ontologyUrl: "http://www.w3.org/2002/12/cal/ical.rdf",
+    ontologyUrl: "/ontologies/ical.rdf",
   },
 
   // Bibliographic & scholarly
@@ -344,7 +344,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://rdfs.org/sioc/ns#",
     name: "SIOC - Semantically Interlinked Online Communities",
     description: "Online communities: blog posts, forum threads, replies and user accounts",
-    ontologyUrl: "http://rdfs.org/sioc/ns",
+    ontologyUrl: "/ontologies/sioc.rdf",
   },
 
   // IoT / smart home

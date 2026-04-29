@@ -1,0 +1,1687 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:h="http://www.w3.org/1999/xhtml" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#" xmlns:owl="http://www.w3.org/2002/07/owl#" xmlns:dt="http://www.w3.org/2001/XMLSchema#" xmlns:spec="http://www.w3.org/2002/12/cal/icalSpec#" xmlns:cal="http://www.w3.org/2002/12/cal/ical#" xml:base="http://www.w3.org/2002/12/cal/ical">
+  <owl:Thing rdf:about="http://www.w3.org/2002/12/cal/ical">
+    <dc:source>
+      <owl:Thing rdf:about="http://www.ietf.org/rfc/rfc2445.txt"/>
+    </dc:source>
+    <owl:versionInfo>$Id: ical.rdf,v 1.14 2004/04/07 18:45:16 connolly Exp $</owl:versionInfo>
+    <owl:versionInfo>subject to change with notice to www-rdf-calendar@w3.org</owl:versionInfo>
+    <rdfs:seeAlso rdf:resource="http://www.w3.org/2002/12/cal/"/>
+    <rdfs:seeAlso rdf:resource="http://lists.w3.org/Archives/Public/www-rdf-calendar/"/>
+    <rdfs:seeAlso rdf:resource="http://esw.w3.org/topic/RdfCalendar"/>
+  </owl:Thing>
+  <owl:AnnotationProperty rdf:about="http://www.w3.org/2002/12/cal/icalSpec#valueType"/>
+  <owl:AnnotationProperty rdf:about="http://www.w3.org/2002/12/cal/icalSpec#valueListType"/>
+  <owl:ObjectProperty rdf:about="http://purl.org/dc/elements/1.1/source"/>
+  <owl:Class rdf:ID="Vevent">
+    <rdfs:label>VEVENT</rdfs:label>
+    <rdfs:comment>Provide a grouping of component properties that describe an event.</rdfs:comment>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attach"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#categories"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#class"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#comment"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#description"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#geo"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#location"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#priority"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#resources"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#status"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#summary"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtend"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtstart"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#duration"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#transp"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attendee"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#contact"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#organizer"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#relatedTo"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#url"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#uid"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#exrule"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#rdate"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#rrule"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#exdate"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#recurrenceId"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#trigger"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#created"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtstamp"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#lastModified"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#sequence"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#requestStatus"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  <owl:Class rdf:ID="Vtodo">
+    <rdfs:label>VTODO</rdfs:label>
+    <rdfs:comment>Provide a grouping of calendar properties that describe a to-do.</rdfs:comment>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attach"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#categories"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#class"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#comment"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#description"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#geo"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#location"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#percentComplete"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#priority"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#resources"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#status"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#summary"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#completed"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#due"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtstart"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#duration"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attendee"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#contact"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#organizer"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#relatedTo"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#url"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#uid"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#exrule"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#rdate"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#rrule"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#exdate"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#recurrenceId"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#trigger"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#created"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtstamp"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#lastModified"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#sequence"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#requestStatus"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  <owl:Class rdf:ID="Vjournal">
+    <rdfs:label>VJOURNAL</rdfs:label>
+    <rdfs:comment>Provide a grouping of component properties that describe a journal entry.</rdfs:comment>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attach"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#categories"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#class"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#comment"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#description"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#status"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#summary"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attendee"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#contact"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#organizer"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#relatedTo"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#url"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#uid"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#exrule"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#rdate"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#rrule"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#exdate"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#recurrenceId"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#created"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtstamp"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#lastModified"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#sequence"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#requestStatus"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  <owl:Class rdf:ID="Vfreebusy">
+    <rdfs:label>VFREEBUSY</rdfs:label>
+    <rdfs:comment>Provide a grouping of component properties that describe either a request for free/busy time, describe a response to a request for free/busy time or describe a published set of busy time.</rdfs:comment>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#comment"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtend"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtstart"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#duration"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#freebusy"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attendee"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#contact"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#organizer"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#url"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#uid"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtstamp"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#requestStatus"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  <owl:Class rdf:ID="Vtimezone">
+    <rdfs:label>VTIMEZONE</rdfs:label>
+    <rdfs:comment>Provide a grouping of component properties that defines a time zone.</rdfs:comment>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#comment"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#dtstart"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#tzid"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#tzname"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#tzoffsetfrom"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#tzoffsetto"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#tzurl"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#rdate"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#rrule"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#exdate"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#recurrenceId"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#lastModified"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  <owl:Class rdf:ID="Valarm">
+    <rdfs:label>VALARM</rdfs:label>
+    <rdfs:comment>Provide a grouping of component properties that define an alarm.</rdfs:comment>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attach"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#description"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#summary"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#duration"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#attendee"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#action"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#repeat"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+    <rdfs:subClassOf>
+      <owl:Restriction>
+        <owl:onProperty rdf:resource="#trigger"/>
+        <owl:minCardinality rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</owl:minCardinality>
+      </owl:Restriction>
+    </rdfs:subClassOf>
+  </owl:Class>
+  <rdf:Description rdf:ID="calscale">
+    <rdfs:label>CALSCALE</rdfs:label>
+    <rdfs:comment>This property defines the calendar scale used for the calendar information specified in the iCalendar object.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+  </rdf:Description>
+  <rdf:Description rdf:ID="method">
+    <rdfs:label>METHOD</rdfs:label>
+    <rdfs:comment>This property defines the iCalendar object method associated with the calendar object.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+  </rdf:Description>
+  <rdf:Description rdf:ID="prodid">
+    <rdfs:label>PRODID</rdfs:label>
+    <rdfs:comment>This property specifies the identifier for the product that created the iCalendar object.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+  </rdf:Description>
+  <rdf:Description rdf:ID="version">
+    <rdfs:label>VERSION</rdfs:label>
+    <rdfs:comment>This property specifies the identifier corresponding to the highest version number or the minimum and maximum range of the iCalendar specification that is required in order to interpret the iCalendar object.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+  </rdf:Description>
+  <rdf:Description rdf:ID="attach">
+    <rdfs:label>ATTACH</rdfs:label>
+    <rdfs:comment>The property provides the capability to associate a document object with a calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    default value type: URI</rdfs:comment>
+    <spec:valueType>URI</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_attach">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Valarm"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Valarm"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="categories">
+    <rdfs:label>CATEGORIES</rdfs:label>
+    <rdfs:comment>This property defines the categories for a calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_categories">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="class">
+    <rdfs:label>CLASS</rdfs:label>
+    <rdfs:comment>This property defines the access classification for a calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_class">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="comment">
+    <rdfs:label>COMMENT</rdfs:label>
+    <rdfs:comment>This property specifies non-processing information intended to provide a comment to the calendar user.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_comment">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="description">
+    <rdfs:label>DESCRIPTION</rdfs:label>
+    <rdfs:comment>This property provides a more complete description of the calendar component, than that provided by the "SUMMARY" property.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_description">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Valarm"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Valarm"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="geo">
+    <rdfs:label>GEO</rdfs:label>
+    <rdfs:comment>This property specifies information related to the global position for the activity specified by a calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: list of FLOAT</rdfs:comment>
+    <spec:valueListType>FLOAT</spec:valueListType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#List_of_Float"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_geo">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="location">
+    <rdfs:label>LOCATION</rdfs:label>
+    <rdfs:comment>The property defines the intended venue for the activity defined by a calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_location">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="percentComplete">
+    <rdfs:label>PERCENT-COMPLETE</rdfs:label>
+    <rdfs:comment>This property is used by an assignee or delegatee of a to-do to convey the percent completion of a to-do to the Organizer.</rdfs:comment>
+    <rdfs:comment>
+	    value type: INTEGER</rdfs:comment>
+    <spec:valueType>INTEGER</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#integer"/>
+    </rdfs:range>
+    <rdfs:domain rdf:resource="#Vtodo"/>
+  </rdf:Description>
+  <rdf:Description rdf:ID="priority">
+    <rdfs:label>PRIORITY</rdfs:label>
+    <rdfs:comment>The property defines the relative priority for a calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: INTEGER</rdfs:comment>
+    <spec:valueType>INTEGER</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#integer"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_priority">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="resources">
+    <rdfs:label>RESOURCES</rdfs:label>
+    <rdfs:comment>This property defines the equipment or resources anticipated for an activity specified by a calendar entity..</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_resources">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="status">
+    <rdfs:label>STATUS</rdfs:label>
+    <rdfs:comment>This property defines the overall status or confirmation for the calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_status">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="summary">
+    <rdfs:label>SUMMARY</rdfs:label>
+    <rdfs:comment>This property defines a short summary or subject for the calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_summary">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Valarm"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Valarm"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="completed">
+    <rdfs:label>COMPLETED</rdfs:label>
+    <rdfs:comment>This property defines the date and time that a to-do was actually completed.</rdfs:comment>
+    <rdfs:comment>
+	    value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_DATE-TIME"/>
+    </rdfs:range>
+    <rdfs:domain rdf:resource="#Vtodo"/>
+  </rdf:Description>
+  <rdf:Description rdf:ID="dtend">
+    <rdfs:label>DTEND</rdfs:label>
+    <rdfs:comment>This property specifies the date and time that a calendar component ends.</rdfs:comment>
+    <rdfs:comment>
+	    default value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class>
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Value_DATE-TIME"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_dtend">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="due">
+    <rdfs:label>DUE</rdfs:label>
+    <rdfs:comment>This property defines the date and time that a to-do is expected to be completed.</rdfs:comment>
+    <rdfs:comment>
+	    default value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class>
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Value_DATE-TIME"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:range>
+    <rdfs:domain rdf:resource="#Vtodo"/>
+  </rdf:Description>
+  <rdf:Description rdf:ID="dtstart">
+    <rdfs:label>DTSTART</rdfs:label>
+    <rdfs:comment>This property specifies when the calendar component begins.</rdfs:comment>
+    <rdfs:comment>
+	    default value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class>
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Value_DATE-TIME"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_dtstart">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="duration">
+    <rdfs:label>DURATION</rdfs:label>
+    <rdfs:comment>The property specifies a positive duration of time.</rdfs:comment>
+    <rdfs:comment>
+	    value type: DURATION</rdfs:comment>
+    <spec:valueType>DURATION</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_DURATION"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_duration">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Valarm"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Valarm"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="freebusy">
+    <rdfs:label>FREEBUSY</rdfs:label>
+    <rdfs:comment>The property defines one or more free or busy time intervals.</rdfs:comment>
+    <rdfs:comment>
+	    value type: PERIOD</rdfs:comment>
+    <spec:valueType>PERIOD</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_PERIOD"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_freebusy">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="transp">
+    <rdfs:label>TRANSP</rdfs:label>
+    <rdfs:comment>This property defines whether an event is transparent or not to busy time searches.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain rdf:resource="#Vevent"/>
+  </rdf:Description>
+  <rdf:Description rdf:ID="tzid">
+    <rdfs:label>TZID</rdfs:label>
+    <rdfs:comment>This property specifies the text value that uniquely identifies the "VTIMEZONE" calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain rdf:resource="#Vtimezone"/>
+  </rdf:Description>
+  <rdf:Description rdf:ID="tzname">
+    <rdfs:label>TZNAME</rdfs:label>
+    <rdfs:comment>This property specifies the customary designation for a time zone description.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain rdf:resource="#Vtimezone"/>
+  </rdf:Description>
+  <rdf:Description rdf:ID="tzoffsetfrom">
+    <rdfs:label>TZOFFSETFROM</rdfs:label>
+    <rdfs:comment>This property specifies the offset which is in use prior to this time zone observance.</rdfs:comment>
+    <rdfs:comment>
+	    value type: UTC-OFFSET</rdfs:comment>
+    <spec:valueType>UTC-OFFSET</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_tzoffsetfrom">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="tzoffsetto">
+    <rdfs:label>TZOFFSETTO</rdfs:label>
+    <rdfs:comment>This property specifies the offset which is in use in this time zone observance.</rdfs:comment>
+    <rdfs:comment>
+	    value type: UTC-OFFSET</rdfs:comment>
+    <spec:valueType>UTC-OFFSET</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain rdf:resource="#Vtimezone"/>
+  </rdf:Description>
+  <rdf:Description rdf:ID="tzurl">
+    <rdfs:label>TZURL</rdfs:label>
+    <rdfs:comment>The TZURL provides a means for a VTIMEZONE component to point to a network location that can be used to retrieve an up-to- date version of itself.</rdfs:comment>
+    <rdfs:comment>
+	    value type: URI</rdfs:comment>
+    <spec:valueType>URI</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_tzurl">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="attendee">
+    <rdfs:label>ATTENDEE</rdfs:label>
+    <rdfs:comment>The property defines an "Attendee" within a calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: CAL-ADDRESS</rdfs:comment>
+    <spec:valueType>CAL-ADDRESS</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_CAL-ADDRESS"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_attendee">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Valarm"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Valarm"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="contact">
+    <rdfs:label>CONTACT</rdfs:label>
+    <rdfs:comment>The property is used to represent contact information or alternately a reference to contact information associated with the calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_contact">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="organizer">
+    <rdfs:label>ORGANIZER</rdfs:label>
+    <rdfs:comment>The property defines the organizer for a calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: CAL-ADDRESS</rdfs:comment>
+    <spec:valueType>CAL-ADDRESS</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_CAL-ADDRESS"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_organizer">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="recurrenceId">
+    <rdfs:label>RECURRENCE-ID</rdfs:label>
+    <rdfs:comment>This property is used in conjunction with the "UID" and "SEQUENCE" property to identify a specific instance of a recurring "VEVENT", "VTODO" or "VJOURNAL" calendar component. The property value is the effective value of the "DTSTART" property of the recurrence instance.</rdfs:comment>
+    <rdfs:comment>
+	    default value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class>
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Value_DATE-TIME"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:about="#DomainOf_rrule"/>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="relatedTo">
+    <rdfs:label>RELATED-TO</rdfs:label>
+    <rdfs:comment>The property is used to represent a relationship or reference between one calendar component and another.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_relatedTo">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="url">
+    <rdfs:label>URL</rdfs:label>
+    <rdfs:comment>This property defines a Uniform Resource Locator (URL) associated with the iCalendar object.</rdfs:comment>
+    <rdfs:comment>
+	    value type: URI</rdfs:comment>
+    <spec:valueType>URI</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_url">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="uid">
+    <rdfs:label>UID</rdfs:label>
+    <rdfs:comment>This property defines the persistent, globally unique identifier for the calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_uid">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="exdate">
+    <rdfs:label>EXDATE</rdfs:label>
+    <rdfs:comment>This property defines the list of date/time exceptions for a recurring calendar component.</rdfs:comment>
+    <rdfs:comment>
+	    default value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class>
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Value_DATE-TIME"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:about="#DomainOf_rrule"/>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="exrule">
+    <rdfs:label>EXRULE</rdfs:label>
+    <rdfs:comment>This property defines a rule or repeating pattern for an exception to a recurrence set.</rdfs:comment>
+    <rdfs:comment>
+	    value type: RECUR</rdfs:comment>
+    <spec:valueType>RECUR</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_RECUR"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_exrule">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="rdate">
+    <rdfs:label>RDATE</rdfs:label>
+    <rdfs:comment>This property defines the list of date/times for a recurrence set.</rdfs:comment>
+    <rdfs:comment>
+	    default value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class>
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Value_DATE-TIME"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+          <owl:Class rdf:about="#Value_PERIOD"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_rdate">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="rrule">
+    <rdfs:label>RRULE</rdfs:label>
+    <rdfs:comment>This property defines a rule or repeating pattern for recurring events, to-dos, or time zone definitions.</rdfs:comment>
+    <rdfs:comment>
+	    value type: RECUR</rdfs:comment>
+    <spec:valueType>RECUR</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_RECUR"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_rrule">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="action">
+    <rdfs:label>ACTION</rdfs:label>
+    <rdfs:comment>This property defines the action to be invoked when an alarm is triggered.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_action">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Valarm"/>
+          <owl:Class rdf:about="#Valarm"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="repeat">
+    <rdfs:label>REPEAT</rdfs:label>
+    <rdfs:comment>This property defines the number of time the alarm should be repeated, after the initial trigger.</rdfs:comment>
+    <rdfs:comment>
+	    value type: INTEGER</rdfs:comment>
+    <spec:valueType>INTEGER</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#integer"/>
+    </rdfs:range>
+    <rdfs:domain rdf:resource="#Valarm"/>
+  </rdf:Description>
+  <rdf:Description rdf:ID="trigger">
+    <rdfs:label>TRIGGER</rdfs:label>
+    <rdfs:comment>This property specifies when an alarm will trigger.</rdfs:comment>
+    <rdfs:comment>
+	    default value type: DURATION</rdfs:comment>
+    <spec:valueType>DURATION</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class>
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Value_DURATION"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+          <owl:Class rdf:about="#Value_DATE"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_trigger">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Valarm"/>
+          <owl:Class rdf:about="#Valarm"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="created">
+    <rdfs:label>CREATED</rdfs:label>
+    <rdfs:comment>This property specifies the date and time that the calendar information was created by the calendar user agent in the calendar store. Note: This is analogous to the creation date and time for a file in the file system.</rdfs:comment>
+    <rdfs:comment>
+	    value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_DATE-TIME"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_created">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="dtstamp">
+    <rdfs:label>DTSTAMP</rdfs:label>
+    <rdfs:comment>The property indicates the date/time that the instance of the iCalendar object was created.</rdfs:comment>
+    <rdfs:comment>
+	    value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_DATE-TIME"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_dtstamp">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="lastModified">
+    <rdfs:label>LAST-MODIFIED</rdfs:label>
+    <rdfs:comment>The property specifies the date and time that the information associated with the calendar component was last revised in the calendar store. Note: This is analogous to the modification date and time for a file in the file system.</rdfs:comment>
+    <rdfs:comment>
+	    value type: DATE-TIME</rdfs:comment>
+    <spec:valueType>DATE-TIME</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#ObjectProperty"/>
+    <rdfs:range>
+      <owl:Class rdf:about="#Value_DATE-TIME"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_lastModified">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vtimezone"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="sequence">
+    <rdfs:label>SEQUENCE</rdfs:label>
+    <rdfs:comment>This property defines the revision sequence number of the calendar component within a sequence of revisions.</rdfs:comment>
+    <rdfs:comment>
+	    value type: integer</rdfs:comment>
+    <spec:valueType>integer</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#integer"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_sequence">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+  <rdf:Description rdf:ID="X-">
+    <rdfs:label>Any property name with a "X-" prefix</rdfs:label>
+    <rdfs:comment>This class of property provides a framework for defining non-standard properties.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+  </rdf:Description>
+  <rdf:Description rdf:ID="requestStatus">
+    <rdfs:label>REQUEST-STATUS</rdfs:label>
+    <rdfs:comment>This property defines the status code returned for a scheduling request.</rdfs:comment>
+    <rdfs:comment>
+	    value type: TEXT</rdfs:comment>
+    <spec:valueType>TEXT</spec:valueType>
+    <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#DatatypeProperty"/>
+    <rdfs:range>
+      <rdfs:Datatype rdf:about="http://www.w3.org/2001/XMLSchema#string"/>
+    </rdfs:range>
+    <rdfs:domain>
+      <owl:Class rdf:nodeID="DomainOf_requestStatus">
+        <owl:unionOf rdf:parseType="Collection">
+          <owl:Class rdf:about="#Vevent"/>
+          <owl:Class rdf:about="#Vtodo"/>
+          <owl:Class rdf:about="#Vjournal"/>
+          <owl:Class rdf:about="#Vfreebusy"/>
+        </owl:unionOf>
+      </owl:Class>
+    </rdfs:domain>
+  </rdf:Description>
+</rdf:RDF>
