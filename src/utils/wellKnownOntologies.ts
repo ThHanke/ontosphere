@@ -424,6 +424,18 @@ export const WELL_KNOWN_BY_PREFIX: Record<
  * (e.g. BFO, DCAT) that URL is returned; otherwise the namespace `url` is used.
  * Unrecognised strings are returned as-is so callers can pass raw URIs directly.
  */
+/** Filter the registry by keyword or use-case phrase. Empty query returns all entries. */
+export function searchWellKnownOntologies(query: string): typeof WELL_KNOWN_PREFIXES[number][] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...WELL_KNOWN_PREFIXES];
+  return WELL_KNOWN_PREFIXES.filter(e =>
+    e.prefix.toLowerCase().includes(q) ||
+    e.name.toLowerCase().includes(q) ||
+    e.url.toLowerCase().includes(q) ||
+    ((e as any).description as string | undefined)?.toLowerCase().includes(q)
+  );
+}
+
 export function resolveOntologyLoadUrl(prefixOrUri: string): string {
   // Match by prefix name first
   const byPrefix = WELL_KNOWN_BY_PREFIX[prefixOrUri];

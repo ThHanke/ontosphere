@@ -5,7 +5,7 @@ import { rdfManager } from '@/utils/rdfManager';
 import { getWorkspaceRefs, applyViewMode } from '@/mcp/workspaceContext';
 import { mcpManifest, mcpServerDescription } from '@/mcp/manifest';
 import { Parser as SparqlParser, Generator as SparqlGenerator } from 'sparqljs';
-import { resolveOntologyLoadUrl, WELL_KNOWN_PREFIXES } from '@/utils/wellKnownOntologies';
+import { resolveOntologyLoadUrl, searchWellKnownOntologies } from '@/utils/wellKnownOntologies';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 /** Prepend PREFIX declarations from the namespace map for any prefix not already declared in the query. */
@@ -99,16 +99,7 @@ const searchOntologies: McpTool = {
   },
   async handler(params): Promise<McpResult> {
     const { query = '' } = (params ?? {}) as { query?: string };
-    const q = query.trim().toLowerCase();
-    const matches = q
-      ? WELL_KNOWN_PREFIXES.filter(e =>
-          e.prefix.toLowerCase().includes(q) ||
-          e.name.toLowerCase().includes(q) ||
-          ((e as any).description as string | undefined)?.toLowerCase().includes(q)
-        )
-      : [...WELL_KNOWN_PREFIXES];
-
-    const ontologies = matches.map(e => ({
+    const ontologies = searchWellKnownOntologies(query).map(e => ({
       prefix: e.prefix,
       name: e.name,
       description: (e as any).description ?? '',
@@ -156,13 +147,7 @@ const loadOntology: McpTool = {
       await rdfManager.loadRDFFromUrl(resolvedUrl, { corsProxyUrl });
       return { success: true, data: { loaded: resolvedUrl, requestedAs: url !== resolvedUrl ? url : undefined } };
     } catch (e) {
-      const q = url.toLowerCase();
-      const suggestions = WELL_KNOWN_PREFIXES
-        .filter(p =>
-          p.prefix.includes(q) ||
-          p.name.toLowerCase().includes(q) ||
-          ((p as any).description as string | undefined)?.toLowerCase().includes(q)
-        )
+      const suggestions = searchWellKnownOntologies(url)
         .map(p => ({ prefix: p.prefix, description: (p as any).description ?? p.name }));
       return {
         success: false,

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from '../../utils/wellKnownOntologies';
+import { searchWellKnownOntologies, resolveOntologyLoadUrl } from '../../utils/wellKnownOntologies';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -19,16 +19,7 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
   const listRef = useRef<HTMLUListElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return WELL_KNOWN_PREFIXES;
-    return WELL_KNOWN_PREFIXES.filter(e =>
-      e.prefix.toLowerCase().includes(q) ||
-      e.name.toLowerCase().includes(q) ||
-      e.url.toLowerCase().includes(q) ||
-      ((e as any).description as string | undefined)?.toLowerCase().includes(q)
-    );
-  }, [query]);
+  const filtered = useMemo(() => searchWellKnownOntologies(query), [query]);
 
   useEffect(() => { setActiveIndex(-1); }, [filtered]);
 
