@@ -276,7 +276,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://www.w3.org/2002/12/cal/ical#",
     name: "iCal - iCalendar Vocabulary",
     description: "Calendar events: meetings, recurring schedules, alarms and calendar components",
-    ontologyUrl: "http://www.w3.org/2002/12/cal/ical.rdf",
+    ontologyUrl: "https://www.w3.org/2002/12/cal/ical",
   },
 
   // Bibliographic & scholarly
