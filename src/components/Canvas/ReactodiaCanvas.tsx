@@ -42,7 +42,7 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import OntologyUrlAutoComplete from '../ui/OntologyUrlAutoComplete';
 import { Button } from '../ui/button';
-import { WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from '@/utils/wellKnownOntologies';
+import { WELL_KNOWN_BY_PREFIX, resolveOntologyLoadUrl } from '@/utils/wellKnownOntologies';
 import { instantiateWorkflowOnCanvas } from '@/utils/workflowInstantiator';
 
 function extractNamespace(iri: string): string {
@@ -855,15 +855,20 @@ export default function ReactodiaCanvas() {
     }
 
     // ?ontology= comma-separated list of well-known prefix names (e.g. "bfo,dcat") or full URIs.
-    let startupOntologyUrls: string[] = [];
+    let startupOntologyEntries: { input: string; resolved: string; label: string }[] = [];
     try {
       const u = new URL(String(window.location.href));
       const ontologyParam = u.searchParams.get('ontology') || u.searchParams.get('ontologies') || '';
       if (ontologyParam.trim()) {
-        startupOntologyUrls = ontologyParam
+        startupOntologyEntries = ontologyParam
           .split(',')
-          .map((s) => resolveOntologyLoadUrl(s.trim()))
-          .filter(Boolean);
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((s) => ({
+            input: s,
+            resolved: resolveOntologyLoadUrl(s),
+            label: WELL_KNOWN_BY_PREFIX[s]?.name ?? s,
+          }));
       }
     } catch {
       /* ignore */
@@ -904,18 +909,21 @@ export default function ReactodiaCanvas() {
         }
       }
 
-      // Load ontologies specified via ?ontology= URL param (additive — runs alongside all other mechanisms).
-      if (startupOntologyUrls.length > 0) {
-        try {
-          actions.setLoading(true, 5, 'Loading ontologies from URL parameter...');
-          await loadAdditionalOntologies(startupOntologyUrls, (progress: number, message: string) => {
-            actions.setLoading(true, Math.max(5, progress), message);
-          });
-        } catch (err) {
-          console.warn('[ReactodiaCanvas] ?ontology= load failed', err);
-        } finally {
-          actions.setLoading(false, 0, '');
+      // Load ontologies specified via ?ontology= URL param — one toast per entry.
+      if (startupOntologyEntries.length > 0) {
+        for (const entry of startupOntologyEntries) {
+          try {
+            actions.setLoading(true, 5, `Loading ${entry.label}...`);
+            await loadAdditionalOntologies([entry.resolved], (progress, message) => {
+              actions.setLoading(true, Math.max(5, progress), message);
+            });
+            toast.success(entry.label, { description: 'Loaded from ?ontology= parameter' });
+          } catch (err) {
+            console.warn('[ReactodiaCanvas] ?ontology= load failed', entry.input, err);
+            toast.error(`Failed to load ${entry.label}`, { description: '?ontology= parameter — check the prefix or URL' });
+          }
         }
+        actions.setLoading(false, 0, '');
       }
     })();
   }, [loadKnowledgeGraph, loadAdditionalOntologies, actions]);
