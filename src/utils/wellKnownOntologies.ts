@@ -125,8 +125,9 @@ export const WELL_KNOWN_PREFIXES = [
     prefix: "foaf",
     url: "http://xmlns.com/foaf/0.1/",
     name: "FOAF",
-    description: "Friend of a Friend: people, organizations, social networks and accounts",
+    description: "People and their connections: name, email, knows-relationships and social accounts — foundation for any person-centric knowledge graph",
     ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/foaf/versions/2014-01-14.n3",
+    packs: ["people", "events", "annotations"],
   },
   {
     prefix: "org",
@@ -134,6 +135,23 @@ export const WELL_KNOWN_PREFIXES = [
     name: "Organization",
     description: "Formal organizations, membership, roles, sites and organizational units",
     ontologyUrl: "https://www.w3.org/ns/org",
+    packs: ["people"],
+  },
+  {
+    prefix: "rel",
+    url: "http://purl.org/vocab/relationship/",
+    name: "REL - Relationship Vocabulary",
+    description: "Typed person-to-person relationships: siblingOf, parentOf, colleagueOf, friendOf — extends FOAF for richer social graphs",
+    ontologyUrl: "https://vocab.org/relationship/rel-vocab-20100607.rdf",
+    packs: ["people"],
+  },
+  {
+    prefix: "bio",
+    url: "http://purl.org/vocab/bio/0.1/",
+    name: "BIO - Biographical Vocabulary",
+    description: "Life events for biographical knowledge graphs: Birth, Death, Marriage, Graduation and their dates and places",
+    ontologyUrl: "https://vocab.org/bio/bio-vocab-20100101.rdf",
+    packs: ["people"],
   },
   {
     prefix: "pmdco",
@@ -141,6 +159,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "PMD Core",
     description: "Materials science and engineering: processes, specimens and characteristics",
     ontologyUrl: "https://raw.githubusercontent.com/materialdigital/core-ontology/main/pmdco.ttl",
+    packs: ["engineering"],
   },
   {
     prefix: "tto",
@@ -190,6 +209,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "SOSA - Sensor, Observation, Sample and Actuator",
     description: "IoT observation framework: sensors, actuators, samples and observations",
     ontologyUrl: "https://www.w3.org/ns/sosa/",
+    packs: ["iot"],
   },
   {
     prefix: "ssn",
@@ -197,13 +217,15 @@ export const WELL_KNOWN_PREFIXES = [
     name: "SSN - Semantic Sensor Network Ontology",
     description: "Semantic sensor networks: systems, platforms, capabilities and deployments",
     ontologyUrl: "https://www.w3.org/ns/ssn/",
+    packs: ["iot"],
   },
   {
     prefix: "schema",
     url: "https://schema.org/",
     name: "Schema.org",
-    description: "Events, people, places, products, organizations and web content markup",
+    description: "Universal knowledge graph vocabulary: people, places, events, organizations, products and creative works — best starting point for any general-purpose graph",
     ontologyUrl: "https://schema.org/version/latest/schemaorg-current-https.ttl",
+    packs: ["events", "general-kg"],
   },
   {
     prefix: "sh",
@@ -216,8 +238,9 @@ export const WELL_KNOWN_PREFIXES = [
     prefix: "time",
     url: "http://www.w3.org/2006/time#",
     name: "OWL-Time - Time Ontology in OWL",
-    description: "Temporal entities: instants, intervals, durations, time positions and zones",
+    description: "Model time: when things happen, how long they last, and temporal order between events — works with any domain",
     ontologyUrl: "https://www.w3.org/2006/time",
+    packs: ["pkm", "events", "iot"],
   },
   {
     prefix: "vcard",
@@ -225,6 +248,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "vCard Ontology",
     description: "Electronic business cards: contact details, addresses, telephones and emails",
     ontologyUrl: "https://www.w3.org/2006/vcard/ns",
+    packs: ["people"],
   },
   {
     prefix: "ldp",
@@ -237,8 +261,9 @@ export const WELL_KNOWN_PREFIXES = [
     prefix: "oa",
     url: "http://www.w3.org/ns/oa#",
     name: "OA - Web Annotation Vocabulary",
-    description: "Web annotations: bodies, targets, selectors and annotation motivations",
+    description: "Attach notes, comments or tags to any resource — web pages, document sections, image regions or graph nodes",
     ontologyUrl: "https://www.w3.org/ns/oa",
+    packs: ["pkm", "annotations"],
   },
   {
     prefix: "odrl",
@@ -246,6 +271,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "ODRL - Open Digital Rights Language",
     description: "Rights management: policies, permissions, prohibitions and obligations",
     ontologyUrl: "https://www.w3.org/ns/odrl/2/",
+    packs: ["legal"],
   },
   {
     prefix: "as",
@@ -281,6 +307,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "RDF Data Cube Vocabulary",
     description: "Statistical data: observations, measures, dimensions and attributes",
     ontologyUrl: "https://raw.githubusercontent.com/UKGovLD/publishing-statistical-data/master/specs/src/main/vocab/cube.ttl",
+    packs: ["data-catalog"],
   },
 
   // Calendar & events
@@ -290,6 +317,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "iCal - iCalendar Vocabulary",
     description: "Calendar events: meetings, recurring schedules, alarms and calendar components",
     ontologyUrl: "https://www.w3.org/2002/12/cal/ical",
+    packs: ["events"],
   },
 
   // Bibliographic & scholarly
@@ -299,6 +327,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "BIBO - Bibliographic Ontology",
     description: "Bibliographic metadata: books, articles, theses, reports and academic works",
     ontologyUrl: "https://raw.githubusercontent.com/structureddynamics/Bibliographic-Ontology-BIBO/master/bibo.owl",
+    packs: ["research"],
   },
   {
     prefix: "fabio",
@@ -306,6 +335,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "FABIO - FRBR-aligned Bibliographic Ontology",
     description: "Publishing works: journal articles, conference papers, datasets and expressions",
     ontologyUrl: "https://raw.githubusercontent.com/SPAROntologies/fabio/master/docs/current/fabio.owl",
+    packs: ["research"],
   },
   {
     prefix: "cito",
@@ -313,6 +343,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "CiTO - Citation Typing Ontology",
     description: "Scholarly citation types: supports, disputes, extends, documents and cites",
     ontologyUrl: "https://raw.githubusercontent.com/SPAROntologies/cito/master/docs/current/cito.owl",
+    packs: ["research"],
   },
   {
     prefix: "vann",
@@ -356,6 +387,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "CC - Creative Commons Vocabulary",
     description: "Creative Commons licensing: permissions, prohibitions and attribution requirements",
     ontologyUrl: "https://creativecommons.org/schema.rdf",
+    packs: ["legal"],
   },
 
   // Social web & discussions
@@ -374,6 +406,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "SAREF - Smart Appliances REFerence Ontology",
     description: "Smart home and IoT: devices, functions, commands, measurements and states",
     ontologyUrl: "https://saref.etsi.org/core/v3.1.1/saref.ttl",
+    packs: ["iot"],
   },
 
   // Buildings & architecture
@@ -437,6 +470,162 @@ export const WELL_KNOWN_PREFIXES = [
     ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/dctype/versions/2012-06-14.n3",
   },
 ] as const;
+
+export const ONTOLOGY_PACKS = [
+  {
+    id: "pkm",
+    name: "Personal Knowledge Management / Mind Mapping",
+    description: "Structure notes, make mind maps, organize topics and concept hierarchies",
+    examplePhrases: ["mind map", "organize topics", "structure notes", "concept hierarchy", "taking notes"],
+  },
+  {
+    id: "people",
+    name: "People & Social Relationships",
+    description: "Connect people, model social networks, family trees and biographical data",
+    examplePhrases: ["people I know", "social network", "family tree", "contacts", "relationships", "connect people"],
+  },
+  {
+    id: "events",
+    name: "Events & Scheduling",
+    description: "Track meetings, model calendars and schedule projects",
+    examplePhrases: ["calendar", "meetings", "schedule", "events", "appointments", "time management"],
+  },
+  {
+    id: "general-kg",
+    name: "General Knowledge Graph",
+    description: "Build a knowledge graph about any topic — general linked data for any domain",
+    examplePhrases: ["knowledge graph", "linked data", "model anything", "general purpose", "build a graph"],
+  },
+  {
+    id: "research",
+    name: "Research & Academic Work",
+    description: "Track citations, model bibliography and link papers to datasets",
+    examplePhrases: ["citations", "bibliography", "papers", "academic", "research", "references"],
+  },
+  {
+    id: "data-catalog",
+    name: "Data Catalog & Open Data",
+    description: "Inventory datasets, describe APIs and publish open data",
+    examplePhrases: ["dataset", "data catalog", "open data", "API", "inventory", "data portal"],
+  },
+  {
+    id: "iot",
+    name: "IoT & Sensor Data",
+    description: "Log sensor readings, model smart homes and track observations",
+    examplePhrases: ["sensor", "IoT", "smart home", "observations", "measurements", "device"],
+  },
+  {
+    id: "engineering",
+    name: "Engineering & Scientific Measurement",
+    description: "Model material properties, record test results and describe physical processes",
+    examplePhrases: ["material", "measurement", "units", "scientific", "engineering", "physical process"],
+  },
+  {
+    id: "legal",
+    name: "Legal & Rights Management",
+    description: "Describe licensing, model permissions and attach rights to content",
+    examplePhrases: ["license", "rights", "permissions", "legal", "Creative Commons", "copyright"],
+  },
+  {
+    id: "annotations",
+    name: "Document Annotation",
+    description: "Annotate web pages, attach notes to PDF sections and comment on image regions",
+    examplePhrases: ["annotate", "annotation", "comments", "notes on document", "highlight", "markup"],
+  },
+] as const;
+
+export type OntologyPackId = typeof ONTOLOGY_PACKS[number]["id"];
+
+export type OntologyPackSummary = { packId: string; packName: string; description: string };
+export type OntologyPackDetail = OntologyPackSummary & {
+  ontologies: Array<{ prefix: string; namespace: string; reason: string }>;
+};
+
+const PACK_REASONS: Record<string, string> = {
+  "pkm:skos": "Concept hierarchy, broader/narrower, topic trees",
+  "pkm:dcterms": "Title, description, date metadata on nodes",
+  "pkm:oa": "Annotate nodes with external references or comments",
+  "pkm:time": "Temporal tagging of concepts",
+  "people:foaf": "Person nodes, knows-relationships, social accounts",
+  "people:vcard": "Contact details: email, phone, address",
+  "people:org": "Organizations and membership roles",
+  "people:rel": "Typed relationships: siblingOf, colleagueOf, parentOf",
+  "people:bio": "Life events: birth, graduation, marriage, death",
+  "events:ical": "Calendar events, recurrence, alarms",
+  "events:time": "Durations, intervals, time zones",
+  "events:schema": "schema:Event with location, organizer",
+  "events:foaf": "Organizer / attendee persons",
+  "general-kg:schema": "Universal typed entities: Person, Place, Event, Organization, Product",
+  "general-kg:skos": "Classification, tagging, concept schemes",
+  "general-kg:dcterms": "Metadata: title, creator, date, source",
+  "general-kg:prov": "Provenance: where did this data come from",
+  "research:bibo": "Books, articles, theses, reports",
+  "research:cito": "Citation types: supports, disputes, extends",
+  "research:fabio": "Publishing works: journal papers, conference proceedings",
+  "research:prov": "Dataset and result provenance",
+  "research:dcterms": "Standard bibliographic metadata",
+  "data-catalog:dcat": "Datasets, distributions, data services",
+  "data-catalog:qb": "Statistical observations and dimensions",
+  "data-catalog:dcterms": "Dataset metadata",
+  "data-catalog:prov": "Dataset lineage",
+  "iot:sosa": "Sensors, actuators, observations, samples",
+  "iot:ssn": "Sensor networks, platforms, deployments",
+  "iot:saref": "Smart home devices, commands, states",
+  "iot:unit": "Units of measure for sensor values",
+  "iot:time": "Observation timestamps",
+  "engineering:qudt": "Quantity kinds, units, numeric values",
+  "engineering:unit": "Concrete SI units",
+  "engineering:prov": "Process provenance",
+  "engineering:bfo": "Upper-level foundational classes",
+  "engineering:pmdco": "Materials science processes and specimens",
+  "legal:odrl": "Policies, permissions, prohibitions, obligations",
+  "legal:cc": "Creative Commons license terms",
+  "legal:dcterms": "Rights-holder metadata",
+  "annotations:oa": "Annotation body, target, selector, motivation",
+  "annotations:dcterms": "Annotation metadata",
+  "annotations:foaf": "Annotator identity",
+};
+
+/** Search ontology packs by plain-language task description.
+ *  Returns matching packs with full ontology details when task matches, or all pack summaries when empty/no match. */
+export function searchOntologyPacks(task: string): Array<OntologyPackSummary | OntologyPackDetail> {
+  const tokens = task.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
+  const scored = ONTOLOGY_PACKS.map(pack => {
+    const haystack = [pack.name, pack.description, ...pack.examplePhrases].join(" ").toLowerCase();
+    const score = tokens.length === 0 ? 0 : tokens.filter(t => haystack.includes(t)).length;
+    return { pack, score };
+  });
+
+  const hasMatches = scored.some(s => s.score > 0);
+
+  if (!hasMatches) {
+    return ONTOLOGY_PACKS.map(pack => ({
+      packId: pack.id,
+      packName: pack.name,
+      description: pack.description,
+    }));
+  }
+
+  return scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ pack }) => {
+      const ontologies = WELL_KNOWN_PREFIXES
+        .filter(e => (e as any).packs?.includes(pack.id))
+        .map(e => ({
+          prefix: e.prefix,
+          namespace: e.url,
+          reason: PACK_REASONS[`${pack.id}:${e.prefix}`] ?? "",
+        }));
+      return {
+        packId: pack.id,
+        packName: pack.name,
+        description: pack.description,
+        ontologies,
+      };
+    });
+}
 
 export const WELL_KNOWN_BY_PREFIX: Record<
   string,

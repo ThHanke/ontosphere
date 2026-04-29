@@ -292,3 +292,59 @@ describe('exportImage', () => {
     expect(result).toEqual({ success: false, error: 'Canvas not available' });
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('suggestOntologiesForTask', () => {
+  it('no params returns all 10 packs as summaries', async () => {
+    const result = await tool('suggestOntologiesForTask').handler({});
+    expect(result.success).toBe(true);
+    expect((result as any).data.count).toBe(10);
+    const packs = (result as any).data.packs;
+    expect(packs).toHaveLength(10);
+    for (const pack of packs) {
+      expect(pack).toHaveProperty('packId');
+      expect(pack).toHaveProperty('packName');
+      expect(pack).toHaveProperty('description');
+      expect(pack).not.toHaveProperty('ontologies');
+    }
+  });
+
+  it('empty task returns all 10 packs', async () => {
+    const result = await tool('suggestOntologiesForTask').handler({ task: '' });
+    expect(result.success).toBe(true);
+    expect((result as any).data.count).toBe(10);
+  });
+
+  it('"model people I know" returns people pack with foaf ontology', async () => {
+    const result = await tool('suggestOntologiesForTask').handler({ task: 'model people I know' });
+    expect(result.success).toBe(true);
+    const packs = (result as any).data.packs;
+    const people = packs.find((p: any) => p.packId === 'people');
+    expect(people).toBeDefined();
+    expect(people.ontologies).toBeDefined();
+    const prefixes = people.ontologies.map((o: any) => o.prefix);
+    expect(prefixes).toContain('foaf');
+  });
+
+  it('"zzznomatch999" returns all packs summary-only', async () => {
+    const result = await tool('suggestOntologiesForTask').handler({ task: 'zzznomatch999' });
+    expect(result.success).toBe(true);
+    expect((result as any).data.count).toBe(10);
+    for (const pack of (result as any).data.packs) {
+      expect(pack).not.toHaveProperty('ontologies');
+    }
+  });
+
+  it('all prefix values in returned ontologies are non-empty strings', async () => {
+    const result = await tool('suggestOntologiesForTask').handler({ task: 'sensor' });
+    const packs = (result as any).data.packs;
+    for (const pack of packs) {
+      if (pack.ontologies) {
+        for (const ont of pack.ontologies) {
+          expect(typeof ont.prefix).toBe('string');
+          expect(ont.prefix.length).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+});

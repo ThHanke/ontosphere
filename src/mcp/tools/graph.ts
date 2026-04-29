@@ -5,7 +5,7 @@ import { rdfManager } from '@/utils/rdfManager';
 import { getWorkspaceRefs, applyViewMode } from '@/mcp/workspaceContext';
 import { mcpManifest, mcpServerDescription } from '@/mcp/manifest';
 import { Parser as SparqlParser, Generator as SparqlGenerator } from 'sparqljs';
-import { resolveOntologyLoadUrl, searchWellKnownOntologies } from '@/utils/wellKnownOntologies';
+import { resolveOntologyLoadUrl, searchWellKnownOntologies, searchOntologyPacks } from '@/utils/wellKnownOntologies';
 import { useOntologyStore } from '@/stores/ontologyStore';
 
 /** Fix PREFIX declarations where the IRI is bare (no angle brackets): PREFIX rdf: http://... → PREFIX rdf: <http://...> */
@@ -496,11 +496,41 @@ const help: McpTool = {
 };
 
 // ---------------------------------------------------------------------------
+// suggestOntologiesForTask
+// ---------------------------------------------------------------------------
+const suggestOntologiesForTask: McpTool = {
+  name: 'suggestOntologiesForTask',
+  description:
+    'Suggest compatible sets of ontologies for a plain-language task description. ' +
+    'Pass task as a phrase ("people I know", "mind map", "track sensor readings"). ' +
+    'Returns matching packs — each with prefix list and rationale — so you can load them via loadOntology. ' +
+    'Pass empty string or omit task to browse all 10 available packs.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task: {
+        type: 'string',
+        description: 'Plain-language description of the knowledge graph task.',
+      },
+    },
+  },
+  async handler(params): Promise<McpResult> {
+    const { task = '' } = (params ?? {}) as { task?: string };
+    const packs = searchOntologyPacks(task);
+    return {
+      success: true,
+      data: { task: task || '(browse all)', count: packs.length, packs },
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 export const graphTools: McpTool[] = [
   loadRdf,
   loadOntology,
+  suggestOntologiesForTask,
   queryGraph,
   exportGraph,
   exportImage,
