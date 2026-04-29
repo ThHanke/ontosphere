@@ -155,6 +155,60 @@ export const WELL_KNOWN_PREFIXES = [
     name: "OWL-Time - Time Ontology in OWL",
     ontologyUrl: "https://www.w3.org/2006/time",
   },
+  {
+    prefix: "vcard",
+    url: "http://www.w3.org/2006/vcard/ns#",
+    name: "vCard Ontology",
+    ontologyUrl: "https://www.w3.org/2006/vcard/ns",
+  },
+  {
+    prefix: "ldp",
+    url: "http://www.w3.org/ns/ldp#",
+    name: "LDP - Linked Data Platform",
+    ontologyUrl: "https://www.w3.org/ns/ldp",
+  },
+  {
+    prefix: "oa",
+    url: "http://www.w3.org/ns/oa#",
+    name: "OA - Web Annotation Vocabulary",
+    ontologyUrl: "https://www.w3.org/ns/oa",
+  },
+  {
+    prefix: "odrl",
+    url: "http://www.w3.org/ns/odrl/2/",
+    name: "ODRL - Open Digital Rights Language",
+    ontologyUrl: "https://www.w3.org/ns/odrl/2/",
+  },
+  {
+    prefix: "as",
+    url: "https://www.w3.org/ns/activitystreams#",
+    name: "Activity Streams 2.0",
+    ontologyUrl: "https://www.w3.org/ns/activitystreams-owl.ttl",
+  },
+  {
+    prefix: "csvw",
+    url: "http://www.w3.org/ns/csvw#",
+    name: "CSVW - CSV on the Web",
+    ontologyUrl: "https://www.w3.org/ns/csvw",
+  },
+  {
+    prefix: "locn",
+    url: "http://www.w3.org/ns/locn#",
+    name: "LOCN - Core Location Vocabulary",
+    ontologyUrl: "https://www.w3.org/ns/locn",
+  },
+  {
+    prefix: "wgs84",
+    url: "http://www.w3.org/2003/01/geo/wgs84_pos#",
+    name: "WGS84 - Basic Geo Vocabulary",
+    ontologyUrl: "http://www.w3.org/2003/01/geo/wgs84_pos.rdf",
+  },
+  {
+    prefix: "qb",
+    url: "http://purl.org/linked-data/cube#",
+    name: "RDF Data Cube Vocabulary",
+    ontologyUrl: "https://raw.githubusercontent.com/UKGovLD/publishing-statistical-data/master/specs/src/main/vocab/cube.ttl",
+  },
 ] as const;
 
 export const WELL_KNOWN_BY_PREFIX: Record<
