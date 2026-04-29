@@ -2,7 +2,7 @@
  * Centralized well-known ontology and prefix mappings.
  *
  * New canonical structure:
- *  - WELL_KNOWN_PREFIXES: Array of { prefix, url, name }
+ *  - WELL_KNOWN_PREFIXES: Array of { prefix, url, name, description }
  *  - WELL_KNOWN_BY_PREFIX: Record<prefix, record>
  *  - WELL_KNOWN_BY_URL: Map<url, prefixes[]>
  *
@@ -17,203 +17,405 @@ export const WELL_KNOWN_PREFIXES = [
     prefix: "rdf",
     url: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
     name: "RDF - The RDF Concepts Vocabulary",
+    description: "Fundamental RDF concepts: resources, properties, literals and statements",
     isCore: true,
   },
   {
     prefix: "rdfs",
     url: "http://www.w3.org/2000/01/rdf-schema#",
     name: "RDFS - The RDF Schema Vocabulary",
+    description: "RDF Schema: classes, properties, subclass and subproperty hierarchies",
     isCore: true,
   },
-  { prefix: "owl", url: "http://www.w3.org/2002/07/owl#", name: "OWL", isCore: true },
-  { prefix: "xsd", url: "http://www.w3.org/2001/XMLSchema#", name: "XSD", isCore: true },
-  { prefix: "skos", url: "http://www.w3.org/2004/02/skos/core#", name: "SKOS" },
+  {
+    prefix: "owl",
+    url: "http://www.w3.org/2002/07/owl#",
+    name: "OWL",
+    description: "Web Ontology Language: expressive class and property axioms, reasoning",
+    isCore: true,
+  },
+  {
+    prefix: "xsd",
+    url: "http://www.w3.org/2001/XMLSchema#",
+    name: "XSD",
+    description: "XML Schema Datatypes: string, integer, date, boolean and other primitives",
+    isCore: true,
+  },
+  {
+    prefix: "skos",
+    url: "http://www.w3.org/2004/02/skos/core#",
+    name: "SKOS",
+    description: "Simple Knowledge Organization System: thesauri, taxonomies and classification schemes",
+  },
   {
     prefix: "prov",
     url: "http://www.w3.org/ns/prov#",
     name: "PROV-O - The PROV Ontology",
+    description: "Provenance: entities, activities, agents and their causal relationships",
     ontologyUrl: "https://www.w3.org/ns/prov-o",
   },
   {
     prefix: "p-plan",
     url: "http://purl.org/net/p-plan#",
     name: "P-Plan - The P-Plan Ontology",
+    description: "Scientific workflow provenance: plans, steps and entities extending PROV-O",
     ontologyUrl: "https://purl.org/net/p-plan",
   },
   {
     prefix: "bfo",
     url: "http://purl.obolibrary.org/obo/BFO_",
     name: "BFO 2 - Basic Formal Ontology 2.0",
+    description: "Upper-level foundational ontology for biomedical and scientific domains",
     ontologyUrl: "https://purl.obolibrary.org/obo/bfo/2.0/bfo.owl",
   },
   {
     prefix: "bfo2020",
     url: "https://basic-formal-ontology.org/2020/formulas/owl/",
     name: "BFO 2020 - Basic Formal Ontology 2020",
+    description: "ISO/IEC 21838-compliant update of Basic Formal Ontology",
     ontologyUrl: "https://raw.githubusercontent.com/BFO-ontology/BFO-2020/master/21838-2/owl/bfo-core.owl",
   },
   {
     prefix: "dcat",
     url: "http://www.w3.org/ns/dcat#",
     name: "DCAT - Data Catalog Vocabulary",
+    description: "Data catalogs: datasets, distributions, data services and catalog records",
     ontologyUrl: "https://www.w3.org/ns/dcat2",
   },
   {
     prefix: "qudt",
     url: "http://qudt.org/schema/qudt/",
     name: "QUDT - Quantities, Units, Dimensions and Types",
+    description: "Measurement schema: quantity kinds, units, dimensions and numeric values",
   },
   {
     prefix: "unit",
     url: "http://qudt.org/vocab/unit/",
     name: "QUDT Units Vocabulary",
+    description: "Concrete SI and non-SI units of measure (metre, kilogram, second, …)",
   },
   {
     prefix: "dcterms",
     url: "http://purl.org/dc/terms/",
     name: "Dublin Core Terms",
+    description: "General metadata: titles, creators, dates, subjects and descriptions",
   },
   {
     prefix: "dc",
     url: "http://purl.org/dc/elements/1.1/",
     name: "Dublin Core",
+    description: "Legacy Dublin Core metadata elements (title, creator, date, format, …)",
   },
-  { prefix: "foaf", url: "http://xmlns.com/foaf/0.1/", name: "FOAF", ontologyUrl: "https://xmlns.com/foaf/spec/index.rdf" },
+  {
+    prefix: "foaf",
+    url: "http://xmlns.com/foaf/0.1/",
+    name: "FOAF",
+    description: "Friend of a Friend: people, organizations, social networks and accounts",
+    ontologyUrl: "https://xmlns.com/foaf/spec/index.rdf",
+  },
   {
     prefix: "org",
     url: "http://www.w3.org/ns/org#",
     name: "Organization",
+    description: "Formal organizations, membership, roles, sites and organizational units",
   },
   {
     prefix: "pmdco",
     url: "https://w3id.org/pmd/co/",
     name: "PMD Core",
+    description: "Materials science and engineering: processes, specimens and characteristics",
     ontologyUrl: "https://raw.githubusercontent.com/materialdigital/core-ontology/main/pmdco.ttl",
   },
   {
     prefix: "tto",
     url: "https://w3id.org/pmd/ao/tto/",
     name: "PMD Tensile Test",
+    description: "Mechanical tensile testing: specimens, force, elongation and test procedures",
     ontologyUrl: "https://raw.githubusercontent.com/materialdigital/tensile-test-ontology/main/tto.ttl",
   },
   {
     prefix: "iof-core",
     url: "https://spec.industrialontologies.org/ontology/core/Core/",
     name: "IOF Core",
+    description: "Industrial ontology: processes, equipment, capabilities and maintenance",
   },
   {
     prefix: "ro",
     url: "http://purl.obolibrary.org/obo/RO_",
     name: "RO - Relations Ontology",
+    description: "Biological and biomedical relation types: part-of, has-role, regulates, …",
     ontologyUrl: "https://purl.obolibrary.org/obo/ro.owl",
   },
   {
     prefix: "iao",
     url: "http://purl.obolibrary.org/obo/IAO_",
     name: "IAO - Information Artifact Ontology",
+    description: "Information entities: documents, data items, measurement data and identifiers",
     ontologyUrl: "https://purl.obolibrary.org/obo/iao.owl",
   },
   {
     prefix: "log",
     url: "https://w3id.org/pmd/log/",
     name: "PMD LOG - PMD Laboratory Operations Graph",
+    description: "Laboratory workflows: instruments, measurements, samples and operations",
     ontologyUrl: "https://w3id.org/pmd/log",
   },
   {
     prefix: "emmo",
     url: "https://w3id.org/emmo#",
     name: "EMMO - European Materials Modelling Ontology",
+    description: "Physics, chemistry and materials modelling: properties, models and simulations",
     ontologyUrl: "https://raw.githubusercontent.com/emmo-repo/EMMO/master/emmo.ttl",
   },
   {
     prefix: "sosa",
     url: "http://www.w3.org/ns/sosa/",
     name: "SOSA - Sensor, Observation, Sample and Actuator",
+    description: "IoT observation framework: sensors, actuators, samples and observations",
     ontologyUrl: "https://www.w3.org/ns/sosa/",
   },
   {
     prefix: "ssn",
     url: "http://www.w3.org/ns/ssn/",
     name: "SSN - Semantic Sensor Network Ontology",
+    description: "Semantic sensor networks: systems, platforms, capabilities and deployments",
     ontologyUrl: "https://www.w3.org/ns/ssn/",
   },
   {
     prefix: "schema",
     url: "https://schema.org/",
     name: "Schema.org",
+    description: "Events, people, places, products, organizations and web content markup",
     ontologyUrl: "https://schema.org/version/latest/schemaorg-current-https.ttl",
   },
   {
     prefix: "sh",
     url: "http://www.w3.org/ns/shacl#",
     name: "SHACL - Shapes Constraint Language",
+    description: "Shapes and constraints for RDF graph validation and conformance testing",
     ontologyUrl: "https://www.w3.org/ns/shacl",
   },
   {
     prefix: "time",
     url: "http://www.w3.org/2006/time#",
     name: "OWL-Time - Time Ontology in OWL",
+    description: "Temporal entities: instants, intervals, durations, time positions and zones",
     ontologyUrl: "https://www.w3.org/2006/time",
   },
   {
     prefix: "vcard",
     url: "http://www.w3.org/2006/vcard/ns#",
     name: "vCard Ontology",
+    description: "Electronic business cards: contact details, addresses, telephones and emails",
     ontologyUrl: "https://www.w3.org/2006/vcard/ns",
   },
   {
     prefix: "ldp",
     url: "http://www.w3.org/ns/ldp#",
     name: "LDP - Linked Data Platform",
+    description: "RESTful Linked Data containers, resources and interactions over HTTP",
     ontologyUrl: "https://www.w3.org/ns/ldp",
   },
   {
     prefix: "oa",
     url: "http://www.w3.org/ns/oa#",
     name: "OA - Web Annotation Vocabulary",
+    description: "Web annotations: bodies, targets, selectors and annotation motivations",
     ontologyUrl: "https://www.w3.org/ns/oa",
   },
   {
     prefix: "odrl",
     url: "http://www.w3.org/ns/odrl/2/",
     name: "ODRL - Open Digital Rights Language",
+    description: "Rights management: policies, permissions, prohibitions and obligations",
     ontologyUrl: "https://www.w3.org/ns/odrl/2/",
   },
   {
     prefix: "as",
     url: "https://www.w3.org/ns/activitystreams#",
     name: "Activity Streams 2.0",
+    description: "Social activities: actors, objects, likes, follows and activity feeds",
     ontologyUrl: "https://www.w3.org/ns/activitystreams-owl.ttl",
   },
   {
     prefix: "csvw",
     url: "http://www.w3.org/ns/csvw#",
     name: "CSVW - CSV on the Web",
+    description: "Tabular data: CSV file metadata, column definitions and data types",
     ontologyUrl: "https://www.w3.org/ns/csvw",
   },
   {
     prefix: "locn",
     url: "http://www.w3.org/ns/locn#",
     name: "LOCN - Core Location Vocabulary",
+    description: "Addresses, postal codes and geographic locations for government data",
     ontologyUrl: "https://www.w3.org/ns/locn",
   },
   {
     prefix: "wgs84",
     url: "http://www.w3.org/2003/01/geo/wgs84_pos#",
     name: "WGS84 - Basic Geo Vocabulary",
+    description: "Geographic coordinates: latitude, longitude and altitude in WGS84",
     ontologyUrl: "http://www.w3.org/2003/01/geo/wgs84_pos.rdf",
   },
   {
     prefix: "qb",
     url: "http://purl.org/linked-data/cube#",
     name: "RDF Data Cube Vocabulary",
+    description: "Statistical data: observations, measures, dimensions and attributes",
     ontologyUrl: "https://raw.githubusercontent.com/UKGovLD/publishing-statistical-data/master/specs/src/main/vocab/cube.ttl",
+  },
+
+  // Calendar & events
+  {
+    prefix: "ical",
+    url: "http://www.w3.org/2002/12/cal/ical#",
+    name: "iCal - iCalendar Vocabulary",
+    description: "Calendar events: meetings, recurring schedules, alarms and calendar components",
+    ontologyUrl: "http://www.w3.org/2002/12/cal/ical.rdf",
+  },
+
+  // Bibliographic & scholarly
+  {
+    prefix: "bibo",
+    url: "http://purl.org/ontology/bibo/",
+    name: "BIBO - Bibliographic Ontology",
+    description: "Bibliographic metadata: books, articles, theses, reports and academic works",
+  },
+  {
+    prefix: "fabio",
+    url: "http://purl.org/spar/fabio/",
+    name: "FABIO - FRBR-aligned Bibliographic Ontology",
+    description: "Publishing works: journal articles, conference papers, datasets and expressions",
+  },
+  {
+    prefix: "cito",
+    url: "http://purl.org/spar/cito/",
+    name: "CiTO - Citation Typing Ontology",
+    description: "Scholarly citation types: supports, disputes, extends, documents and cites",
+  },
+  {
+    prefix: "vann",
+    url: "http://purl.org/vocab/vann/",
+    name: "VANN - Vocabulary for Annotating Vocabulary Descriptions",
+    description: "Vocabulary metadata: preferred namespace prefixes and example usage",
+    ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/vann/versions/2010-06-07.n3",
+  },
+
+  // Music
+  {
+    prefix: "mo",
+    url: "http://purl.org/ontology/mo/",
+    name: "MO - Music Ontology",
+    description: "Music metadata: tracks, albums, artists, performances and recordings",
+    ontologyUrl: "https://raw.githubusercontent.com/motools/musicontology/master/rdf/musicontology.n3",
+  },
+
+  // Media & images
+  {
+    prefix: "exif",
+    url: "http://www.w3.org/2003/12/exif/ns#",
+    name: "EXIF - Exif Vocabulary",
+    description: "Image metadata: camera settings, GPS coordinates, exposure and orientation",
+    ontologyUrl: "http://www.w3.org/2003/12/exif/ns",
+  },
+
+  // E-commerce & products
+  {
+    prefix: "gr",
+    url: "http://purl.org/goodrelations/v1#",
+    name: "GoodRelations - E-commerce Ontology",
+    description: "E-commerce: products, offerings, prices, businesses and delivery options",
+    ontologyUrl: "http://purl.org/goodrelations/v1",
+  },
+
+  // Licensing
+  {
+    prefix: "cc",
+    url: "http://creativecommons.org/ns#",
+    name: "CC - Creative Commons Vocabulary",
+    description: "Creative Commons licensing: permissions, prohibitions and attribution requirements",
+    ontologyUrl: "https://creativecommons.org/schema.rdf",
+  },
+
+  // Social web & discussions
+  {
+    prefix: "sioc",
+    url: "http://rdfs.org/sioc/ns#",
+    name: "SIOC - Semantically Interlinked Online Communities",
+    description: "Online communities: blog posts, forum threads, replies and user accounts",
+    ontologyUrl: "http://rdfs.org/sioc/ns",
+  },
+
+  // IoT / smart home
+  {
+    prefix: "saref",
+    url: "https://saref.etsi.org/core/",
+    name: "SAREF - Smart Appliances REFerence Ontology",
+    description: "Smart home and IoT: devices, functions, commands, measurements and states",
+  },
+
+  // Buildings & architecture
+  {
+    prefix: "bot",
+    url: "https://w3id.org/bot#",
+    name: "BOT - Building Topology Ontology",
+    description: "Buildings: sites, buildings, storeys, spaces, zones and construction elements",
+    ontologyUrl: "https://w3id.org/bot",
+  },
+
+  // Geospatial
+  {
+    prefix: "geo",
+    url: "http://www.opengis.net/ont/geosparql#",
+    name: "GeoSPARQL - OGC Geographic Query Language",
+    description: "Spatial features: geometries, WKT literals, topological relations and GIS queries",
+    ontologyUrl: "https://opengeospatial.github.io/ogc-geosparql/geosparql11/geo.ttl",
+  },
+
+  // Provenance extensions
+  {
+    prefix: "pav",
+    url: "http://purl.org/pav/",
+    name: "PAV - Provenance, Authoring and Versioning",
+    description: "Lightweight provenance: authors, curators, versions and source attribution",
+  },
+
+  // Open government data
+  {
+    prefix: "adms",
+    url: "http://www.w3.org/ns/adms#",
+    name: "ADMS - Asset Description Metadata Schema",
+    description: "Semantic assets and interoperability resources: specifications, schemas and vocabularies",
+  },
+  {
+    prefix: "regorg",
+    url: "http://www.w3.org/ns/regorg#",
+    name: "RegOrg - Registered Organization Vocabulary",
+    description: "Legal entities and registered organizations: registration numbers and identifiers",
+  },
+
+  // Project metadata & vocabulary annotation
+  {
+    prefix: "doap",
+    url: "http://usefulinc.com/ns/doap#",
+    name: "DOAP - Description of a Project",
+    description: "Open-source projects: repositories, releases, maintainers and programming languages",
+    ontologyUrl: "https://raw.githubusercontent.com/ewilderj/doap/master/schema/doap.rdf",
+  },
+
+  // Dublin Core type vocabulary
+  {
+    prefix: "dcmitype",
+    url: "http://purl.org/dc/dcmitype/",
+    name: "DCMIType - DCMI Type Vocabulary",
+    description: "Content types: Dataset, Image, Software, Text, Sound, MovingImage and more",
   },
 ] as const;
 
 export const WELL_KNOWN_BY_PREFIX: Record<
   string,
-  { prefix: string; url: string; name: string; ontologyUrl?: string }
+  { prefix: string; url: string; name: string; description?: string; ontologyUrl?: string }
 > = Object.fromEntries(WELL_KNOWN_PREFIXES.map((p) => [p.prefix, p])) as any;
 
 /**

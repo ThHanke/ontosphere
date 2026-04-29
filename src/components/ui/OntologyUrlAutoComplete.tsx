@@ -1,6 +1,6 @@
 import React, { useState, useRef, useLayoutEffect, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
-import { WELL_KNOWN_PREFIXES } from '../../utils/wellKnownOntologies';
+import { WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from '../../utils/wellKnownOntologies';
 import { cn } from '../../lib/utils';
 
 interface Props {
@@ -25,7 +25,8 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
     return WELL_KNOWN_PREFIXES.filter(e =>
       e.prefix.toLowerCase().includes(q) ||
       e.name.toLowerCase().includes(q) ||
-      e.url.toLowerCase().includes(q)
+      e.url.toLowerCase().includes(q) ||
+      ((e as any).description as string | undefined)?.toLowerCase().includes(q)
     );
   }, [query]);
 
@@ -82,7 +83,10 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
           )}
         >
           <div className="font-medium leading-tight">{e.prefix} — {e.name}</div>
-          <div className="text-xs text-muted-foreground leading-tight truncate">{e.url}</div>
+          {(e as any).description && (
+            <div className="text-xs text-muted-foreground leading-tight truncate">{(e as any).description}</div>
+          )}
+          <div className="text-xs text-muted-foreground/70 leading-tight truncate font-mono">{resolveOntologyLoadUrl(e.prefix)}</div>
         </li>
       ))}
     </ul>,
