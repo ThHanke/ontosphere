@@ -464,7 +464,7 @@ const help: McpTool = {
       '4. Never output a tool call unless you intend it to run — the relay executes everything it finds.',
       '5. addLink requires both nodes to already exist on canvas — never issue addNode and addLink for the same node in one response.',
       '6. For 5+ individuals, use loadRdf with inline Turtle instead of looping addNode — one call, no per-node round-trips.',
-      '7. Prefer domain ontologies over schema: — searchOntologies first; foaf:Person is pre-loaded for persons, ical: for meetings.',
+      '7. Prefer domain ontologies over schema: — call loadOntology(query="use case") to find the right prefix; foaf:Person is pre-loaded for persons, ical: for meetings.',
       '',
       'Reading results:',
       'The relay injects a message starting with [Ontosphere — N tools ✓] followed by one backtick-wrapped',

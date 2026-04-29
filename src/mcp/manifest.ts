@@ -14,18 +14,18 @@ export const mcpServerDescription =
   'Architecture for AI agents: The app has two coupled layers. (1) N3 RDF store (urn:vg:data) — source of truth for all triples. addNode/addLink write here first. (2) Reactodia canvas — mirrors the store subset matching the active view as draggable node cards and arrows. Nodes start collapsed; call expandNode or expandAll to reveal annotation property cards. OWL-RL reasoning writes inferred triples back to the store (urn:vg:inferred) and refreshes the canvas.\n\n' +
   'ONTOLOGY DISCOVERY — always the first step:\n' +
   'OWL, RDFS, RDF, and XSD are pre-loaded. All other ontologies must be loaded explicitly:\n' +
-  '  1. searchOntologies("use case") — find the right prefix ("calendar" → ical, "music" → mo, "building" → bot, "e-commerce" → gr, …)\n' +
-  '  2. loadOntology("<prefix>") — load into TBox. Repeat for each domain.\n' +
+  '  1. loadOntology(query="use case") — find the right prefix ("calendar" → ical, "music" → mo, "building" → bot, "e-commerce" → gr, …)\n' +
+  '  2. loadOntology(url="<prefix>") — load by prefix name, e.g. loadOntology(url="mo"). Repeat for each domain.\n' +
   '  3. Register a namespace prefix: addNamespace(prefix, namespace) if you want short-form IRIs.\n' +
   'IMPORTANT: Prefer domain-specific ontologies over schema.org for knowledge graphs.\n' +
   'foaf: is already pre-loaded (no loadOntology needed) and is the standard for persons.\n' +
   'Domain → ontology mapping:\n' +
   '  • Persons → foaf:Person (pre-loaded)\n' +
-  '  • Calendar events / meetings → ical:Vevent  (searchOntologies("calendar"))\n' +
-  '  • Organizations → org:Organization  (searchOntologies("organization"))\n' +
-  '  • Locations / buildings → bot:Building  (searchOntologies("building"))\n' +
+  '  • Calendar events / meetings → ical:Vevent  (loadOntology(query="calendar"))\n' +
+  '  • Organizations → org:Organization  (loadOntology(query="organization"))\n' +
+  '  • Locations / buildings → bot:Building  (loadOntology(query="building"))\n' +
   '  schema: is a web-markup vocabulary (SEO); foaf:/ical:/org: are proper semantic-web ontologies.\n\n' +
-  'Recommended workflow: searchOntologies → loadOntology ×N → addNamespace ×N → setViewMode("tbox") → addNode ×N (owl:Class etc.) → addLink ×N (subClassOf etc.) → runLayout → setViewMode("abox") → addNode ×N (individuals) → addLink ×N → runLayout → runReasoning → fitCanvas → exportImage(svg).\n' +
+  'Recommended workflow: loadOntology(query=…) → loadOntology(url="<prefix>") ×N → addNamespace ×N → setViewMode("tbox") → addNode ×N (owl:Class etc.) → addLink ×N (subClassOf etc.) → runLayout → setViewMode("abox") → addNode ×N (individuals) → addLink ×N → runLayout → runReasoning → fitCanvas → exportImage(svg).\n' +
   'For 5+ ABox individuals, replace N addNode calls with one loadRdf(inline Turtle) — far fewer round-trips.\n\n' +
   'GRAPH ARCHITECTURE\n' +
   'Asserted triples live in urn:vg:data — all mutation tools (addNode, addLink, updateNode, SPARQL CONSTRUCT, etc.) operate here only.\n' +
