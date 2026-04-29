@@ -42,7 +42,7 @@ interface SettingsStore {
 }
 
 const SETTINGS_STORAGE_KEY = "ontology-painter-settings";
-const SETTINGS_VERSION = 1;
+const SETTINGS_VERSION = 2;
 
 const defaultSettings: Settings = {
   ontologies: [
@@ -54,7 +54,7 @@ const defaultSettings: Settings = {
   layoutAlgorithm: "horizontal",
   enableValidation: true,
   startupFileUrl: "",
-  corsProxyUrl: "https://corsproxy.io/?url=",
+  corsProxyUrl: "",
 };
 
 function normalizeLayoutAlgorithm(value: unknown, context: string): Settings["layoutAlgorithm"] {
@@ -278,11 +278,13 @@ export const useSettingsStore = create<SettingsStore>()(
           return { settings: { ...defaultSettings } };
         }
         
-        // Apply version-specific migrations here if needed in the future
-        // Example:
-        // if (version < 2) {
-        //   // Apply migration logic for v1 -> v2
-        // }
+        // v1 → v2: corsproxy.io free tier blocks RDF content types; clear the old default
+        if (version < 2) {
+          const s = payload.settings as Record<string, unknown>;
+          if (s && s.corsProxyUrl === "https://corsproxy.io/?url=") {
+            s.corsProxyUrl = "";
+          }
+        }
         
         // Normalize and validate the migrated settings - CLEAR localStorage on failure
         try {

@@ -46,6 +46,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://www.w3.org/2004/02/skos/core#",
     name: "SKOS",
     description: "Simple Knowledge Organization System: thesauri, taxonomies and classification schemes",
+    ontologyUrl: "https://www.w3.org/2009/08/skos-reference/skos.rdf",
   },
   {
     prefix: "prov",
@@ -87,6 +88,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://qudt.org/schema/qudt/",
     name: "QUDT - Quantities, Units, Dimensions and Types",
     description: "Measurement schema: quantity kinds, units, dimensions and numeric values",
+    ontologyUrl: "https://qudt.org/2.1/schema/qudt.ttl",
   },
   {
     prefix: "unit",
@@ -99,19 +101,21 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://purl.org/dc/terms/",
     name: "Dublin Core Terms",
     description: "General metadata: titles, creators, dates, subjects and descriptions",
+    ontologyUrl: "https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.ttl",
   },
   {
     prefix: "dc",
     url: "http://purl.org/dc/elements/1.1/",
     name: "Dublin Core",
     description: "Legacy Dublin Core metadata elements (title, creator, date, format, …)",
+    ontologyUrl: "https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_elements.ttl",
   },
   {
     prefix: "foaf",
     url: "http://xmlns.com/foaf/0.1/",
     name: "FOAF",
     description: "Friend of a Friend: people, organizations, social networks and accounts",
-    ontologyUrl: "https://xmlns.com/foaf/spec/index.rdf",
+    ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/foaf/versions/2014-01-14.n3",
   },
   {
     prefix: "org",

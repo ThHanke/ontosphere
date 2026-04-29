@@ -229,7 +229,16 @@ CORS and proxies
 ----------------
 Ontosphere fetches remote RDF directly from the browser. If the remote host does not allow cross-origin requests, the fetch will be blocked.
 
-Workarounds:
+**Well-known ontologies** (FOAF, SKOS, PROV-O, Dublin Core, QUDT, etc.) are pre-configured with CORS-friendly fetch URLs (W3C, dublincore.org, LOV, qudt.org) and load without any proxy.
+
+**Custom ontology URLs** that lack CORS headers require a proxy. Configure one in Settings → Advanced → CORS Proxy URL. The proxy must:
+- Accept a URL-encoded target as a query parameter: `https://your-proxy/?url=<encoded>`
+- Forward the `Accept` header to the target server
+- Not restrict RDF MIME types (`text/turtle`, `application/rdf+xml`, etc.)
+
+> **Note:** `corsproxy.io` free tier blocks RDF content types and will not work. Self-hosted options that do work: a [Cloudflare Worker](https://developers.cloudflare.com/workers/) using the cors-anywhere pattern, or a local Vite dev-server proxy.
+
+Workarounds for development:
 - Use CORS-enabled hosting for the RDF file.
 - Configure a local dev proxy in your Vite config to forward the request.
 
