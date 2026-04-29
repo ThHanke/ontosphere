@@ -11,7 +11,7 @@ import { RDFManager, rdfManager } from "../utils/rdfManager";
 import { useAppConfigStore } from "./appConfigStore";
 import { useSettingsStore } from "./settingsStore";
 import { debug, info, warn, error, fallback } from "../utils/startupDebug";
-import { WELL_KNOWN, WELL_KNOWN_PREFIXES } from "../utils/wellKnownOntologies";
+import { WELL_KNOWN, WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from "../utils/wellKnownOntologies";
 import { DataFactory, Quad } from "n3";
 import { toast } from "sonner";
 import { buildPaletteMap } from "../components/Canvas/core/namespacePalette";
@@ -619,6 +619,8 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
 
       // normalize requested URL (http -> https, trim)
       const normRequestedUrl = normalizeOntologyUri(url);
+      // Resolve to the actual fetch URL (ontologyUrl overrides namespace URL for well-known entries)
+      const fetchUrl = normalizeOntologyUri(resolveOntologyLoadUrl(normRequestedUrl));
       let canonicalNorm: string | undefined = undefined;
 
       // If well-known, register a lightweight entry so UI shows it immediately.
@@ -663,10 +665,10 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
         const corsProxyUrl = useSettingsStore.getState().settings.corsProxyUrl;
         const loadOpts = { timeoutMs: 15000, corsProxyUrl: corsProxyUrl || undefined };
         if (mgr && typeof (mgr as any).loadRDFFromUrl === "function") {
-          await (mgr as any).loadRDFFromUrl(normRequestedUrl, "urn:vg:ontologies", loadOpts);
+          await (mgr as any).loadRDFFromUrl(fetchUrl, "urn:vg:ontologies", loadOpts);
         } else {
           // fallback to module-level manager
-          await (rdfManager as any).loadRDFFromUrl(normRequestedUrl, "urn:vg:ontologies", loadOpts);
+          await (rdfManager as any).loadRDFFromUrl(fetchUrl, "urn:vg:ontologies", loadOpts);
         }
       } catch (err) {
         warn(
