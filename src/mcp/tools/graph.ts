@@ -5,18 +5,27 @@ import { rdfManager } from '@/utils/rdfManager';
 import { getWorkspaceRefs, applyViewMode } from '@/mcp/workspaceContext';
 import { mcpManifest, mcpServerDescription } from '@/mcp/manifest';
 import { Parser as SparqlParser, Generator as SparqlGenerator } from 'sparqljs';
-import { resolveOntologyLoadUrl, searchWellKnownOntologies } from '@/utils/wellKnownOntologies';
+import { resolveOntologyLoadUrl, searchWellKnownOntologies, searchOntologyPacks } from '@/utils/wellKnownOntologies';
 import { useOntologyStore } from '@/stores/ontologyStore';
+
+/** Fix PREFIX declarations where the IRI is bare (no angle brackets): PREFIX rdf: http://... → PREFIX rdf: <http://...> */
+function normalizePrefixIris(sparql: string): string {
+  return sparql.replace(
+    /(\bPREFIX\s+[^:\s]+:\s+)(https?:\/\/[^\s<>]*|urn:[^\s<>]*)/gi,
+    '$1<$2>',
+  );
+}
 
 /** Prepend PREFIX declarations from the namespace map for any prefix not already declared in the query. */
 function injectPrefixes(sparql: string): string {
+  const normalized = normalizePrefixIris(sparql);
   const namespaces = rdfManager.getNamespaces();
   const declared = new Set<string>();
-  for (const m of sparql.matchAll(/(?:PREFIX|BASE)\s+(\S+)\s*:/gi)) declared.add(m[1].toLowerCase());
+  for (const m of normalized.matchAll(/(?:PREFIX|BASE)\s+(\S+)\s*:/gi)) declared.add(m[1].toLowerCase());
   const lines = namespaces
     .filter(ns => ns.prefix && ns.uri && !declared.has(ns.prefix.toLowerCase()))
     .map(ns => `PREFIX ${ns.prefix}: <${ns.uri}>`);
-  return lines.length ? `${lines.join('\n')}\n${sparql}` : sparql;
+  return lines.length ? `${lines.join('\n')}\n${normalized}` : normalized;
 }
 
 const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
@@ -487,11 +496,41 @@ const help: McpTool = {
 };
 
 // ---------------------------------------------------------------------------
+// suggestOntologiesForTask
+// ---------------------------------------------------------------------------
+const suggestOntologiesForTask: McpTool = {
+  name: 'suggestOntologiesForTask',
+  description:
+    'Suggest compatible sets of ontologies for a plain-language task description. ' +
+    'Pass task as a phrase ("people I know", "mind map", "track sensor readings"). ' +
+    'Returns matching packs — each with prefix list and rationale — so you can load them via loadOntology. ' +
+    'Pass empty string or omit task to browse all 10 available packs.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      task: {
+        type: 'string',
+        description: 'Plain-language description of the knowledge graph task.',
+      },
+    },
+  },
+  async handler(params): Promise<McpResult> {
+    const { task = '' } = (params ?? {}) as { task?: string };
+    const packs = searchOntologyPacks(task);
+    return {
+      success: true,
+      data: { task: task || '(browse all)', count: packs.length, packs },
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 export const graphTools: McpTool[] = [
   loadRdf,
   loadOntology,
+  suggestOntologiesForTask,
   queryGraph,
   exportGraph,
   exportImage,

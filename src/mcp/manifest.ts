@@ -74,6 +74,23 @@ export const mcpManifest: McpToolManifestEntry[] = [
     },
   },
   {
+    name: 'suggestOntologiesForTask',
+    description:
+      'Suggest compatible sets of ontologies for a plain-language task description. ' +
+      'Pass task as a phrase ("people I know", "mind map", "track sensor readings", "build a knowledge graph"). ' +
+      'Returns matching packs — each with prefix list and rationale — so you can load them via loadOntology. ' +
+      'Pass empty string or omit task to browse all 10 available packs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task: {
+          type: 'string',
+          description: 'Plain-language description of the knowledge graph task.',
+        },
+      },
+    },
+  },
+  {
     name: 'queryGraph',
     description: 'Run a SPARQL query or update against the RDF store. Workspace namespace prefixes are injected automatically so you can use short prefix:local notation. Asserted data is in urn:vg:data; inferred triples (after runReasoning) are in urn:vg:inferred — plain BGP patterns match both. Supported forms: SELECT (returns {rows, total, truncated}), CONSTRUCT (returns {triples, total, truncated}), INSERT DATA, DELETE DATA, DELETE WHERE, DELETE…INSERT…WHERE (returns {updated:true}). Results are capped at limit (default 200, max 1000); truncated:true means more rows exist — use SPARQL OFFSET for pagination. For OWL-RL inference use runReasoning instead.',
     inputSchema: {
