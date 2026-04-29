@@ -11,7 +11,7 @@ import { RDFManager, rdfManager } from "../utils/rdfManager";
 import { useAppConfigStore } from "./appConfigStore";
 import { useSettingsStore } from "./settingsStore";
 import { debug, info, warn, error, fallback } from "../utils/startupDebug";
-import { WELL_KNOWN, WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from "../utils/wellKnownOntologies";
+import { WELL_KNOWN, WELL_KNOWN_BY_PREFIX, WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from "../utils/wellKnownOntologies";
 import { DataFactory, Quad } from "n3";
 import { toast } from "sonner";
 import { buildPaletteMap } from "../components/Canvas/core/namespacePalette";
@@ -787,10 +787,16 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
               // Check if this is a well-known core ontology
               const wkForFetched = WELL_KNOWN.ontologies[norm as keyof typeof WELL_KNOWN.ontologies];
               const isAutoCore = wkForFetched && (wkForFetched as any).isCore;
+              // When requested by prefix name (e.g. "mo"), resolve the canonical
+              // namespace URI and proper name from the registry so the widget
+              // shows "MO - Music Ontology" instead of "mo".
+              const wkByPrefix = WELL_KNOWN_BY_PREFIX[url] ?? WELL_KNOWN_BY_PREFIX[norm];
+              const resolvedUrl  = wkByPrefix ? wkByPrefix.url  : norm;
+              const resolvedName = wkByPrefix ? wkByPrefix.name : (wkForFetched?.name ?? deriveOntologyName(String(norm || "")));
 
               const meta: LoadedOntology = {
-                url: norm,
-                name: deriveOntologyName(String(norm || "")),
+                url: resolvedUrl,
+                name: resolvedName,
                 classes: [],
                 properties: [],
                 namespaces: {},
