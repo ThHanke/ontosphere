@@ -83,64 +83,48 @@ const loadRdf: McpTool = {
 };
 
 // ---------------------------------------------------------------------------
-// searchOntologies
-// ---------------------------------------------------------------------------
-const searchOntologies: McpTool = {
-  name: 'searchOntologies',
-  description: 'Search the well-known ontology registry by keyword or use case. Returns matching ontologies with prefix, name, description, namespace URI, and load URL. Call this to discover which ontologies to load before calling loadOntology.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      query: {
-        type: 'string',
-        description: 'Keyword or use-case phrase (e.g. "calendar", "music", "building", "e-commerce", "citation", "spatial", "IoT"). Leave empty to list all registered ontologies.',
-      },
-    },
-  },
-  async handler(params): Promise<McpResult> {
-    const { query = '' } = (params ?? {}) as { query?: string };
-    const ontologies = searchWellKnownOntologies(query).map(e => ({
-      prefix: e.prefix,
-      name: e.name,
-      description: (e as any).description ?? '',
-      namespace: e.url,
-      loadUrl: resolveOntologyLoadUrl(e.prefix),
-    }));
-
-    return {
-      success: true,
-      data: { query: query || '(all)', count: ontologies.length, ontologies },
-    };
-  },
-};
-
-// ---------------------------------------------------------------------------
 // loadOntology
 // ---------------------------------------------------------------------------
 const loadOntology: McpTool = {
   name: 'loadOntology',
   description:
-    'Load a well-known ontology by prefix name (e.g. "bibo", "ro", "foaf", "saref"), ' +
-    'by its namespace URL, or by any direct ontology file URL. ' +
-    'Use searchOntologies first to discover the right prefix for your use case.',
+    'Discover or load well-known ontologies. ' +
+    'Pass url to load by prefix name (e.g. "ical", "mo", "bot", "gr") or by namespace/file URL. ' +
+    'Pass query to search by use-case keyword (e.g. "calendar", "music", "building", "e-commerce"). ' +
+    'Pass neither to list all ~55 registered ontologies. ' +
+    'OWL/RDFS/RDF/XSD are always pre-loaded.',
   inputSchema: {
     type: 'object',
     properties: {
       url: {
         type: 'string',
-        description:
-          'Prefix name (e.g. "bibo"), namespace IRI, or direct ontology URL.',
+        description: 'Prefix name, namespace IRI, or direct ontology URL to load.',
+      },
+      query: {
+        type: 'string',
+        description: 'Keyword or use-case phrase to search the registry (e.g. "calendar", "IoT", "spatial").',
       },
     },
-    required: ['url'],
   },
   async handler(params): Promise<McpResult> {
-    const { url = '' } = (params ?? {}) as { url?: string };
+    const { url, query } = (params ?? {}) as { url?: string; query?: string };
 
-    if (!url.trim()) {
-      return { success: false, error: 'url is required. Use searchOntologies to discover available ontologies.' };
+    // Search mode
+    if (!url?.trim()) {
+      const ontologies = searchWellKnownOntologies(query ?? '').map(e => ({
+        prefix: e.prefix,
+        name: e.name,
+        description: (e as any).description ?? '',
+        namespace: e.url,
+        loadUrl: resolveOntologyLoadUrl(e.prefix),
+      }));
+      return {
+        success: true,
+        data: { query: query || '(all)', count: ontologies.length, ontologies },
+      };
     }
 
+    // Load mode
     const resolvedUrl = resolveOntologyLoadUrl(url);
     const corsProxyUrl = useSettingsStore.getState().settings.corsProxyUrl;
     try {
@@ -152,7 +136,7 @@ const loadOntology: McpTool = {
       return {
         success: false,
         error: String(e),
-        hint: 'Use searchOntologies to find the correct prefix, then retry.',
+        hint: 'Pass query instead of url to search the registry.',
         ...(suggestions.length ? { suggestions } : {}),
       };
     }
@@ -512,7 +496,6 @@ const help: McpTool = {
 // Exports
 // ---------------------------------------------------------------------------
 export const graphTools: McpTool[] = [
-  searchOntologies,
   loadRdf,
   loadOntology,
   queryGraph,

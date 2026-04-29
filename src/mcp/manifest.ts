@@ -22,20 +22,6 @@ export const mcpServerDescription =
 
 export const mcpManifest: McpToolManifestEntry[] = [
   {
-    name: 'searchOntologies',
-    description:
-      'Search the well-known ontology registry by keyword or use-case phrase. Returns prefix, name, description, namespace URI, and load URL for each match. ' +
-      'Call this FIRST to discover which ontologies cover your domain — e.g. "calendar" → ical, "music" → mo, "building" → bot, "spatial" → geo, "e-commerce" → gr, "citation" → cito. ' +
-      'OWL/RDFS/RDF/XSD are always pre-loaded and do not appear as actionable results. ' +
-      'Leave query empty to list all ~55 registered ontologies.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: 'Keyword or use-case phrase. Leave empty for full listing.' },
-      },
-    },
-  },
-  {
     name: 'loadRdf',
     description:
       'Load ABox instance data — subjects appear as canvas nodes. Use for individual/data triples. To load a schema or ontology without adding canvas nodes, use loadOntology instead. ' +
@@ -57,9 +43,12 @@ export const mcpManifest: McpToolManifestEntry[] = [
   {
     name: 'loadOntology',
     description:
-      'Load a TBox ontology by prefix name, namespace URI, or direct file URL. Does NOT add canvas nodes — use loadRdf for instance data. ' +
-      'Call searchOntologies first to find the right prefix for your use case. ' +
-      'Examples: loadOntology("ical") for calendar events, loadOntology("mo") for music, loadOntology("bot") for buildings, loadOntology("gr") for e-commerce.',
+      'Discover or load well-known ontologies — three modes in one tool. ' +
+      '(1) Load: pass url with a prefix name (e.g. "ical", "mo", "bot", "gr") or a namespace/file URL — loads the TBox, does NOT add canvas nodes. ' +
+      '(2) Search: pass query with a use-case keyword ("calendar", "music", "building", "e-commerce", "spatial", "IoT") — returns matching entries with prefix/description/loadUrl. ' +
+      '(3) List all: pass neither — returns all ~55 registered ontologies. ' +
+      'If url does not match a known prefix or URL, load fails and suggestions are returned automatically. ' +
+      'OWL/RDFS/RDF/XSD are always pre-loaded.',
     inputSchema: {
       type: 'object',
       properties: {
