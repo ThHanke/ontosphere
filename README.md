@@ -432,7 +432,7 @@ loadOntology (TBox)
 | **[FOAF social network](docs/mcp-demo/foaf-social-network.md)**<br>Build a social network, extend FOAF with employment classes, run reasoning | [![FOAF social network final state](docs/mcp-demo/foaf-social-network/04-frank-focus.svg)](docs/mcp-demo/foaf-social-network.md) |
 | **[OWL-RL reasoning](docs/mcp-demo/reasoning-demo.md)**<br>Build TBox + ABox, infer types via domain/range and transitivity | [![OWL-RL reasoning final state](docs/mcp-demo/reasoning-demo/04-dave-focus.svg)](docs/mcp-demo/reasoning-demo.md) |
 | **[Scene ontology](docs/mcp-demo/scene-ontology.md)**<br>Load an external ontology, author individuals, export Turtle | [![Scene ontology final state](docs/mcp-demo/scene-ontology/04-jake-focus.svg)](docs/mcp-demo/scene-ontology.md) |
-| **[Manchester Pizza Tutorial](docs/mcp-demo/pizza-tutorial.md)**<br>Full OWL pizza ontology — classes, disjointness, properties, OWL-RL reasoning | [![Manchester Pizza Tutorial final state](docs/mcp-demo/pizza-tutorial/16-mozz1-inferred.svg)](docs/mcp-demo/pizza-tutorial.md) |
+| **[Manchester Pizza Tutorial](docs/mcp-demo/pizza-tutorial.md)**<br>Full OWL pizza ontology — classes, disjointness, properties, OWL-RL reasoning | [![Manchester Pizza Tutorial final state](docs/mcp-demo/pizza-tutorial/20-owa-vegetarian-lesson.svg)](docs/mcp-demo/pizza-tutorial.md) |
 
 Regenerate:
 

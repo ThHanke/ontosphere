@@ -1,7 +1,7 @@
 // Shared IRI prefix expansion for MCP tools.
-// Reads the namespace registry from ontologyStore at call time so it stays
-// in sync with namespaces added via addNamespace / the UI.
 // Built-in fallbacks match the KP map in public/relay-bookmarklet.js.
+// Dynamic namespaces (from addNamespace / loadOntology) are provided via
+// setNamespaceRegistryGetter, wired up by ontosphereMcpServer.ts at startup.
 
 const BUILTIN_PREFIXES: Record<string, string> = {
   'rdf:':     'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
@@ -16,22 +16,23 @@ const BUILTIN_PREFIXES: Record<string, string> = {
   'ex:':      'http://example.org/',
 };
 
+let _getRegistry: () => Array<{ prefix: string; uri: string }> = () => [];
+
+export function setNamespaceRegistryGetter(
+  fn: () => Array<{ prefix: string; uri: string }>
+): void {
+  _getRegistry = fn;
+}
+
 function getPrefixMap(): Record<string, string> {
-  try {
-    // Lazy import to avoid circular deps — ontologyStore is a Zustand store.
-    const { useOntologyStore } = require('@/stores/ontologyStore');
-    const entries: Array<{ prefix: string; uri: string }> = useOntologyStore.getState().namespaceRegistry;
-    const map: Record<string, string> = { ...BUILTIN_PREFIXES };
-    for (const e of entries) {
-      if (e.prefix && e.uri) {
-        const key = e.prefix.endsWith(':') ? e.prefix : e.prefix + ':';
-        map[key] = e.uri;
-      }
+  const map: Record<string, string> = { ...BUILTIN_PREFIXES };
+  for (const e of _getRegistry()) {
+    if (e.prefix && e.uri) {
+      const key = e.prefix.endsWith(':') ? e.prefix : e.prefix + ':';
+      map[key] = e.uri;
     }
-    return map;
-  } catch {
-    return { ...BUILTIN_PREFIXES };
   }
+  return map;
 }
 
 /**

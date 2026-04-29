@@ -685,7 +685,7 @@ fires on our data:
 
 ```tool-result
 [Ontosphere — 3 tools ✓]
-✓ runReasoning: 9094 triples inferred
+✓ runReasoning: 10798 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
 

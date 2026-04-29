@@ -6,7 +6,7 @@ import { getWorkspaceRefs, applyViewMode } from '@/mcp/workspaceContext';
 import { mcpManifest, mcpServerDescription } from '@/mcp/manifest';
 import { Parser as SparqlParser, Generator as SparqlGenerator } from 'sparqljs';
 import { resolveOntologyLoadUrl, searchWellKnownOntologies } from '@/utils/wellKnownOntologies';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useOntologyStore } from '@/stores/ontologyStore';
 
 /** Prepend PREFIX declarations from the namespace map for any prefix not already declared in the query. */
 function injectPrefixes(sparql: string): string {
@@ -124,12 +124,20 @@ const loadOntology: McpTool = {
       };
     }
 
-    // Load mode
-    const resolvedUrl = resolveOntologyLoadUrl(url);
-    const corsProxyUrl = useSettingsStore.getState().settings.corsProxyUrl;
+    // Load mode — delegate to the store action so the ontology widget updates.
     try {
-      await rdfManager.loadRDFFromUrl(resolvedUrl, "urn:vg:ontologies", { corsProxyUrl: corsProxyUrl || undefined, timeoutMs: 15000 });
-      return { success: true, data: { loaded: resolvedUrl, requestedAs: url !== resolvedUrl ? url : undefined } };
+      const result = await useOntologyStore.getState().loadOntology(url);
+      if (!result.success) {
+        const suggestions = searchWellKnownOntologies(url)
+          .map(p => ({ prefix: p.prefix, description: (p as any).description ?? p.name }));
+        return {
+          success: false,
+          error: result.error,
+          hint: 'Pass query instead of url to search the registry.',
+          ...(suggestions.length ? { suggestions } : {}),
+        };
+      }
+      return { success: true, data: { loaded: result.url, ...(result.canonicalUrl ? { canonicalUrl: result.canonicalUrl } : {}) } };
     } catch (e) {
       const suggestions = searchWellKnownOntologies(url)
         .map(p => ({ prefix: p.prefix, description: (p as any).description ?? p.name }));
@@ -455,6 +463,8 @@ const help: McpTool = {
       '3. Wait for the injected result message before issuing more calls.',
       '4. Never output a tool call unless you intend it to run — the relay executes everything it finds.',
       '5. addLink requires both nodes to already exist on canvas — never issue addNode and addLink for the same node in one response.',
+      '6. For 5+ individuals, use loadRdf with inline Turtle instead of looping addNode — one call, no per-node round-trips.',
+      '7. Prefer domain ontologies over schema: — searchOntologies first; foaf:Person is pre-loaded for persons, ical: for meetings.',
       '',
       'Reading results:',
       'The relay injects a message starting with [Ontosphere — N tools ✓] followed by one backtick-wrapped',
@@ -466,22 +476,6 @@ const help: McpTool = {
       'Long operations (layout, reasoning) may exceed the relay timeout. A timed-out call returns a JSON-RPC',
       'error with data.lateResult=true. Do NOT retry — a [Ontosphere — late result for <tool>] follow-up',
       'will be injected automatically when the operation completes.',
-      '',
-      'ONTOLOGY DISCOVERY',
-      'OWL, RDFS, RDF, and XSD axioms are always pre-loaded — you can use owl:, rdfs:, rdf:, xsd: immediately.',
-      'All other ontologies must be loaded explicitly before use:',
-      '  1. searchOntologies("your use case") — find the right prefix (e.g. "calendar" → ical, "music" → mo, "building" → bot)',
-      '  2. loadOntology("<prefix>") — load into the TBox. Repeat for each domain you need.',
-      '  3. Only then start addNode / addLink — types will resolve correctly.',
-      '',
-      'GRAPH ARCHITECTURE',
-      'Asserted triples live in urn:vg:data — all mutation tools (addNode, addLink, updateNode, SPARQL CONSTRUCT, etc.) operate here only.',
-      'Inferred triples live in urn:vg:inferred — written by runReasoning, cleared by clearInferred, and read-only from all other tools.',
-      'SHACL shapes live in urn:vg:shapes — loaded by loadShacl, read by validateGraph.',
-      'Mutation tools never touch urn:vg:inferred or urn:vg:shapes; the separation is structural.',
-      '',
-      'Common namespace prefixes usable in argument values:',
-      'rdf: rdfs: owl: xsd: foaf: skos: dc: dcterms: schema: ex:',
       '',
       'TOOLS',
       ...mcpManifest.map(e => `${e.name} — ${e.description}`),

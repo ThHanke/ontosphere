@@ -8,6 +8,8 @@ import { reasoningTools } from './tools/reasoning';
 import { namespaceTools } from './tools/namespaceTools';
 import { navigationTools } from './tools/navigation';
 import { shaclTools } from './tools/shacl';
+import { setNamespaceRegistryGetter } from './tools/iriUtils';
+import { useOntologyStore } from '@/stores/ontologyStore';
 import type { McpTool } from './types';
 
 const allTools: McpTool[] = [
@@ -22,6 +24,8 @@ const allTools: McpTool[] = [
 ];
 
 export async function registerMcpTools(): Promise<void> {
+  setNamespaceRegistryGetter(() => useOntologyStore.getState().namespaceRegistry);
+
   // Build the tool map unconditionally so the relay bridge can use it
   // even in browsers without the navigator.modelContext MCP polyfill.
   const toolMap: Record<string, (params: unknown) => Promise<import('./types').McpResult>> = {};

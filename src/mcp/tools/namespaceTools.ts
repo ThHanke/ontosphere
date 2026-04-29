@@ -1,15 +1,7 @@
 // src/mcp/tools/namespaceTools.ts
 import type { McpTool } from '../types';
-import { useOntologyStore } from '@/stores/ontologyStore';
-import { type NamespaceEntry, normalizeEntry } from '@/constants/namespaces';
-
-function getRegistry(): NamespaceEntry[] {
-  return useOntologyStore.getState().namespaceRegistry;
-}
-
-function setRegistry(entries: NamespaceEntry[]): void {
-  useOntologyStore.getState().setNamespaceRegistry(entries);
-}
+import { rdfManager } from '@/utils/rdfManager';
+import { normalizeEntry } from '@/constants/namespaces';
 
 const addNamespace: McpTool = {
   name: 'addNamespace',
@@ -27,12 +19,13 @@ const addNamespace: McpTool = {
       const { prefix, namespace } = params as { prefix?: string; namespace?: string };
       if (!prefix) return { success: false, error: 'prefix is required' };
       if (!namespace) return { success: false, error: 'namespace is required' };
-      const existing = getRegistry();
       const key = prefix.endsWith(':') ? prefix.slice(0, -1) : prefix;
+      const existing = rdfManager.getNamespaces();
       if (existing.some(e => e.prefix === key)) {
         return { success: false, error: `Prefix "${key}:" already registered. Use updateNamespace to change it.` };
       }
-      setRegistry([...existing, normalizeEntry({ prefix: key, uri: namespace })]);
+      const entry = normalizeEntry({ prefix: key, uri: namespace });
+      rdfManager.addNamespace(entry.prefix, entry.uri);
       return { success: true, data: { registered: `${key}: → ${namespace}` } };
     } catch (e) {
       return { success: false, error: String(e) };
@@ -57,11 +50,11 @@ const updateNamespace: McpTool = {
       if (!prefix) return { success: false, error: 'prefix is required' };
       if (!namespace) return { success: false, error: 'namespace is required' };
       const key = prefix.endsWith(':') ? prefix.slice(0, -1) : prefix;
-      const existing = getRegistry();
+      const existing = rdfManager.getNamespaces();
       if (!existing.some(e => e.prefix === key)) {
         return { success: false, error: `Prefix "${key}:" not found. Use addNamespace to register it first.` };
       }
-      setRegistry(existing.map(e => e.prefix === key ? normalizeEntry({ ...e, uri: namespace }) : e));
+      rdfManager.addNamespace(key, namespace);
       return { success: true, data: { updated: `${key}: → ${namespace}` } };
     } catch (e) {
       return { success: false, error: String(e) };
@@ -84,11 +77,11 @@ const removeNamespace: McpTool = {
       const { prefix } = params as { prefix?: string };
       if (!prefix) return { success: false, error: 'prefix is required' };
       const key = prefix.endsWith(':') ? prefix.slice(0, -1) : prefix;
-      const existing = getRegistry();
+      const existing = rdfManager.getNamespaces();
       if (!existing.some(e => e.prefix === key)) {
         return { success: false, error: `Prefix "${key}:" not found` };
       }
-      setRegistry(existing.filter(e => e.prefix !== key));
+      rdfManager.removeNamespace(key);
       return { success: true, data: { removed: `${key}:` } };
     } catch (e) {
       return { success: false, error: String(e) };
@@ -102,7 +95,7 @@ const listNamespaces: McpTool = {
   inputSchema: { type: 'object', properties: {} },
   handler: async () => {
     try {
-      const entries = getRegistry();
+      const entries = rdfManager.getNamespaces();
       const result: Record<string, string> = {};
       for (const e of entries) result[e.prefix + ':'] = e.uri;
       return { success: true, data: { content: JSON.stringify(result) } };

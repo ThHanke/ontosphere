@@ -78,7 +78,7 @@ node then wiring the subclass chain and property axioms one by one. No bulk load
 ✓ addLink: s=RO_0000087 p=domain o=BFO_0000004
 ✓ addLink: s=RO_0000087 p=range o=BFO_0000023
 
-Canvas: 12 nodes, 15 links
+Canvas: 12 nodes, 14 links
 ```
 
 </details>
@@ -322,7 +322,7 @@ Canvas: 10 nodes, 12 links
 
 ```tool-result
 [Ontosphere — 3 tools ✓]
-✓ runReasoning: 4570 triples inferred
+✓ runReasoning: 10785 triples inferred
 ✓ expandAll
 ✓ runLayout: dagre-lr
 
@@ -372,7 +372,7 @@ Canvas: 10 nodes, 12 links
 
 ```tool-result
 [Ontosphere — 1 tool ✓]
-✓ exportGraph: 13239 chars
+✓ exportGraph: 13653 chars
 
 Canvas: 10 nodes, 12 links
 
@@ -384,11 +384,19 @@ Canvas: 10 nodes, 12 links
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix xml: <http://www.w3.org/XML/1998/namespace>.
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
-@prefix : <http://www.w3.org/ns/prov#>.
-@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix : <http://purl.org/net/p-plan#>.
 @prefix spw: <https://thhanke.github.io/PyodideSemanticWorkflow#>.
 @prefix dcterms: <http://purl.org/dc/terms/>.
 @prefix p-plan: <http://purl.org/net/p-plan#>.
+@prefix prov: <http://www.w3.org/ns/prov#>.
+@prefix terms: <http://purl.org/dc/terms/>.
+@prefix vann: <http://purl.org/vocab/vann/>.
+@prefix dtype: <http://www.linkedmodel.org/schema/dtype#>.
+@prefix qudt: <http://qudt.org/schema/qudt/>.
+@prefix qudt.type: <http://qudt.org/vocab/type/>.
+@prefix skos: <http://www.w3.org/2004/02/skos/core#>.
+@prefix vaem: <http://www.linkedmodel.org/schema/vaem#>.
+@prefix voag: <http://voag.linkedmodel.org/schema/voag#>.
 
 <http://purl.obolibrary.org/obo/BFO_0000001> a owl:Class;
     rdfs:label "entity".

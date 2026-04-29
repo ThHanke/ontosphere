@@ -16,8 +16,24 @@ export const mcpServerDescription =
   'OWL, RDFS, RDF, and XSD are pre-loaded. All other ontologies must be loaded explicitly:\n' +
   '  1. searchOntologies("use case") — find the right prefix ("calendar" → ical, "music" → mo, "building" → bot, "e-commerce" → gr, …)\n' +
   '  2. loadOntology("<prefix>") — load into TBox. Repeat for each domain.\n' +
-  '  3. Register a namespace prefix: addNamespace(prefix, namespace) if you want short-form IRIs.\n\n' +
-  'Recommended workflow: searchOntologies → loadOntology ×N → addNamespace ×N → setViewMode("tbox") → addNode ×N (owl:Class etc.) → addLink ×N (subClassOf etc.) → runLayout → setViewMode("abox") → addNode ×N (individuals) → addLink ×N → runLayout → runReasoning → fitCanvas → exportImage(svg).\n\n' +
+  '  3. Register a namespace prefix: addNamespace(prefix, namespace) if you want short-form IRIs.\n' +
+  'IMPORTANT: Prefer domain-specific ontologies over schema.org for knowledge graphs.\n' +
+  'foaf: is already pre-loaded (no loadOntology needed) and is the standard for persons.\n' +
+  'Domain → ontology mapping:\n' +
+  '  • Persons → foaf:Person (pre-loaded)\n' +
+  '  • Calendar events / meetings → ical:Vevent  (searchOntologies("calendar"))\n' +
+  '  • Organizations → org:Organization  (searchOntologies("organization"))\n' +
+  '  • Locations / buildings → bot:Building  (searchOntologies("building"))\n' +
+  '  schema: is a web-markup vocabulary (SEO); foaf:/ical:/org: are proper semantic-web ontologies.\n\n' +
+  'Recommended workflow: searchOntologies → loadOntology ×N → addNamespace ×N → setViewMode("tbox") → addNode ×N (owl:Class etc.) → addLink ×N (subClassOf etc.) → runLayout → setViewMode("abox") → addNode ×N (individuals) → addLink ×N → runLayout → runReasoning → fitCanvas → exportImage(svg).\n' +
+  'For 5+ ABox individuals, replace N addNode calls with one loadRdf(inline Turtle) — far fewer round-trips.\n\n' +
+  'GRAPH ARCHITECTURE\n' +
+  'Asserted triples live in urn:vg:data — all mutation tools (addNode, addLink, updateNode, SPARQL CONSTRUCT, etc.) operate here only.\n' +
+  'Inferred triples live in urn:vg:inferred — written by runReasoning, cleared by clearInferred, and read-only from all other tools.\n' +
+  'SHACL shapes live in urn:vg:shapes — loaded by loadShacl, read by validateGraph.\n' +
+  'Mutation tools never touch urn:vg:inferred or urn:vg:shapes; the separation is structural.\n\n' +
+  'Namespace prefixes: rdf: rdfs: owl: xsd: foaf: skos: dc: dcterms: schema: ex: are always available.\n' +
+  'Any prefix defined by a loaded ontology (loadOntology) or registered via addNamespace is also usable in IRI arguments in all subsequent tool calls.\n\n' +
   'Agent integration: (1) Claude Code / Playwright — call window.__mcpTools[name](params) via browser_evaluate. (2) AI Relay Bridge — any AI chat (ChatGPT, Claude.ai, Gemini) can control Ontosphere via a bookmarklet relay that intercepts JSON-RPC 2.0 tool calls and injects results back automatically; see docs/relay-bridge.md. Full agent guide: AGENTS.md. Example sessions with SVG snapshots: docs/mcp-demo/.';
 
 export const mcpManifest: McpToolManifestEntry[] = [
