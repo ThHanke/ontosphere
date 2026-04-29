@@ -1417,7 +1417,12 @@ export default function ReactodiaCanvas() {
       />
 
       <Dialog open={loadOntologyOpen} onOpenChange={setLoadOntologyOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="sm:max-w-lg max-h-[90vh] overflow-y-auto"
+          onPointerDownOutside={(e) => {
+            if ((e.target as Element)?.closest('[data-autocomplete-portal]')) e.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Load Ontology</DialogTitle>
             <DialogDescription>

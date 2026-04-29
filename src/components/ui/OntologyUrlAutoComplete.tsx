@@ -67,6 +67,7 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
       ref={listRef}
       role="listbox"
       style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999 }}
+      data-autocomplete-portal=""
       className="max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md py-1"
     >
       {filtered.map((e, i) => (
