@@ -12,7 +12,7 @@ interface Props {
 
 export default function OntologyUrlAutoComplete({ value, onChange, placeholder, className }: Props) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(value);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,6 +22,9 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
   const filtered = useMemo(() => searchWellKnownOntologies(query), [query]);
 
   useEffect(() => { setActiveIndex(-1); }, [filtered]);
+
+  // Keep query in sync with external value when the dropdown is closed
+  useEffect(() => { if (!open) setQuery(value); }, [value, open]);
 
   const measurePos = () => {
     if (!inputRef.current) return;
@@ -49,7 +52,6 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
 
   const handleSelect = (url: string) => {
     onChange(url);
-    setQuery('');
     setOpen(false);
     setActiveIndex(-1);
   };
@@ -93,7 +95,7 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
         aria-expanded={open}
         aria-autocomplete="list"
         placeholder={placeholder ?? 'https://example.com/ontology.owl'}
-        value={query !== '' ? query : value}
+        value={query}
         className={cn(
           'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm',
           'ring-offset-background placeholder:text-muted-foreground',
@@ -109,7 +111,6 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
           closeTimer.current = setTimeout(() => {
             setOpen(false);
             if (query.trim()) onChange(query.trim());
-            setQuery('');
             setActiveIndex(-1);
           }, 150);
         }}
@@ -128,11 +129,9 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
               handleSelect(filtered[activeIndex].url);
             } else {
               setOpen(false);
-              setQuery('');
             }
           } else if (e.key === 'Escape') {
             setOpen(false);
-            setQuery('');
             setActiveIndex(-1);
           }
         }}
