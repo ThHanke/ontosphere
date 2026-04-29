@@ -38,7 +38,6 @@ import type { AppConfig } from '@/stores/appConfigStore';
 import { LayoutPopover } from './LayoutPopover';
 import { RdfPropertyEditor } from './rdfPropertyEditor';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import OntologyUrlAutoComplete from '../ui/OntologyUrlAutoComplete';
@@ -1416,53 +1415,64 @@ export default function ReactodiaCanvas() {
         onOpenChange={setSettingsOpen}
       />
 
-      <Dialog open={loadOntologyOpen} onOpenChange={setLoadOntologyOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Load Ontology</DialogTitle>
-            <DialogDescription>
-              Enter a URL or type to search well-known ontologies.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ontologyUrl">Ontology URL</Label>
-              <OntologyUrlAutoComplete
-                value={ontologyUrlInput}
-                onChange={setOntologyUrlInput}
-              />
+      {loadOntologyOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 pt-16"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setLoadOntologyOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setLoadOntologyOpen(false); }}
+        >
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <button
+              className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring"
+              onClick={() => setLoadOntologyOpen(false)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold leading-none tracking-tight">Load Ontology</h2>
+              <p className="text-sm text-muted-foreground mt-1">Enter a URL or type to search well-known ontologies.</p>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setLoadOntologyOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={!ontologyUrlInput.trim()}
-                onClick={async () => {
-                  const url = ontologyUrlInput.trim();
-                  if (!url) return;
-                  try {
-                    actions.setLoading(true, 10, 'Loading ontology...');
-                    await loadAdditionalOntologies([url], (progress, message) => {
-                      actions.setLoading(true, Math.max(progress, 30), message);
-                    });
-                    toast.success('Ontology loaded successfully');
-                    setOntologyUrlInput('');
-                    setLoadOntologyOpen(false);
-                  } catch (err) {
-                    console.error('Failed to load ontology:', err);
-                    toast.error('Failed to load ontology');
-                  } finally {
-                    actions.setLoading(false, 0, '');
-                  }
-                }}
-              >
-                Load Ontology
-              </Button>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ontologyUrl">Ontology URL</Label>
+                <OntologyUrlAutoComplete
+                  value={ontologyUrlInput}
+                  onChange={setOntologyUrlInput}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setLoadOntologyOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={!ontologyUrlInput.trim()}
+                  onClick={async () => {
+                    const url = ontologyUrlInput.trim();
+                    if (!url) return;
+                    try {
+                      actions.setLoading(true, 10, 'Loading ontology...');
+                      await loadAdditionalOntologies([url], (progress, message) => {
+                        actions.setLoading(true, Math.max(progress, 30), message);
+                      });
+                      toast.success('Ontology loaded successfully');
+                      setOntologyUrlInput('');
+                      setLoadOntologyOpen(false);
+                    } catch (err) {
+                      console.error('Failed to load ontology:', err);
+                      toast.error('Failed to load ontology');
+                    } finally {
+                      actions.setLoading(false, 0, '');
+                    }
+                  }}
+                >
+                  Load Ontology
+                </Button>
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       <ReasoningReportModal
         open={canvasState.showReasoningReport}

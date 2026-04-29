@@ -74,7 +74,6 @@ export default function OntologyUrlAutoComplete({ value, onChange, placeholder, 
           key={e.url}
           role="option"
           aria-selected={i === activeIndex}
-          onPointerDown={ev => ev.stopPropagation()}
           onMouseDown={ev => { ev.preventDefault(); handleSelect(e.url); }}
           onMouseEnter={() => setActiveIndex(i)}
           className={cn(
