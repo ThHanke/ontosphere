@@ -901,8 +901,13 @@ export default function ReactodiaCanvas() {
             disableImportDiscovery: !loadImportsEnabledRef.current,
             ...(startupApiKey ? { apiKey: startupApiKey, apiKeyHeader: startupApiKeyHeader || undefined } : {}),
           });
-          toast.success('Startup knowledge graph loaded');
+          const startupLabel = (() => {
+            try { return new URL(startupUrl).pathname.split('/').filter(Boolean).pop()?.replace(/\.[^.]+$/, '') || startupUrl; }
+            catch { return startupUrl; }
+          })();
+          toast.success(`Loaded: ${startupLabel}`, { description: '?url= parameter' });
         } catch (err) {
+          toast.error('Failed to load startup graph', { description: startupUrl });
           console.error('[ReactodiaCanvas] Startup URL load failed', err);
         } finally {
           actions.setLoading(false, 0, '');
@@ -1465,12 +1470,17 @@ export default function ReactodiaCanvas() {
                       await loadAdditionalOntologies([url], (progress, message) => {
                         actions.setLoading(true, Math.max(progress, 30), message);
                       });
-                      toast.success('Ontology loaded successfully');
+                      const wk = Object.values(WELL_KNOWN_BY_PREFIX).find(e => e.url === url);
+                      const loadedLabel = wk?.name ?? (() => {
+                        try { return new URL(url).pathname.split('/').filter(Boolean).pop()?.replace(/\.[^.]+$/, '') || url; }
+                        catch { return url; }
+                      })();
+                      toast.success(`Loaded: ${loadedLabel}`);
                       setOntologyUrlInput('');
                       setLoadOntologyOpen(false);
                     } catch (err) {
+                      // ontologyStore already fires a detailed CORS-aware error toast; this is a fallback
                       console.error('Failed to load ontology:', err);
-                      toast.error('Failed to load ontology');
                     } finally {
                       actions.setLoading(false, 0, '');
                     }
