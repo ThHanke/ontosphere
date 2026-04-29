@@ -12,10 +12,29 @@ export const mcpServerDescription =
   '  • "Punned" resources (typed as both, e.g. owl:Class AND owl:NamedIndividual) appear in both views.\n' +
   'Switching views replaces the entire canvas — ABox nodes are invisible in TBox view and vice versa. Use setViewMode before exportImage to capture the right layer. addNode writes triples to the store and the canvas populates automatically in the correct view.\n\n' +
   'Architecture for AI agents: The app has two coupled layers. (1) N3 RDF store (urn:vg:data) — source of truth for all triples. addNode/addLink write here first. (2) Reactodia canvas — mirrors the store subset matching the active view as draggable node cards and arrows. Nodes start collapsed; call expandNode or expandAll to reveal annotation property cards. OWL-RL reasoning writes inferred triples back to the store (urn:vg:inferred) and refreshes the canvas.\n\n' +
-  'Recommended workflow: setViewMode("tbox") → loadOntology → addNode ×N (owl:Class etc.) → addLink ×N (subClassOf etc.) → runLayout → setViewMode("abox") → addNode ×N (individuals) → addLink ×N → runLayout → runReasoning → fitCanvas → exportImage(svg).\n\n' +
+  'ONTOLOGY DISCOVERY — always the first step:\n' +
+  'OWL, RDFS, RDF, and XSD are pre-loaded. All other ontologies must be loaded explicitly:\n' +
+  '  1. searchOntologies("use case") — find the right prefix ("calendar" → ical, "music" → mo, "building" → bot, "e-commerce" → gr, …)\n' +
+  '  2. loadOntology("<prefix>") — load into TBox. Repeat for each domain.\n' +
+  '  3. Register a namespace prefix: addNamespace(prefix, namespace) if you want short-form IRIs.\n\n' +
+  'Recommended workflow: searchOntologies → loadOntology ×N → addNamespace ×N → setViewMode("tbox") → addNode ×N (owl:Class etc.) → addLink ×N (subClassOf etc.) → runLayout → setViewMode("abox") → addNode ×N (individuals) → addLink ×N → runLayout → runReasoning → fitCanvas → exportImage(svg).\n\n' +
   'Agent integration: (1) Claude Code / Playwright — call window.__mcpTools[name](params) via browser_evaluate. (2) AI Relay Bridge — any AI chat (ChatGPT, Claude.ai, Gemini) can control Ontosphere via a bookmarklet relay that intercepts JSON-RPC 2.0 tool calls and injects results back automatically; see docs/relay-bridge.md. Full agent guide: AGENTS.md. Example sessions with SVG snapshots: docs/mcp-demo/.';
 
 export const mcpManifest: McpToolManifestEntry[] = [
+  {
+    name: 'searchOntologies',
+    description:
+      'Search the well-known ontology registry by keyword or use-case phrase. Returns prefix, name, description, namespace URI, and load URL for each match. ' +
+      'Call this FIRST to discover which ontologies cover your domain — e.g. "calendar" → ical, "music" → mo, "building" → bot, "spatial" → geo, "e-commerce" → gr, "citation" → cito. ' +
+      'OWL/RDFS/RDF/XSD are always pre-loaded and do not appear as actionable results. ' +
+      'Leave query empty to list all ~55 registered ontologies.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Keyword or use-case phrase. Leave empty for full listing.' },
+      },
+    },
+  },
   {
     name: 'loadRdf',
     description:
@@ -37,7 +56,10 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'loadOntology',
-    description: 'Load TBox ontology for type hints and reasoning support. Does NOT add canvas nodes. Use for schema/class definitions. To load instance data as canvas nodes, use loadRdf instead.',
+    description:
+      'Load a TBox ontology by prefix name, namespace URI, or direct file URL. Does NOT add canvas nodes — use loadRdf for instance data. ' +
+      'Call searchOntologies first to find the right prefix for your use case. ' +
+      'Examples: loadOntology("ical") for calendar events, loadOntology("mo") for music, loadOntology("bot") for buildings, loadOntology("gr") for e-commerce.',
     inputSchema: {
       type: 'object',
       properties: {

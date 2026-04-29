@@ -83,34 +83,71 @@ const loadRdf: McpTool = {
 };
 
 // ---------------------------------------------------------------------------
+// searchOntologies
+// ---------------------------------------------------------------------------
+const searchOntologies: McpTool = {
+  name: 'searchOntologies',
+  description: 'Search the well-known ontology registry by keyword or use case. Returns matching ontologies with prefix, name, description, namespace URI, and load URL. Call this to discover which ontologies to load before calling loadOntology.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'Keyword or use-case phrase (e.g. "calendar", "music", "building", "e-commerce", "citation", "spatial", "IoT"). Leave empty to list all registered ontologies.',
+      },
+    },
+  },
+  async handler(params): Promise<McpResult> {
+    const { query = '' } = (params ?? {}) as { query?: string };
+    const q = query.trim().toLowerCase();
+    const matches = q
+      ? WELL_KNOWN_PREFIXES.filter(e =>
+          e.prefix.toLowerCase().includes(q) ||
+          e.name.toLowerCase().includes(q) ||
+          ((e as any).description as string | undefined)?.toLowerCase().includes(q)
+        )
+      : [...WELL_KNOWN_PREFIXES];
+
+    const ontologies = matches.map(e => ({
+      prefix: e.prefix,
+      name: e.name,
+      description: (e as any).description ?? '',
+      namespace: e.url,
+      loadUrl: resolveOntologyLoadUrl(e.prefix),
+    }));
+
+    return {
+      success: true,
+      data: { query: query || '(all)', count: ontologies.length, ontologies },
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
 // loadOntology
 // ---------------------------------------------------------------------------
 const loadOntology: McpTool = {
   name: 'loadOntology',
   description:
-    'Load a well-known ontology by prefix name (e.g. "bfo", "ro", "iao", "foaf", "pmdco"), ' +
+    'Load a well-known ontology by prefix name (e.g. "bibo", "ro", "foaf", "saref"), ' +
     'by its namespace URL, or by any direct ontology file URL. ' +
-    'Call with url="" or omit url to list all available well-known ontologies.',
+    'Use searchOntologies first to discover the right prefix for your use case.',
   inputSchema: {
     type: 'object',
     properties: {
       url: {
         type: 'string',
         description:
-          'Prefix name (e.g. "bfo"), namespace IRI, or direct ontology URL. ' +
-          'Leave empty to list available well-known ontologies.',
+          'Prefix name (e.g. "bibo"), namespace IRI, or direct ontology URL.',
       },
     },
+    required: ['url'],
   },
   async handler(params): Promise<McpResult> {
     const { url = '' } = (params ?? {}) as { url?: string };
 
-    // Empty call — return registry listing
     if (!url.trim()) {
-      const known = WELL_KNOWN_PREFIXES
-        .filter(p => (p as any).ontologyUrl || p.url)
-        .map(p => ({ prefix: p.prefix, name: p.name, namespace: p.url, ontologyUrl: (p as any).ontologyUrl ?? p.url }));
-      return { success: true, data: { availableOntologies: known } };
+      return { success: false, error: 'url is required. Use searchOntologies to discover available ontologies.' };
     }
 
     const resolvedUrl = resolveOntologyLoadUrl(url);
@@ -119,14 +156,18 @@ const loadOntology: McpTool = {
       await rdfManager.loadRDFFromUrl(resolvedUrl, { corsProxyUrl });
       return { success: true, data: { loaded: resolvedUrl, requestedAs: url !== resolvedUrl ? url : undefined } };
     } catch (e) {
-      // Suggest close matches from the registry
       const q = url.toLowerCase();
       const suggestions = WELL_KNOWN_PREFIXES
-        .filter(p => p.prefix.includes(q) || p.name.toLowerCase().includes(q))
-        .map(p => p.prefix);
+        .filter(p =>
+          p.prefix.includes(q) ||
+          p.name.toLowerCase().includes(q) ||
+          ((p as any).description as string | undefined)?.toLowerCase().includes(q)
+        )
+        .map(p => ({ prefix: p.prefix, description: (p as any).description ?? p.name }));
       return {
         success: false,
         error: String(e),
+        hint: 'Use searchOntologies to find the correct prefix, then retry.',
         ...(suggestions.length ? { suggestions } : {}),
       };
     }
@@ -457,6 +498,13 @@ const help: McpTool = {
       'error with data.lateResult=true. Do NOT retry — a [Ontosphere — late result for <tool>] follow-up',
       'will be injected automatically when the operation completes.',
       '',
+      'ONTOLOGY DISCOVERY',
+      'OWL, RDFS, RDF, and XSD axioms are always pre-loaded — you can use owl:, rdfs:, rdf:, xsd: immediately.',
+      'All other ontologies must be loaded explicitly before use:',
+      '  1. searchOntologies("your use case") — find the right prefix (e.g. "calendar" → ical, "music" → mo, "building" → bot)',
+      '  2. loadOntology("<prefix>") — load into the TBox. Repeat for each domain you need.',
+      '  3. Only then start addNode / addLink — types will resolve correctly.',
+      '',
       'GRAPH ARCHITECTURE',
       'Asserted triples live in urn:vg:data — all mutation tools (addNode, addLink, updateNode, SPARQL CONSTRUCT, etc.) operate here only.',
       'Inferred triples live in urn:vg:inferred — written by runReasoning, cleared by clearInferred, and read-only from all other tools.',
@@ -479,6 +527,7 @@ const help: McpTool = {
 // Exports
 // ---------------------------------------------------------------------------
 export const graphTools: McpTool[] = [
+  searchOntologies,
   loadRdf,
   loadOntology,
   queryGraph,
