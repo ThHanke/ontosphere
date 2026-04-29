@@ -1420,8 +1420,7 @@ export default function ReactodiaCanvas() {
         <DialogContent
           className="sm:max-w-lg max-h-[90vh] overflow-y-auto"
           onPointerDownOutside={(e) => {
-            const target = e.detail.originalEvent.target as Element | null;
-            if (target?.closest('[data-autocomplete-portal]')) e.preventDefault();
+            if ((e.target as Element)?.closest('[data-autocomplete-portal]')) e.preventDefault();
           }}
         >
           <DialogHeader>
