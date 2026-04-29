@@ -7,8 +7,8 @@ import {
 } from "../../utils/wellKnownOntologies";
 
 describe("ONTOLOGY_PACKS", () => {
-  it("has exactly 10 packs", () => {
-    expect(ONTOLOGY_PACKS).toHaveLength(10);
+  it("has exactly 9 packs", () => {
+    expect(ONTOLOGY_PACKS).toHaveLength(9);
   });
 
   it("has unique ids", () => {
@@ -25,9 +25,9 @@ describe("ONTOLOGY_PACKS", () => {
 });
 
 describe("searchOntologyPacks", () => {
-  it("empty string returns all 10 packs as summary-only", () => {
+  it("empty string returns all 9 packs as summary-only", () => {
     const result = searchOntologyPacks("");
-    expect(result).toHaveLength(10);
+    expect(result).toHaveLength(9);
     for (const pack of result) {
       expect(pack).toHaveProperty("packId");
       expect(pack).toHaveProperty("packName");
@@ -36,18 +36,18 @@ describe("searchOntologyPacks", () => {
     }
   });
 
-  it("no-match returns all 10 packs summary-only", () => {
+  it("no-match returns all 9 packs summary-only", () => {
     const result = searchOntologyPacks("xyzzy-nonexistent-9999");
-    expect(result).toHaveLength(10);
+    expect(result).toHaveLength(9);
     expect(result[0]).not.toHaveProperty("ontologies");
   });
 
-  it("'mind map' returns pkm pack with ontologies", () => {
+  it("'mind map' returns notes-mindmap pack with ontologies", () => {
     const result = searchOntologyPacks("mind map");
-    const pkm = result.find(p => p.packId === "pkm");
-    expect(pkm).toBeDefined();
-    expect(pkm).toHaveProperty("ontologies");
-    const prefixes = (pkm as any).ontologies.map((o: any) => o.prefix);
+    const pack = result.find(p => p.packId === "notes-mindmap");
+    expect(pack).toBeDefined();
+    expect(pack).toHaveProperty("ontologies");
+    const prefixes = (pack as any).ontologies.map((o: any) => o.prefix);
     expect(prefixes).toContain("skos");
     expect(prefixes).toContain("dcterms");
   });

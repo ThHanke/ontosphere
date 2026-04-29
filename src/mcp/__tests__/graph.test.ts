@@ -295,12 +295,12 @@ describe('exportImage', () => {
 
 // ---------------------------------------------------------------------------
 describe('suggestOntologiesForTask', () => {
-  it('no params returns all 10 packs as summaries', async () => {
+  it('no params returns all 9 packs as summaries', async () => {
     const result = await tool('suggestOntologiesForTask').handler({});
     expect(result.success).toBe(true);
-    expect((result as any).data.count).toBe(10);
+    expect((result as any).data.count).toBe(9);
     const packs = (result as any).data.packs;
-    expect(packs).toHaveLength(10);
+    expect(packs).toHaveLength(9);
     for (const pack of packs) {
       expect(pack).toHaveProperty('packId');
       expect(pack).toHaveProperty('packName');
@@ -309,10 +309,10 @@ describe('suggestOntologiesForTask', () => {
     }
   });
 
-  it('empty task returns all 10 packs', async () => {
+  it('empty task returns all 9 packs', async () => {
     const result = await tool('suggestOntologiesForTask').handler({ task: '' });
     expect(result.success).toBe(true);
-    expect((result as any).data.count).toBe(10);
+    expect((result as any).data.count).toBe(9);
   });
 
   it('"model people I know" returns people pack with foaf ontology', async () => {
@@ -329,7 +329,7 @@ describe('suggestOntologiesForTask', () => {
   it('"zzznomatch999" returns all packs summary-only', async () => {
     const result = await tool('suggestOntologiesForTask').handler({ task: 'zzznomatch999' });
     expect(result.success).toBe(true);
-    expect((result as any).data.count).toBe(10);
+    expect((result as any).data.count).toBe(9);
     for (const pack of (result as any).data.packs) {
       expect(pack).not.toHaveProperty('ontologies');
     }

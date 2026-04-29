@@ -50,7 +50,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "SKOS",
     description: "Mind maps, concept hierarchies and topic trees — organize any domain of knowledge with broader/narrower/related links",
     ontologyUrl: "https://www.w3.org/2009/08/skos-reference/skos.rdf",
-    packs: ["pkm", "general-kg"],
+    packs: ["notes-mindmap"],
   },
   {
     prefix: "prov",
@@ -58,7 +58,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "PROV-O - The PROV Ontology",
     description: "Track the history of anything: who created it, what process produced it, and what it was derived from",
     ontologyUrl: "https://www.w3.org/ns/prov-o",
-    packs: ["general-kg", "research", "data-catalog", "engineering"],
+    packs: ["research", "data-catalog", "engineering"],
   },
   {
     prefix: "p-plan",
@@ -112,7 +112,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "Dublin Core Terms",
     description: "General metadata: titles, creators, dates, subjects and descriptions",
     ontologyUrl: "https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.ttl",
-    packs: ["pkm", "general-kg", "research", "data-catalog", "annotations"],
+    packs: ["notes-mindmap", "research", "data-catalog", "annotations"],
   },
   {
     prefix: "dc",
@@ -142,7 +142,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://purl.org/vocab/relationship/",
     name: "REL - Relationship Vocabulary",
     description: "Typed person-to-person relationships: siblingOf, parentOf, colleagueOf, friendOf — extends FOAF for richer social graphs",
-    ontologyUrl: "https://vocab.org/relationship/rel-vocab-20100607.rdf",
+    ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/rel/versions/2010-04-19.n3",
     packs: ["people"],
   },
   {
@@ -150,7 +150,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://purl.org/vocab/bio/0.1/",
     name: "BIO - Biographical Vocabulary",
     description: "Life events for biographical knowledge graphs: Birth, Death, Marriage, Graduation and their dates and places",
-    ontologyUrl: "https://vocab.org/bio/bio-vocab-20100101.rdf",
+    ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/bio/versions/2011-06-14.n3",
     packs: ["people"],
   },
   {
@@ -225,7 +225,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "Schema.org",
     description: "Universal knowledge graph vocabulary: people, places, events, organizations, products and creative works — best starting point for any general-purpose graph",
     ontologyUrl: "https://schema.org/version/latest/schemaorg-current-https.ttl",
-    packs: ["events", "general-kg"],
+    packs: ["events"],
   },
   {
     prefix: "sh",
@@ -240,7 +240,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "OWL-Time - Time Ontology in OWL",
     description: "Model time: when things happen, how long they last, and temporal order between events — works with any domain",
     ontologyUrl: "https://www.w3.org/2006/time",
-    packs: ["pkm", "events", "iot"],
+    packs: ["notes-mindmap", "events", "iot"],
   },
   {
     prefix: "vcard",
@@ -263,7 +263,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "OA - Web Annotation Vocabulary",
     description: "Attach notes, comments or tags to any resource — web pages, document sections, image regions or graph nodes",
     ontologyUrl: "https://www.w3.org/ns/oa",
-    packs: ["pkm", "annotations"],
+    packs: ["notes-mindmap", "annotations"],
   },
   {
     prefix: "odrl",
@@ -473,8 +473,8 @@ export const WELL_KNOWN_PREFIXES = [
 
 export const ONTOLOGY_PACKS = [
   {
-    id: "pkm",
-    name: "Personal Knowledge Management / Mind Mapping",
+    id: "notes-mindmap",
+    name: "Notes & Mind Mapping",
     description: "Structure notes, make mind maps, organize topics and concept hierarchies",
     examplePhrases: ["mind map", "organize topics", "structure notes", "concept hierarchy", "taking notes"],
   },
@@ -489,12 +489,6 @@ export const ONTOLOGY_PACKS = [
     name: "Events & Scheduling",
     description: "Track meetings, model calendars and schedule projects",
     examplePhrases: ["calendar", "meetings", "schedule", "events", "appointments", "time management"],
-  },
-  {
-    id: "general-kg",
-    name: "General Knowledge Graph",
-    description: "Build a knowledge graph about any topic — general linked data for any domain",
-    examplePhrases: ["knowledge graph", "linked data", "model anything", "general purpose", "build a graph"],
   },
   {
     id: "research",
@@ -542,10 +536,10 @@ export type OntologyPackDetail = OntologyPackSummary & {
 };
 
 const PACK_REASONS: Record<string, string> = {
-  "pkm:skos": "Concept hierarchy, broader/narrower, topic trees",
-  "pkm:dcterms": "Title, description, date metadata on nodes",
-  "pkm:oa": "Annotate nodes with external references or comments",
-  "pkm:time": "Temporal tagging of concepts",
+  "notes-mindmap:skos": "Concept hierarchy, broader/narrower, topic trees",
+  "notes-mindmap:dcterms": "Title, description, date metadata on nodes",
+  "notes-mindmap:oa": "Annotate nodes with external references or comments",
+  "notes-mindmap:time": "Temporal tagging of concepts",
   "people:foaf": "Person nodes, knows-relationships, social accounts",
   "people:vcard": "Contact details: email, phone, address",
   "people:org": "Organizations and membership roles",
@@ -555,10 +549,6 @@ const PACK_REASONS: Record<string, string> = {
   "events:time": "Durations, intervals, time zones",
   "events:schema": "schema:Event with location, organizer",
   "events:foaf": "Organizer / attendee persons",
-  "general-kg:schema": "Universal typed entities: Person, Place, Event, Organization, Product",
-  "general-kg:skos": "Classification, tagging, concept schemes",
-  "general-kg:dcterms": "Metadata: title, creator, date, source",
-  "general-kg:prov": "Provenance: where did this data come from",
   "research:bibo": "Books, articles, theses, reports",
   "research:cito": "Citation types: supports, disputes, extends",
   "research:fabio": "Publishing works: journal papers, conference proceedings",
