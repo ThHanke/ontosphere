@@ -243,6 +243,16 @@ describe('queryGraph', () => {
       expect.objectContaining({ limit: 50 }),
     );
   });
+
+  it('normalises bare IRIs in PREFIX declarations (AI omits angle brackets)', async () => {
+    mockSelect([]);
+    const result = await tool('queryGraph').handler({
+      sparql: 'PREFIX rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#\nSELECT * WHERE { ?s ?p ?o }',
+    }) as any;
+    // Normalization must turn the bare IRI into a valid IRIREF so sparqljs parses without error
+    expect(result.success).toBe(true);
+    expect(rdfManager.sparqlQuery).toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
