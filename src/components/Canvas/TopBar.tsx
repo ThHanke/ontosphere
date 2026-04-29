@@ -145,7 +145,12 @@ export const TopBar: React.FC<TopBarProps> = ({
                           <div className="font-medium text-sm">{ont?.name || 'Unknown'}</div>
                           <div className="text-xs text-muted-foreground truncate">{ontologyUrl || 'No URI'}</div>
                           <div className="text-xs mt-1 flex items-center gap-1">
-                            <span className="text-green-600">Loaded</span>
+                            {ont?.loadStatus === 'fail'
+                              ? <span className="text-red-500" title={ont?.loadError}>Failed</span>
+                              : ont?.loadStatus === 'pending'
+                              ? <span className="text-muted-foreground">Loading…</span>
+                              : <span className="text-green-600">Loaded</span>
+                            }
                             {isAutoloaded && <span className="text-muted-foreground">· autoload</span>}
                             {isCore && <span className="text-muted-foreground">· core</span>}
                           </div>

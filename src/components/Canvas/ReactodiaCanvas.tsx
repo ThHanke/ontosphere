@@ -376,7 +376,9 @@ export default function ReactodiaCanvas() {
   // Resolved once at mount from ?loadImports URL param. false = imports disabled for this session.
   const loadImportsEnabledRef = React.useRef<boolean>(true);
 
-  const ontologyCount = useOntologyStore(s => s.loadedOntologies?.length ?? 0);
+  const ontologyCount = useOntologyStore(s =>
+    (s.loadedOntologies ?? []).filter((o: any) => o.loadStatus !== 'fail').length
+  );
   const namespaces = useOntologyStore(s => Array.isArray(s.namespaceRegistry) ? s.namespaceRegistry : []);
   const loadKnowledgeGraph = useOntologyStore(s => s.loadKnowledgeGraph);
   const loadAdditionalOntologies = useOntologyStore(s => s.loadAdditionalOntologies);
