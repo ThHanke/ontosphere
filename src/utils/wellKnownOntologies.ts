@@ -102,16 +102,6 @@ export const WELL_KNOWN_PREFIXES = [
     name: "IOF Core",
   },
   {
-    prefix: "iof-mat",
-    url: "https://spec.industrialontologies.org/ontology/materials/Materials/",
-    name: "IOF Materials",
-  },
-  {
-    prefix: "iof-qual",
-    url: "https://spec.industrialontologies.org/ontology/qualities/",
-    name: "IOF Qualities",
-  },
-  {
     prefix: "ro",
     url: "http://purl.obolibrary.org/obo/RO_",
     name: "RO - Relations Ontology",
