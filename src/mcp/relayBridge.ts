@@ -53,6 +53,53 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function shortIri(iri: unknown): string | undefined {
+  return typeof iri === 'string' ? (iri.split(/[/#]/).filter(Boolean).pop() ?? iri) : undefined;
+}
+
+function toastLabel(tool: string, result: McpResult): string {
+  const d = result.data as Record<string, unknown> | null | undefined;
+  if (!d) return tool;
+  switch (tool) {
+    case 'loadOntology':
+      if (typeof d.count === 'number') return `${tool} · ${d.count} results`;
+      return `${tool} · ${d.requestedAs ?? shortIri(d.loaded) ?? ''}`;
+    case 'loadRDF':
+      return `${tool} · ${shortIri(d.loaded) ?? ''}`;
+    case 'queryGraph': {
+      const n = d.total;
+      if (d.updated) return `${tool} · updated`;
+      if (typeof n === 'number') return `${tool} · ${n} ${Array.isArray(d.rows) ? 'rows' : 'triples'}`;
+      return tool;
+    }
+    case 'addNode':
+    case 'focusNode':
+    case 'getNodeDetails':
+      return `${tool} · ${shortIri(d.iri) ?? ''}`;
+    case 'removeNode':
+      return `${tool} · ${shortIri(d.removed) ?? ''}`;
+    case 'updateNode':
+      return `${tool} · ${shortIri(d.updated) ?? ''}`;
+    case 'expandAll':
+      return typeof d.expanded === 'number' ? `${tool} · ${d.expanded} nodes` : tool;
+    case 'addLink': {
+      const rel = d.added as Record<string, unknown> | undefined;
+      return `${tool} · ${shortIri(rel?.p) ?? ''}`;
+    }
+    case 'removeLink': {
+      const rel = d.removed as Record<string, unknown> | undefined;
+      return `${tool} · ${shortIri(rel?.p) ?? ''}`;
+    }
+    case 'setLayout':
+    case 'layout':
+      return typeof d.algorithm === 'string' ? `${tool} · ${d.algorithm}` : tool;
+    case 'setGraphMode':
+      return typeof d.mode === 'string' ? `${tool} · ${d.mode}` : tool;
+    default:
+      return tool;
+  }
+}
+
 async function waitForMcpTools(retries: number): Promise<Record<string, (params: unknown) => Promise<McpResult>> | null> {
   for (let i = 0; i <= retries; i++) {
     if (window.__mcpTools) return window.__mcpTools;
@@ -132,7 +179,7 @@ async function handleCall(
     result = { success: false, error };
     channel.postMessage({ type: 'vg-result', requestId, result });
     channel.postMessage({ type: 'vg-ready' });
-    toast.error(`✗ ${tool}: ${error}`);
+    toast.error(`✗ ${toastLabel(tool, { success: false, error })}: ${error}`);
     notifyCallLog({ tool, success: false, timestamp: Date.now() });
     onDone();
     return;
@@ -168,10 +215,10 @@ async function handleCall(
   channel.postMessage({ type: 'vg-ready' });
 
   if (result.success) {
-    toast.success(`✓ ${tool}`);
+    toast.success(`✓ ${toastLabel(tool, result)}`);
     notifyCallLog({ tool, success: true, timestamp: Date.now() });
   } else {
-    toast.error(`✗ ${tool}: ${result.error}`);
+    toast.error(`✗ ${toastLabel(tool, result)}: ${result.error}`);
     notifyCallLog({ tool, success: false, timestamp: Date.now() });
   }
 
