@@ -128,7 +128,7 @@ const loadOntology: McpTool = {
     const resolvedUrl = resolveOntologyLoadUrl(url);
     const corsProxyUrl = useSettingsStore.getState().settings.corsProxyUrl;
     try {
-      await rdfManager.loadRDFFromUrl(resolvedUrl, { corsProxyUrl });
+      await rdfManager.loadRDFFromUrl(resolvedUrl, "urn:vg:ontologies", { corsProxyUrl: corsProxyUrl || undefined, timeoutMs: 15000 });
       return { success: true, data: { loaded: resolvedUrl, requestedAs: url !== resolvedUrl ? url : undefined } };
     } catch (e) {
       const suggestions = searchWellKnownOntologies(url)
