@@ -10,7 +10,12 @@ const orgUrl = (WELL_KNOWN && WELL_KNOWN.prefixes && WELL_KNOWN.prefixes.org) ||
 
 describe("Ontology Store", () => {
   beforeEach(() => {
+    vi.spyOn(rdfManager as any, "loadRDFFromUrl").mockResolvedValue(undefined);
     useOntologyStore.getState().clearOntologies();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe("loadOntology", () => {
