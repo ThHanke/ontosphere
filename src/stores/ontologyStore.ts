@@ -619,8 +619,13 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
 
       // normalize requested URL (http -> https, trim)
       const normRequestedUrl = normalizeOntologyUri(url);
-      // Resolve to the actual fetch URL (ontologyUrl overrides namespace URL for well-known entries)
-      const fetchUrl = normalizeOntologyUri(resolveOntologyLoadUrl(normRequestedUrl));
+      // Resolve to the actual fetch URL (ontologyUrl overrides namespace URL for well-known entries).
+      // Try both the normalized (https) form and the original http form because WELL_KNOWN urls use http://.
+      const _httpForm0 = normRequestedUrl.replace(/^https:\/\//i, "http://");
+      const _resolved0 = resolveOntologyLoadUrl(normRequestedUrl);
+      const fetchUrl = normalizeOntologyUri(
+        _resolved0 !== normRequestedUrl ? _resolved0 : resolveOntologyLoadUrl(_httpForm0)
+      );
       let canonicalNorm: string | undefined = undefined;
 
       // If well-known, register a lightweight entry so UI shows it immediately.
