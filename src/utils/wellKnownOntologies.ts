@@ -60,14 +60,14 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://purl.org/net/p-plan#",
     name: "P-Plan - The P-Plan Ontology",
     description: "Scientific workflow provenance: plans, steps and entities extending PROV-O",
-    ontologyUrl: "https://purl.org/net/p-plan",
+    ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/p-plan/versions/2014-03-12.n3",
   },
   {
     prefix: "bfo",
     url: "http://purl.obolibrary.org/obo/BFO_",
     name: "BFO 2 - Basic Formal Ontology 2.0",
     description: "Upper-level foundational ontology for biomedical and scientific domains",
-    ontologyUrl: "https://purl.obolibrary.org/obo/bfo/2.0/bfo.owl",
+    ontologyUrl: "https://raw.githubusercontent.com/BFO-ontology/BFO/master/releases/2.0/bfo.owl",
   },
   {
     prefix: "bfo2020",
@@ -142,20 +142,21 @@ export const WELL_KNOWN_PREFIXES = [
     url: "https://spec.industrialontologies.org/ontology/core/Core/",
     name: "IOF Core",
     description: "Industrial ontology: processes, equipment, capabilities and maintenance",
+    ontologyUrl: "https://raw.githubusercontent.com/iofoundry/Core/main/Core.rdf",
   },
   {
     prefix: "ro",
     url: "http://purl.obolibrary.org/obo/RO_",
     name: "RO - Relations Ontology",
     description: "Biological and biomedical relation types: part-of, has-role, regulates, …",
-    ontologyUrl: "https://purl.obolibrary.org/obo/ro.owl",
+    ontologyUrl: "https://raw.githubusercontent.com/oborel/obo-relations/master/ro.owl",
   },
   {
     prefix: "iao",
     url: "http://purl.obolibrary.org/obo/IAO_",
     name: "IAO - Information Artifact Ontology",
     description: "Information entities: documents, data items, measurement data and identifiers",
-    ontologyUrl: "https://purl.obolibrary.org/obo/iao.owl",
+    ontologyUrl: "https://raw.githubusercontent.com/information-artifact-ontology/IAO/master/iao.owl",
   },
   {
     prefix: "log",
@@ -253,14 +254,14 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://www.w3.org/ns/locn#",
     name: "LOCN - Core Location Vocabulary",
     description: "Addresses, postal codes and geographic locations for government data",
-    ontologyUrl: "https://www.w3.org/ns/locn",
+    ontologyUrl: "https://raw.githubusercontent.com/SEMICeu/Core-Location-Vocabulary/master/releases/w3c/locn.ttl",
   },
   {
     prefix: "wgs84",
     url: "http://www.w3.org/2003/01/geo/wgs84_pos#",
     name: "WGS84 - Basic Geo Vocabulary",
     description: "Geographic coordinates: latitude, longitude and altitude in WGS84",
-    ontologyUrl: "http://www.w3.org/2003/01/geo/wgs84_pos.rdf",
+    ontologyUrl: "https://www.w3.org/2003/01/geo/wgs84_pos.rdf",
   },
   {
     prefix: "qb",
@@ -285,18 +286,21 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://purl.org/ontology/bibo/",
     name: "BIBO - Bibliographic Ontology",
     description: "Bibliographic metadata: books, articles, theses, reports and academic works",
+    ontologyUrl: "https://raw.githubusercontent.com/structureddynamics/Bibliographic-Ontology-BIBO/master/bibo.owl",
   },
   {
     prefix: "fabio",
     url: "http://purl.org/spar/fabio/",
     name: "FABIO - FRBR-aligned Bibliographic Ontology",
     description: "Publishing works: journal articles, conference papers, datasets and expressions",
+    ontologyUrl: "https://raw.githubusercontent.com/SPAROntologies/fabio/master/docs/current/fabio.owl",
   },
   {
     prefix: "cito",
     url: "http://purl.org/spar/cito/",
     name: "CiTO - Citation Typing Ontology",
     description: "Scholarly citation types: supports, disputes, extends, documents and cites",
+    ontologyUrl: "https://raw.githubusercontent.com/SPAROntologies/cito/master/docs/current/cito.owl",
   },
   {
     prefix: "vann",
@@ -321,7 +325,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://www.w3.org/2003/12/exif/ns#",
     name: "EXIF - Exif Vocabulary",
     description: "Image metadata: camera settings, GPS coordinates, exposure and orientation",
-    ontologyUrl: "http://www.w3.org/2003/12/exif/ns",
+    ontologyUrl: "https://www.w3.org/2003/12/exif/ns#",
   },
 
   // E-commerce & products
@@ -330,7 +334,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://purl.org/goodrelations/v1#",
     name: "GoodRelations - E-commerce Ontology",
     description: "E-commerce: products, offerings, prices, businesses and delivery options",
-    ontologyUrl: "http://purl.org/goodrelations/v1",
+    ontologyUrl: "https://www.heppnetz.de/ontologies/goodrelations/v1.owl",
   },
 
   // Licensing
@@ -348,7 +352,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://rdfs.org/sioc/ns#",
     name: "SIOC - Semantically Interlinked Online Communities",
     description: "Online communities: blog posts, forum threads, replies and user accounts",
-    ontologyUrl: "http://rdfs.org/sioc/ns",
+    ontologyUrl: "https://raw.githubusercontent.com/openlink/rdf-editor/develop/app/data/sioc.ttl",
   },
 
   // IoT / smart home
@@ -357,6 +361,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "https://saref.etsi.org/core/",
     name: "SAREF - Smart Appliances REFerence Ontology",
     description: "Smart home and IoT: devices, functions, commands, measurements and states",
+    ontologyUrl: "https://saref.etsi.org/core/v3.1.1/saref.ttl",
   },
 
   // Buildings & architecture
@@ -365,7 +370,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "https://w3id.org/bot#",
     name: "BOT - Building Topology Ontology",
     description: "Buildings: sites, buildings, storeys, spaces, zones and construction elements",
-    ontologyUrl: "https://w3id.org/bot",
+    ontologyUrl: "https://raw.githubusercontent.com/w3c-lbd-cg/bot/master/bot.ttl",
   },
 
   // Geospatial
@@ -383,6 +388,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://purl.org/pav/",
     name: "PAV - Provenance, Authoring and Versioning",
     description: "Lightweight provenance: authors, curators, versions and source attribution",
+    ontologyUrl: "https://raw.githubusercontent.com/pav-ontology/pav/master/pav.rdf",
   },
 
   // Open government data
@@ -414,6 +420,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://purl.org/dc/dcmitype/",
     name: "DCMIType - DCMI Type Vocabulary",
     description: "Content types: Dataset, Image, Software, Text, Sound, MovingImage and more",
+    ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/dctype/versions/2012-06-14.n3",
   },
 ] as const;
 
