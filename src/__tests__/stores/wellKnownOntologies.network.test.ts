@@ -1,38 +1,21 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { Readable } from "node:stream";
 import { Parser as N3Parser } from "n3";
 import { WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from "../../utils/wellKnownOntologies";
 
-// Paths starting with /ontologies/ are vendored files in public/ — read from disk in Node.
-function toAbsoluteUrl(url: string): { url: string; isFile: boolean } {
-  if (url.startsWith("/ontologies/")) {
-    const abs = resolve(__dirname, "../../../public", url.slice(1));
-    return { url: abs, isFile: true };
+async function fetchAndParse(url: string): Promise<number> {
+  const resp = await fetch(url, {
+    headers: { Accept: "text/turtle, application/rdf+xml, application/n-triples, text/n3, */*;q=0.1" },
+    redirect: "follow",
+  });
+
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status} from ${url}`);
   }
-  return { url, isFile: false };
-}
 
-async function fetchAndParse(rawUrl: string): Promise<number> {
-  const { url, isFile } = toAbsoluteUrl(rawUrl);
-
-  let body: string;
-  let contentType: string;
-
-  if (isFile) {
-    body = readFileSync(url, "utf-8");
-    contentType = url.endsWith(".rdf") ? "application/rdf+xml" : "text/turtle";
-  } else {
-    const resp = await fetch(url, {
-      headers: { Accept: "text/turtle, application/rdf+xml, application/n-triples, text/n3, */*;q=0.1" },
-      redirect: "follow",
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status} from ${url}`);
-    body = await resp.text();
-    contentType = (resp.headers.get("content-type") || "").toLowerCase();
-  }
+  const body = await resp.text();
+  const contentType = (resp.headers.get("content-type") || "").toLowerCase();
 
   const isRdfXml =
     contentType.includes("application/rdf+xml") ||
@@ -51,7 +34,8 @@ async function fetchAndParse(rawUrl: string): Promise<number> {
       parser.on("data", () => { count++; });
       parser.on("end", () => resolve(count));
       parser.on("error", (err: Error) => reject(new Error(`RDF/XML parse error from ${url}: ${err.message}`)));
-      Readable.from([body]).pipe(parser);
+      const readable = Readable.from([body]);
+      readable.pipe(parser);
     });
   }
 
