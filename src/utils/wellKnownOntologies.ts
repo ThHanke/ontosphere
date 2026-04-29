@@ -19,6 +19,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "RDF - The RDF Concepts Vocabulary",
     description: "Fundamental RDF concepts: resources, properties, literals and statements",
     isCore: true,
+    ontologyUrl: "https://www.w3.org/1999/02/22-rdf-syntax-ns",
   },
   {
     prefix: "rdfs",
@@ -26,6 +27,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "RDFS - The RDF Schema Vocabulary",
     description: "RDF Schema: classes, properties, subclass and subproperty hierarchies",
     isCore: true,
+    ontologyUrl: "https://www.w3.org/2000/01/rdf-schema",
   },
   {
     prefix: "owl",
@@ -33,6 +35,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "OWL",
     description: "Web Ontology Language: expressive class and property axioms, reasoning",
     isCore: true,
+    ontologyUrl: "https://www.w3.org/2002/07/owl",
   },
   {
     prefix: "xsd",
@@ -95,6 +98,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://qudt.org/vocab/unit/",
     name: "QUDT Units Vocabulary",
     description: "Concrete SI and non-SI units of measure (metre, kilogram, second, …)",
+    ontologyUrl: "https://qudt.org/2.1/vocab/unit",
   },
   {
     prefix: "dcterms",
@@ -122,6 +126,7 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://www.w3.org/ns/org#",
     name: "Organization",
     description: "Formal organizations, membership, roles, sites and organizational units",
+    ontologyUrl: "https://www.w3.org/ns/org",
   },
   {
     prefix: "pmdco",
@@ -397,12 +402,14 @@ export const WELL_KNOWN_PREFIXES = [
     url: "http://www.w3.org/ns/adms#",
     name: "ADMS - Asset Description Metadata Schema",
     description: "Semantic assets and interoperability resources: specifications, schemas and vocabularies",
+    ontologyUrl: "https://lov.linkeddata.es/dataset/lov/vocabs/adms/versions/2013-05-24.n3",
   },
   {
     prefix: "regorg",
     url: "http://www.w3.org/ns/regorg#",
     name: "RegOrg - Registered Organization Vocabulary",
     description: "Legal entities and registered organizations: registration numbers and identifiers",
+    ontologyUrl: "https://www.w3.org/ns/regorg",
   },
 
   // Project metadata & vocabulary annotation
