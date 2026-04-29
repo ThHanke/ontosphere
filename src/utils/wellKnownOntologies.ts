@@ -48,15 +48,17 @@ export const WELL_KNOWN_PREFIXES = [
     prefix: "skos",
     url: "http://www.w3.org/2004/02/skos/core#",
     name: "SKOS",
-    description: "Simple Knowledge Organization System: thesauri, taxonomies and classification schemes",
+    description: "Mind maps, concept hierarchies and topic trees — organize any domain of knowledge with broader/narrower/related links",
     ontologyUrl: "https://www.w3.org/2009/08/skos-reference/skos.rdf",
+    packs: ["pkm", "general-kg"],
   },
   {
     prefix: "prov",
     url: "http://www.w3.org/ns/prov#",
     name: "PROV-O - The PROV Ontology",
-    description: "Provenance: entities, activities, agents and their causal relationships",
+    description: "Track the history of anything: who created it, what process produced it, and what it was derived from",
     ontologyUrl: "https://www.w3.org/ns/prov-o",
+    packs: ["general-kg", "research", "data-catalog", "engineering"],
   },
   {
     prefix: "p-plan",
@@ -71,6 +73,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "BFO 2 - Basic Formal Ontology 2.0",
     description: "Upper-level foundational ontology for biomedical and scientific domains",
     ontologyUrl: "https://raw.githubusercontent.com/BFO-ontology/BFO/master/releases/2.0/bfo.owl",
+    packs: ["engineering"],
   },
   {
     prefix: "bfo2020",
@@ -85,6 +88,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "DCAT - Data Catalog Vocabulary",
     description: "Data catalogs: datasets, distributions, data services and catalog records",
     ontologyUrl: "https://www.w3.org/ns/dcat2",
+    packs: ["data-catalog"],
   },
   {
     prefix: "qudt",
@@ -92,6 +96,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "QUDT - Quantities, Units, Dimensions and Types",
     description: "Measurement schema: quantity kinds, units, dimensions and numeric values",
     ontologyUrl: "https://qudt.org/2.1/schema/qudt.ttl",
+    packs: ["engineering"],
   },
   {
     prefix: "unit",
@@ -99,6 +104,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "QUDT Units Vocabulary",
     description: "Concrete SI and non-SI units of measure (metre, kilogram, second, …)",
     ontologyUrl: "https://qudt.org/2.1/vocab/unit",
+    packs: ["iot", "engineering"],
   },
   {
     prefix: "dcterms",
@@ -106,6 +112,7 @@ export const WELL_KNOWN_PREFIXES = [
     name: "Dublin Core Terms",
     description: "General metadata: titles, creators, dates, subjects and descriptions",
     ontologyUrl: "https://www.dublincore.org/specifications/dublin-core/dcmi-terms/dublin_core_terms.ttl",
+    packs: ["pkm", "general-kg", "research", "data-catalog", "annotations"],
   },
   {
     prefix: "dc",
