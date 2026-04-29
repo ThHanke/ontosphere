@@ -5,7 +5,7 @@ import { rdfManager } from '@/utils/rdfManager';
 import { getWorkspaceRefs, applyViewMode } from '@/mcp/workspaceContext';
 import { mcpManifest, mcpServerDescription } from '@/mcp/manifest';
 import { Parser as SparqlParser, Generator as SparqlGenerator } from 'sparqljs';
-import { resolveOntologyLoadUrl, WELL_KNOWN_PREFIXES } from '@/utils/wellKnownOntologies';
+import { resolveOntologyLoadUrl, searchWellKnownOntologies } from '@/utils/wellKnownOntologies';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 /** Prepend PREFIX declarations from the namespace map for any prefix not already declared in the query. */
@@ -88,45 +88,55 @@ const loadRdf: McpTool = {
 const loadOntology: McpTool = {
   name: 'loadOntology',
   description:
-    'Load a well-known ontology by prefix name (e.g. "bfo", "ro", "iao", "foaf", "pmdco"), ' +
-    'by its namespace URL, or by any direct ontology file URL. ' +
-    'Call with url="" or omit url to list all available well-known ontologies.',
+    'Discover or load well-known ontologies. ' +
+    'Pass url to load by prefix name (e.g. "ical", "mo", "bot", "gr") or by namespace/file URL. ' +
+    'Pass query to search by use-case keyword (e.g. "calendar", "music", "building", "e-commerce"). ' +
+    'Pass neither to list all ~55 registered ontologies. ' +
+    'OWL/RDFS/RDF/XSD are always pre-loaded.',
   inputSchema: {
     type: 'object',
     properties: {
       url: {
         type: 'string',
-        description:
-          'Prefix name (e.g. "bfo"), namespace IRI, or direct ontology URL. ' +
-          'Leave empty to list available well-known ontologies.',
+        description: 'Prefix name, namespace IRI, or direct ontology URL to load.',
+      },
+      query: {
+        type: 'string',
+        description: 'Keyword or use-case phrase to search the registry (e.g. "calendar", "IoT", "spatial").',
       },
     },
   },
   async handler(params): Promise<McpResult> {
-    const { url = '' } = (params ?? {}) as { url?: string };
+    const { url, query } = (params ?? {}) as { url?: string; query?: string };
 
-    // Empty call — return registry listing
-    if (!url.trim()) {
-      const known = WELL_KNOWN_PREFIXES
-        .filter(p => (p as any).ontologyUrl || p.url)
-        .map(p => ({ prefix: p.prefix, name: p.name, namespace: p.url, ontologyUrl: (p as any).ontologyUrl ?? p.url }));
-      return { success: true, data: { availableOntologies: known } };
+    // Search mode
+    if (!url?.trim()) {
+      const ontologies = searchWellKnownOntologies(query ?? '').map(e => ({
+        prefix: e.prefix,
+        name: e.name,
+        description: (e as any).description ?? '',
+        namespace: e.url,
+        loadUrl: resolveOntologyLoadUrl(e.prefix),
+      }));
+      return {
+        success: true,
+        data: { query: query || '(all)', count: ontologies.length, ontologies },
+      };
     }
 
+    // Load mode
     const resolvedUrl = resolveOntologyLoadUrl(url);
     const corsProxyUrl = useSettingsStore.getState().settings.corsProxyUrl;
     try {
       await rdfManager.loadRDFFromUrl(resolvedUrl, { corsProxyUrl });
       return { success: true, data: { loaded: resolvedUrl, requestedAs: url !== resolvedUrl ? url : undefined } };
     } catch (e) {
-      // Suggest close matches from the registry
-      const q = url.toLowerCase();
-      const suggestions = WELL_KNOWN_PREFIXES
-        .filter(p => p.prefix.includes(q) || p.name.toLowerCase().includes(q))
-        .map(p => p.prefix);
+      const suggestions = searchWellKnownOntologies(url)
+        .map(p => ({ prefix: p.prefix, description: (p as any).description ?? p.name }));
       return {
         success: false,
         error: String(e),
+        hint: 'Pass query instead of url to search the registry.',
         ...(suggestions.length ? { suggestions } : {}),
       };
     }
@@ -456,6 +466,13 @@ const help: McpTool = {
       'Long operations (layout, reasoning) may exceed the relay timeout. A timed-out call returns a JSON-RPC',
       'error with data.lateResult=true. Do NOT retry — a [Ontosphere — late result for <tool>] follow-up',
       'will be injected automatically when the operation completes.',
+      '',
+      'ONTOLOGY DISCOVERY',
+      'OWL, RDFS, RDF, and XSD axioms are always pre-loaded — you can use owl:, rdfs:, rdf:, xsd: immediately.',
+      'All other ontologies must be loaded explicitly before use:',
+      '  1. searchOntologies("your use case") — find the right prefix (e.g. "calendar" → ical, "music" → mo, "building" → bot)',
+      '  2. loadOntology("<prefix>") — load into the TBox. Repeat for each domain you need.',
+      '  3. Only then start addNode / addLink — types will resolve correctly.',
       '',
       'GRAPH ARCHITECTURE',
       'Asserted triples live in urn:vg:data — all mutation tools (addNode, addLink, updateNode, SPARQL CONSTRUCT, etc.) operate here only.',

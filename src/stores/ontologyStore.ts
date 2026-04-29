@@ -11,7 +11,7 @@ import { RDFManager, rdfManager } from "../utils/rdfManager";
 import { useAppConfigStore } from "./appConfigStore";
 import { useSettingsStore } from "./settingsStore";
 import { debug, info, warn, error, fallback } from "../utils/startupDebug";
-import { WELL_KNOWN, WELL_KNOWN_PREFIXES } from "../utils/wellKnownOntologies";
+import { WELL_KNOWN, WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from "../utils/wellKnownOntologies";
 import { DataFactory, Quad } from "n3";
 import { toast } from "sonner";
 import { buildPaletteMap } from "../components/Canvas/core/namespacePalette";
@@ -494,6 +494,7 @@ interface OntologyStore {
       concurrency?: number;
       onProgress?: (p: number, message: string) => void;
       forceDisabled?: boolean;
+      unconditional?: boolean;
     },
   ) => Promise<{
     candidates: string[];
@@ -618,6 +619,13 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
 
       // normalize requested URL (http -> https, trim)
       const normRequestedUrl = normalizeOntologyUri(url);
+      // Resolve to the actual fetch URL (ontologyUrl overrides namespace URL for well-known entries).
+      // Try both the normalized (https) form and the original http form because WELL_KNOWN urls use http://.
+      const _httpForm0 = normRequestedUrl.replace(/^https:\/\//i, "http://");
+      const _resolved0 = resolveOntologyLoadUrl(normRequestedUrl);
+      const fetchUrl = normalizeOntologyUri(
+        _resolved0 !== normRequestedUrl ? _resolved0 : resolveOntologyLoadUrl(_httpForm0)
+      );
       let canonicalNorm: string | undefined = undefined;
 
       // If well-known, register a lightweight entry so UI shows it immediately.
@@ -662,10 +670,10 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
         const corsProxyUrl = useSettingsStore.getState().settings.corsProxyUrl;
         const loadOpts = { timeoutMs: 15000, corsProxyUrl: corsProxyUrl || undefined };
         if (mgr && typeof (mgr as any).loadRDFFromUrl === "function") {
-          await (mgr as any).loadRDFFromUrl(normRequestedUrl, "urn:vg:ontologies", loadOpts);
+          await (mgr as any).loadRDFFromUrl(fetchUrl, "urn:vg:ontologies", loadOpts);
         } else {
           // fallback to module-level manager
-          await (rdfManager as any).loadRDFFromUrl(normRequestedUrl, "urn:vg:ontologies", loadOpts);
+          await (rdfManager as any).loadRDFFromUrl(fetchUrl, "urn:vg:ontologies", loadOpts);
         }
       } catch (err) {
         warn(
@@ -841,6 +849,17 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
         }
       } catch (_) {
         /* ignore overall emit failures */
+      }
+
+      // Fire-and-forget owl:imports discovery into the ontology graph.
+      // Guard with !discovered to prevent mutual recursion: inner loadOntology calls
+      // triggered by discovery set discovered:true and must not re-trigger.
+      if (!options?.discovered) {
+        void get().discoverReferencedOntologies!({
+          graphName: "urn:vg:ontologies",
+          load: "async",
+          unconditional: true,
+        }).catch(() => { /* ignore discovery errors */ });
       }
 
       return { success: true, url: normRequestedUrl, canonicalUrl: canonicalNorm };
@@ -1293,20 +1312,21 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
     concurrency?: number;
     onProgress?: (p: number, message: string) => void;
     forceDisabled?: boolean;
+    unconditional?: boolean;
   }) => {
     const opts = options || {};
     // Session-level override (e.g. ?loadImports=false URL param).
     if (opts.forceDisabled === true) {
       return { candidates: [] };
     }
-    // Respect the user setting — skip discovery entirely if disabled.
+    // Respect the user setting — skip discovery if disabled, unless the caller
+    // explicitly opts out (unconditional: true) for owl:imports following on explicit loads.
     const appCfgDiscover = useAppConfigStore.getState();
-    if (appCfgDiscover && appCfgDiscover.config && appCfgDiscover.config.autoDiscoverOntologies === false) {
+    if (!opts.unconditional && appCfgDiscover && appCfgDiscover.config && appCfgDiscover.config.autoDiscoverOntologies === false) {
       return { candidates: [] };
     }
     const requestedGraphName =
       typeof opts.graphName === "string" && opts.graphName.trim() ? opts.graphName : "urn:vg:data";
-    const graphName = "urn:vg:data";
     const loadMode = typeof opts.load === "undefined" ? "async" : opts.load;
     const timeoutMs = typeof opts.timeoutMs === "number" ? opts.timeoutMs : 15000;
     const concurrency = typeof opts.concurrency === "number" ? opts.concurrency : 6;
@@ -1371,14 +1391,13 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
       };
     })();
 
-    const vgM = vgMeasureModule("discoverReferencedOntologies", { graphName, loadMode, timeoutMs, concurrency });
+    const vgM = vgMeasureModule("discoverReferencedOntologies", { graphName: requestedGraphName, loadMode, timeoutMs, concurrency });
 
     console.debug("[VG_DEBUG] discoverReferencedOntologies.invoked", {
-      graphName,
+      graphName: requestedGraphName,
       loadMode,
       timeoutMs,
       concurrency,
-      requestedGraphName,
     });
 
     const mgr = get().rdfManager;
@@ -1391,13 +1410,13 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
 
     const typeQuads = await fetchSerializedQuads(
       mgr,
-      graphName,
+      requestedGraphName,
       { predicate: RDF_TYPE },
       2000,
     );
     const importQuads = await fetchSerializedQuads(
       mgr,
-      graphName,
+      requestedGraphName,
       { predicate: OWL_IMPORTS },
       2000,
     );
@@ -1460,8 +1479,7 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
     }
 
     console.debug("[VG_DEBUG] discoverReferencedOntologies.candidates", {
-      graph: graphName,
-      requestedGraphName,
+      graph: requestedGraphName,
       candidates,
       sources: candidateSources,
     });
@@ -1512,7 +1530,7 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
       vgM && typeof vgM.end === "function" && vgM.end({ reason: "no_mgr_emit" });
       throw new Error("discoverReferencedOntologies: no rdfManager.emitAllSubjects available");
     }
-    await (mgrInst as any).emitAllSubjects("urn:vg:data");
+    await (mgrInst as any).emitAllSubjects(requestedGraphName);
     onProgress && onProgress(100, "Discovery complete");
 
     vgM && typeof vgM.end === "function" && vgM.end({ reason: "complete", resultsCount: results.length });

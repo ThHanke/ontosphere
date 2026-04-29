@@ -22,7 +22,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['src/test-setup.ts'],
-    exclude: ['.trunk/**', 'node_modules/**', 'e2e/**'],
+    exclude: [
+      '.trunk/**',
+      'node_modules/**',
+      'e2e/**',
+      ...(process.env.NETWORK_TESTS ? [] : ['**/*.network.test.ts']),
+    ],
     server: {
       deps: {
         inline: ['@reactodia/workspace'],

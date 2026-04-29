@@ -38,12 +38,11 @@ import type { AppConfig } from '@/stores/appConfigStore';
 import { LayoutPopover } from './LayoutPopover';
 import { RdfPropertyEditor } from './rdfPropertyEditor';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import OntologyUrlAutoComplete from '../ui/OntologyUrlAutoComplete';
 import { Button } from '../ui/button';
-import { WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from '@/utils/wellKnownOntologies';
+import { WELL_KNOWN_BY_PREFIX, resolveOntologyLoadUrl } from '@/utils/wellKnownOntologies';
 import { instantiateWorkflowOnCanvas } from '@/utils/workflowInstantiator';
 
 function extractNamespace(iri: string): string {
@@ -377,7 +376,9 @@ export default function ReactodiaCanvas() {
   // Resolved once at mount from ?loadImports URL param. false = imports disabled for this session.
   const loadImportsEnabledRef = React.useRef<boolean>(true);
 
-  const ontologyCount = useOntologyStore(s => s.loadedOntologies?.length ?? 0);
+  const ontologyCount = useOntologyStore(s =>
+    (s.loadedOntologies ?? []).filter((o: any) => o.loadStatus !== 'fail').length
+  );
   const namespaces = useOntologyStore(s => Array.isArray(s.namespaceRegistry) ? s.namespaceRegistry : []);
   const loadKnowledgeGraph = useOntologyStore(s => s.loadKnowledgeGraph);
   const loadAdditionalOntologies = useOntologyStore(s => s.loadAdditionalOntologies);
@@ -854,15 +855,20 @@ export default function ReactodiaCanvas() {
     }
 
     // ?ontology= comma-separated list of well-known prefix names (e.g. "bfo,dcat") or full URIs.
-    let startupOntologyUrls: string[] = [];
+    let startupOntologyEntries: { input: string; resolved: string; label: string }[] = [];
     try {
       const u = new URL(String(window.location.href));
       const ontologyParam = u.searchParams.get('ontology') || u.searchParams.get('ontologies') || '';
       if (ontologyParam.trim()) {
-        startupOntologyUrls = ontologyParam
+        startupOntologyEntries = ontologyParam
           .split(',')
-          .map((s) => resolveOntologyLoadUrl(s.trim()))
-          .filter(Boolean);
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((s) => ({
+            input: s,
+            resolved: resolveOntologyLoadUrl(s),
+            label: WELL_KNOWN_BY_PREFIX[s]?.name ?? s,
+          }));
       }
     } catch {
       /* ignore */
@@ -895,26 +901,34 @@ export default function ReactodiaCanvas() {
             disableImportDiscovery: !loadImportsEnabledRef.current,
             ...(startupApiKey ? { apiKey: startupApiKey, apiKeyHeader: startupApiKeyHeader || undefined } : {}),
           });
-          toast.success('Startup knowledge graph loaded');
+          const startupLabel = (() => {
+            try { return new URL(startupUrl).pathname.split('/').filter(Boolean).pop()?.replace(/\.[^.]+$/, '') || startupUrl; }
+            catch { return startupUrl; }
+          })();
+          toast.success(`Loaded: ${startupLabel}`, { description: '?url= parameter' });
         } catch (err) {
+          toast.error('Failed to load startup graph', { description: startupUrl });
           console.error('[ReactodiaCanvas] Startup URL load failed', err);
         } finally {
           actions.setLoading(false, 0, '');
         }
       }
 
-      // Load ontologies specified via ?ontology= URL param (additive — runs alongside all other mechanisms).
-      if (startupOntologyUrls.length > 0) {
-        try {
-          actions.setLoading(true, 5, 'Loading ontologies from URL parameter...');
-          await loadAdditionalOntologies(startupOntologyUrls, (progress: number, message: string) => {
-            actions.setLoading(true, Math.max(5, progress), message);
-          });
-        } catch (err) {
-          console.warn('[ReactodiaCanvas] ?ontology= load failed', err);
-        } finally {
-          actions.setLoading(false, 0, '');
+      // Load ontologies specified via ?ontology= URL param — one toast per entry.
+      if (startupOntologyEntries.length > 0) {
+        for (const entry of startupOntologyEntries) {
+          try {
+            actions.setLoading(true, 5, `Loading ${entry.label}...`);
+            await loadAdditionalOntologies([entry.resolved], (progress, message) => {
+              actions.setLoading(true, Math.max(5, progress), message);
+            });
+            toast.success(entry.label, { description: 'Loaded from ?ontology= parameter' });
+          } catch (err) {
+            console.warn('[ReactodiaCanvas] ?ontology= load failed', entry.input, err);
+            toast.error(`Failed to load ${entry.label}`, { description: '?ontology= parameter — check the prefix or URL' });
+          }
         }
+        actions.setLoading(false, 0, '');
       }
     })();
   }, [loadKnowledgeGraph, loadAdditionalOntologies, actions]);
@@ -1416,53 +1430,69 @@ export default function ReactodiaCanvas() {
         onOpenChange={setSettingsOpen}
       />
 
-      <Dialog open={loadOntologyOpen} onOpenChange={setLoadOntologyOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Load Ontology</DialogTitle>
-            <DialogDescription>
-              Enter a URL or type to search well-known ontologies.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ontologyUrl">Ontology URL</Label>
-              <OntologyUrlAutoComplete
-                value={ontologyUrlInput}
-                onChange={setOntologyUrlInput}
-              />
+      {loadOntologyOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 pt-16"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setLoadOntologyOpen(false); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setLoadOntologyOpen(false); }}
+        >
+          <div className="relative w-full max-w-lg rounded-lg border bg-background p-6 shadow-lg">
+            <button
+              className="absolute right-4 top-4 rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring"
+              onClick={() => setLoadOntologyOpen(false)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold leading-none tracking-tight">Load Ontology</h2>
+              <p className="text-sm text-muted-foreground mt-1">Enter a URL or type to search well-known ontologies.</p>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setLoadOntologyOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={!ontologyUrlInput.trim()}
-                onClick={async () => {
-                  const url = ontologyUrlInput.trim();
-                  if (!url) return;
-                  try {
-                    actions.setLoading(true, 10, 'Loading ontology...');
-                    await loadAdditionalOntologies([url], (progress, message) => {
-                      actions.setLoading(true, Math.max(progress, 30), message);
-                    });
-                    toast.success('Ontology loaded successfully');
-                    setOntologyUrlInput('');
-                    setLoadOntologyOpen(false);
-                  } catch (err) {
-                    console.error('Failed to load ontology:', err);
-                    toast.error('Failed to load ontology');
-                  } finally {
-                    actions.setLoading(false, 0, '');
-                  }
-                }}
-              >
-                Load Ontology
-              </Button>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ontologyUrl">Ontology URL</Label>
+                <OntologyUrlAutoComplete
+                  value={ontologyUrlInput}
+                  onChange={setOntologyUrlInput}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setLoadOntologyOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  disabled={!ontologyUrlInput.trim()}
+                  onClick={async () => {
+                    const url = ontologyUrlInput.trim();
+                    if (!url) return;
+                    try {
+                      actions.setLoading(true, 10, 'Loading ontology...');
+                      await loadAdditionalOntologies([url], (progress, message) => {
+                        actions.setLoading(true, Math.max(progress, 30), message);
+                      });
+                      const wk = Object.values(WELL_KNOWN_BY_PREFIX).find(e => e.url === url);
+                      const loadedLabel = wk?.name ?? (() => {
+                        try { return new URL(url).pathname.split('/').filter(Boolean).pop()?.replace(/\.[^.]+$/, '') || url; }
+                        catch { return url; }
+                      })();
+                      toast.success(`Loaded: ${loadedLabel}`);
+                      setOntologyUrlInput('');
+                      setLoadOntologyOpen(false);
+                    } catch (err) {
+                      // ontologyStore already fires a detailed CORS-aware error toast; this is a fallback
+                      console.error('Failed to load ontology:', err);
+                    } finally {
+                      actions.setLoading(false, 0, '');
+                    }
+                  }}
+                >
+                  Load Ontology
+                </Button>
+              </div>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       <ReasoningReportModal
         open={canvasState.showReasoningReport}

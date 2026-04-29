@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { useOntologyStore } from "../../stores/ontologyStore";
+import { rdfManager } from "../../utils/rdfManager";
 import validateGraph from "../../utils/graphValidation";
 import { WELL_KNOWN } from "../../utils/wellKnownOntologies";
 
@@ -156,5 +157,68 @@ describe("Ontology Store", () => {
       expect(store.currentGraph.nodes).toHaveLength(0);
       expect(store.currentGraph.edges).toHaveLength(0);
     });
+  });
+});
+
+describe("discoverReferencedOntologies — graph parameter fix", () => {
+  const ONTOLOGY_GRAPH = "urn:vg:ontologies";
+  const IMPORT_URL = "https://example.org/imported-ontology.ttl";
+  const SUBJECT = "urn:test:myOntology";
+
+  const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+  const OWL_ONTOLOGY = "http://www.w3.org/2002/07/owl#Ontology";
+  const OWL_IMPORTS = "http://www.w3.org/2002/07/owl#imports";
+
+  let savedRdfManager: any;
+
+  beforeEach(() => {
+    savedRdfManager = useOntologyStore.getState().rdfManager;
+    useOntologyStore.getState().clearOntologies();
+  });
+
+  afterEach(() => {
+    useOntologyStore.setState({ rdfManager: savedRdfManager } as any);
+  });
+
+  it("returns owl:imports candidates from the requested graph, not hardcoded data graph", async () => {
+    const mockFetchQuadsPage = vi.fn().mockImplementation(
+      async (graph: string, _offset: number, _limit: number, opts: any) => {
+        if (graph !== ONTOLOGY_GRAPH) {
+          return { items: [], total: 0, limit: _limit };
+        }
+        const predicate = opts?.filter?.predicate;
+        if (predicate === RDF_TYPE) {
+          return {
+            items: [{ subject: SUBJECT, predicate: RDF_TYPE, object: OWL_ONTOLOGY, graph }],
+            total: 1,
+            limit: _limit,
+          };
+        }
+        if (predicate === OWL_IMPORTS) {
+          return {
+            items: [{ subject: SUBJECT, predicate: OWL_IMPORTS, object: IMPORT_URL, graph }],
+            total: 1,
+            limit: _limit,
+          };
+        }
+        return { items: [], total: 0, limit: _limit };
+      },
+    );
+
+    useOntologyStore.setState({
+      rdfManager: { fetchQuadsPage: mockFetchQuadsPage } as any,
+    } as any);
+
+    const store = useOntologyStore.getState();
+    const result = await store.discoverReferencedOntologies!({
+      graphName: ONTOLOGY_GRAPH,
+      load: false,
+    });
+
+    expect(result.candidates).toContain(IMPORT_URL);
+    // All fetchQuadsPage calls must target the ontology graph, never "urn:vg:data"
+    for (const call of mockFetchQuadsPage.mock.calls) {
+      expect(call[0]).toBe(ONTOLOGY_GRAPH);
+    }
   });
 });
