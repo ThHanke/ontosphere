@@ -442,16 +442,20 @@ export const WELL_KNOWN_BY_PREFIX: Record<
  * (e.g. BFO, DCAT) that URL is returned; otherwise the namespace `url` is used.
  * Unrecognised strings are returned as-is so callers can pass raw URIs directly.
  */
-/** Filter the registry by keyword or use-case phrase. Empty query returns all entries. */
+/** Filter the registry by keyword or use-case phrase. Empty query returns all entries.
+ *  Multi-word queries use OR logic — an entry matches if ANY word hits prefix, name, url or description. */
 export function searchWellKnownOntologies(query: string): typeof WELL_KNOWN_PREFIXES[number][] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [...WELL_KNOWN_PREFIXES];
-  return WELL_KNOWN_PREFIXES.filter(e =>
-    e.prefix.toLowerCase().includes(q) ||
-    e.name.toLowerCase().includes(q) ||
-    e.url.toLowerCase().includes(q) ||
-    ((e as any).description as string | undefined)?.toLowerCase().includes(q)
-  );
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return [...WELL_KNOWN_PREFIXES];
+  return WELL_KNOWN_PREFIXES.filter(e => {
+    const haystack = [
+      e.prefix,
+      e.name,
+      e.url,
+      (e as any).description ?? "",
+    ].join(" ").toLowerCase();
+    return tokens.some(t => haystack.includes(t));
+  });
 }
 
 export function resolveOntologyLoadUrl(prefixOrUri: string): string {
