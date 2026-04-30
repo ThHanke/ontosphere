@@ -182,7 +182,7 @@ Canvas: 21 nodes, 24 links
 `{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000066","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/scene-ontology#Scene"}}}`
 `{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000066","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/scene-ontology#Location"}}}`
 `{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
-`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
@@ -202,7 +202,7 @@ Canvas: 21 nodes, 24 links
 ✓ addLink: s=RO_0000066 p=domain o=Scene
 ✓ addLink: s=RO_0000066 p=range o=Location
 ✓ runLayout: elk-layered
-✓ expandAll
+✓ expandNode
 ✓ runLayout: elk-layered
 
 Canvas: 25 nodes, 34 links
@@ -278,7 +278,7 @@ Canvas: 10 nodes, 0 links
 `{"jsonrpc":"2.0","id":59,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#veraAntagonistRole"}}}`
 `{"jsonrpc":"2.0","id":60,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#samSupportingRole"}}}`
 `{"jsonrpc":"2.0","id":61,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
-`{"jsonrpc":"2.0","id":62,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":62,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":63,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
@@ -296,7 +296,7 @@ Canvas: 10 nodes, 0 links
 ✓ addLink: s=rooftopChase p=BFO_0000055 o=veraAntagonistRole
 ✓ addLink: s=cafeDialogue p=BFO_0000055 o=samSupportingRole
 ✓ runLayout: dagre-lr
-✓ expandAll
+✓ expandNode
 ✓ runLayout: dagre-lr
 
 Canvas: 10 nodes, 12 links
@@ -317,13 +317,13 @@ Canvas: 10 nodes, 12 links
 <summary>3 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":64,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":65,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":65,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":66,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
 [Ontosphere — 3 tools ✓]
 ✓ runReasoning: 10785 triples inferred
-✓ expandAll
+✓ expandNode
 ✓ runLayout: dagre-lr
 
 Canvas: 10 nodes, 12 links

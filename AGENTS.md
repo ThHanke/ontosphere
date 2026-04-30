@@ -33,23 +33,26 @@ discovery document with full JSON Schema input declarations for every tool.
 https://thhanke.github.io/ontosphere/.well-known/mcp.json
 ```
 
-**Key tools** (30+ total — see manifest for full schemas):
+**Key tools** (31 total — see manifest for full schemas):
 
 | Tool | Purpose |
 |------|---------|
-| `loadOntology` | Load TBox (schema/classes) — no canvas nodes |
-| `loadRdf` | Load ABox (individuals) — subjects appear as canvas nodes |
+| `loadOntology` | Load TBox (schema/classes) — no canvas nodes. Also search/list registered ontologies |
+| `suggestOntologiesForTask` | Suggest ontology packs for a task description |
+| `loadRdf` | Load ABox (individuals) or inline Turtle — subjects appear as canvas nodes |
 | `addNode` / `removeNode` | Add/remove individual canvas nodes |
 | `addLink` / `removeLink` | Add/remove object-property triples |
-| `queryGraph` | SPARQL SELECT / CONSTRUCT against the RDF store |
+| `queryGraph` | SPARQL SELECT / CONSTRUCT / UPDATE against the RDF store |
 | `runReasoning` | OWL-RL inference — inferred triples in `urn:vg:inferred` |
 | `runLayout` | Layout: `dagre-lr`, `dagre-tb`, `elk-layered`, `elk-force`, … |
 | `focusNode` / `fitCanvas` | Pan/zoom viewport |
-| `exportImage` | Export full canvas as SVG or PNG |
+| `exportImage` | Export canvas as SVG or PNG (focused or full) |
 | `exportGraph` | Export RDF store as Turtle / JSON-LD / RDF-XML |
 | `getNodes` / `getLinks` | Inspect current canvas state |
 | `getNeighbors` / `findPath` | Graph traversal queries |
 | `loadShacl` / `validateGraph` | SHACL constraint validation |
+| `setNamespace` / `listNamespaces` | Register/list IRI prefixes (upsert) |
+| `expandNode` | Expand one node or all nodes (omit iri) to show properties |
 | `getCapabilities` / `help` | Discover tools at runtime |
 
 ## How to call tools
@@ -85,10 +88,25 @@ Full setup: [docs/relay-bridge.md](docs/relay-bridge.md)
 **Relay starter prompt:**
 
 ```
-You are connected to Ontosphere via a relay. A script in this tab intercepts
-your JSON-RPC 2.0 tool calls (wrapped in backtick fences), runs them in
-Ontosphere, and injects results back as a user message. All computation runs
-client-side. Full tool list: https://thhanke.github.io/ontosphere/.well-known/mcp.json
+You control Ontosphere (browser-based RDF knowledge graph editor) via this relay.
+
+CALL FORMAT — single backtick per JSON-RPC object, up to 5 per message:
+`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"TOOLNAME","arguments":ARGS}}`
+
+Example — layout + fit + export in one message:
+`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr"}}}`
+`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"fitCanvas","arguments":{}}}`
+`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"exportImage","arguments":{"format":"svg"}}}`
+
+RULES:
+1. Single ` NOT triple ```. Increment id per call.
+2. Batch up to 5 non-dependent calls. Discovery calls (getNodes, queryGraph) send alone, wait for result.
+3. addLink: both nodes must exist first.
+4. 5+ individuals: loadRdf(turtle=...) not N×addNode.
+5. Tool failed? Call help({tool:"toolname"}) for the exact schema.
+
+Full docs: call help({}).
+Full tool list: https://thhanke.github.io/ontosphere/.well-known/mcp.json
 ```
 
 ## Graph architecture (read before building)
@@ -107,31 +125,51 @@ amber dashed edges. Clear them with `clearInferred`.
 ## Recommended workflow
 
 ```
-loadOntology(url)           # TBox — classes/properties searchable, no canvas nodes
+suggestOntologiesForTask({ task: '…' })   # discover which ontology packs to use
   ↓
-getNodes({ labelContains: '…' })   # IRI lookup from TBox
+loadOntology({ url: '<prefix>' }) × N     # TBox — classes/properties, no canvas nodes
   ↓
-addNode × N (typeIri from lookup)  # ABox individuals on canvas
+setNamespace({ prefix: '…', namespace: '…' }) × N   # register short IRIs (upsert)
   ↓
-addLink × N                        # subjectIri / predicateIri / objectIri
+setViewMode({ mode: 'abox' })
+  ↓
+loadRdf({ turtle: '…' })                  # preferred for 5+ individuals (one round-trip)
+  OR
+addNode × N → addLink × N                 # for small numbers of nodes
   ↓
 runLayout({ algorithm: 'dagre-lr' })
   ↓
-runReasoning({})                   # OWL-RL → urn:vg:inferred
+runReasoning({})                          # OWL-RL → urn:vg:inferred
   ↓
-focusNode({ iri }) → browser_take_screenshot   # show the user
+fitCanvas() + exportImage({ format: 'svg' })  [safe to batch with runLayout]
   ↓
-exportGraph({ format: 'turtle' })  # persist
+exportGraph({ format: 'turtle' })         # persist
 ```
 
-**Never call `expandAll` after loading a large ontology** — it floods the
-canvas with thousands of TBox nodes.
+**Batching guidance:**
+- Safe to batch: `loadOntology` × N, `addNode` + `addLink` pairs, `runLayout` + `fitCanvas` + `exportImage`
+- Send alone: `getNodes`, `queryGraph`, `getNodeDetails` — you need the result before deciding what to call next
+
+## Anti-patterns — never do these
+
+| Wrong | Right | Why |
+|-------|-------|-----|
+| `addLink({s, p, o})` | `addLink({subjectIri, predicateIri, objectIri})` | Wrong param names |
+| `addNode({iri, type})` | `addNode({iri, typeIri})` | `type` is not the canonical name (though accepted as alias) |
+| `loadOntology({url:"calendar"})` to search | `loadOntology({query:"calendar"})` | `url` loads by prefix; `query` searches |
+| `expandNode` in a loop over every IRI | `expandNode({})` (no iri) | Expands all in one call |
+| SPARQL without PREFIX | Add `PREFIX owl: <…>` etc. | No implicit prefixes |
+| `addLink` before `addNode` for both endpoints | `addNode` both endpoints first | Canvas links only connect existing nodes |
+| N×`addNode` for 5+ individuals | `loadRdf({turtle:"…"})` | One round-trip is far faster |
 
 ## Common parameter mistakes
 
 | Tool | Wrong | Right |
 |------|-------|-------|
 | `addLink` | `{ s, p, o }` | `{ subjectIri, predicateIri, objectIri }` |
+| `loadOntology` (search) | `{ url: "calendar" }` | `{ query: "calendar" }` |
+| `expandNode` (expand all) | loop over each IRI | call with no `iri`: `expandNode({})` |
+| `expandNode` (collapse all) | loop with `expand:false` | `expandNode({expand:false})` — compact canvas before export |
 | SPARQL | bare `owl:Class` | declare `PREFIX owl: <…>` in every query |
 
 ## Example sessions (rendered demos)
@@ -180,7 +218,7 @@ SELECT DISTINCT ?prop ?label WHERE {
 
 ## SPARQL caveats
 
-- Every query needs explicit `PREFIX` declarations — there are no implicit prefixes.
+- All prefixes in your namespace registry (from `loadOntology` or `setNamespace`) are **auto-injected** into every SPARQL query — you do not need to declare them. Only declare prefixes that are not registered.
 - `FILTER(STRSTARTS(STR(?s), '...'))` in SELECT/CONSTRUCT does **not** reliably filter triples (N3.js limitation) — returns full store. Use named graphs or check `urn:vg:inferred` instead.
 - Inferred triples are stored in the `urn:vg:inferred` named graph.
 
@@ -208,7 +246,7 @@ Key IRIs for modeling material compositions with PMDCO v3:
 | iron atom | `http://purl.obolibrary.org/obo/CHEBI_18248` |
 | carbon atom | `http://purl.obolibrary.org/obo/CHEBI_27594` |
 
-After `loadOntology`, `pmd:` registers as `https://w3id.org/pmd/co/`. Check with `listNamespaces({})`. All SPARQL queries still need full `PREFIX` declarations.
+After `loadOntology`, `pmd:` registers as `https://w3id.org/pmd/co/`. Check with `listNamespaces({})`. The `pmd:` prefix is then auto-injected into all SPARQL queries — no explicit PREFIX declaration needed.
 
 ## More reading
 

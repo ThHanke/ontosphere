@@ -81,7 +81,7 @@ Canvas: 5 nodes, 6 links
 `{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.org/ex#Employee"}}}`
 `{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.org/ex#Employee"}}}`
 `{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
-`{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
@@ -105,7 +105,7 @@ Canvas: 5 nodes, 6 links
 ✓ addLink: s=collaboratesWith p=domain o=Employee
 ✓ addLink: s=collaboratesWith p=range o=Employee
 ✓ runLayout: elk-layered
-✓ expandAll
+✓ expandNode
 ✓ runLayout: elk-layered
 
 Canvas: 12 nodes, 16 links
@@ -182,7 +182,7 @@ Canvas: 8 nodes, 0 links
 `{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/eve","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
 `{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/frank","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
 `{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
-`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
@@ -204,7 +204,7 @@ Canvas: 8 nodes, 0 links
 ✓ addLink: s=eve p=member o=research
 ✓ addLink: s=frank p=member o=research
 ✓ runLayout: dagre-lr
-✓ expandAll
+✓ expandNode
 ✓ runLayout: dagre-lr
 
 Canvas: 8 nodes, 16 links
@@ -229,13 +229,13 @@ Canvas: 8 nodes, 16 links
 <summary>3 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
 [Ontosphere — 3 tools ✓]
 ✓ runReasoning: 10720 triples inferred
-✓ expandAll
+✓ expandNode
 ✓ runLayout: dagre-lr
 
 Canvas: 8 nodes, 17 links

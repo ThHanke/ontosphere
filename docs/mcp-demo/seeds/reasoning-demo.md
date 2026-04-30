@@ -65,7 +65,7 @@ then axioms. Starting in TBox view so every class and property node lands on the
 `{"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/reasoning-demo#Employee"}}}`
 `{"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#hasSupervisor","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/reasoning-demo#Manager"}}}`
 `{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
-`{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
@@ -110,7 +110,7 @@ can see the ABox shape before we run the reasoner:
 `{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#carol","predicateIri":"http://example.com/reasoning-demo#hasSupervisor","objectIri":"http://example.com/reasoning-demo#bob"}}}`
 `{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/reasoning-demo#bob","predicateIri":"http://example.com/reasoning-demo#hasSupervisor","objectIri":"http://example.com/reasoning-demo#alice"}}}`
 `{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
-`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
@@ -136,7 +136,7 @@ slug: before-reasoning
 - hasFriend subPropertyOf knows: Alice gets knows Bob inferred
 
 `{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
