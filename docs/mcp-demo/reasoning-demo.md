@@ -136,8 +136,8 @@ Canvas: 10 nodes, 17 links
 **You:** Now for the individuals. Alice is an Executive. Bob, Carol, and Dave have no explicit
 type — I want to see what the reasoner works out from the relationships alone.
 
-**Assistant:** Switching to ABox view. Only Alice gets a `typeIri` — the others are blank nodes
-whose types must be entirely inferred from the edges we assert next.
+**Assistant:** Switching to ABox view. Only Alice gets a `typeIri` — the others are untyped
+individuals whose types must be entirely inferred from the edges we assert next.
 
 
 <details>

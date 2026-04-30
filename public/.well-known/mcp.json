@@ -309,6 +309,10 @@
               "elk-stress",
               "elk-radial"
             ]
+          },
+          "spacing": {
+            "type": "number",
+            "description": "Minimum distance between nodes in pixels. Defaults to 120."
           }
         },
         "required": [

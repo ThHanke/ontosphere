@@ -78,7 +78,7 @@ node then wiring the subclass chain and property axioms one by one. No bulk load
 ✓ addLink: s=RO_0000087 p=domain o=BFO_0000004
 ✓ addLink: s=RO_0000087 p=range o=BFO_0000023
 
-Canvas: 12 nodes, 14 links
+Canvas: 12 nodes, 15 links
 ```
 
 </details>

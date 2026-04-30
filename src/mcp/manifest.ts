@@ -249,6 +249,10 @@ export const mcpManifest: McpToolManifestEntry[] = [
           type: 'string',
           enum: ['dagre-lr', 'dagre-tb', 'elk-layered', 'elk-force', 'elk-stress', 'elk-radial'],
         },
+        spacing: {
+          type: 'number',
+          description: 'Minimum distance between nodes in pixels. Defaults to 120.',
+        },
       },
       required: ['algorithm'],
     },
