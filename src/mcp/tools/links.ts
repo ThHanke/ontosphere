@@ -10,6 +10,10 @@ interface LinkParams {
   subjectIri?: string;
   predicateIri?: string;
   objectIri?: string;
+  // common aliases accepted silently
+  s?: string; subject?: string;
+  p?: string; predicate?: string;
+  o?: string; object?: string;
   limit?: number;
 }
 
@@ -29,12 +33,15 @@ export const linkTools: McpTool[] = [
     handler: async (params: unknown) => {
       try {
         const raw = (params ?? {}) as LinkParams;
-        const subjectIri = raw.subjectIri ? expandIri(raw.subjectIri) : undefined;
-        const predicateIri = raw.predicateIri ? expandIri(raw.predicateIri) : undefined;
+        const rawS = raw.subjectIri ?? raw.subject ?? raw.s;
+        const rawP = raw.predicateIri ?? raw.predicate ?? raw.p;
+        const rawO = raw.objectIri ?? raw.object ?? raw.o;
+        const subjectIri = rawS ? expandIri(rawS) : undefined;
+        const predicateIri = rawP ? expandIri(rawP) : undefined;
         // objectIri may be a plain literal — only expand if it looks like a prefixed IRI
-        const objectIri = raw.objectIri ? expandIri(raw.objectIri) : undefined;
+        const objectIri = rawO ? expandIri(rawO) : undefined;
         if (!subjectIri || !predicateIri || !objectIri) {
-          return { success: false as const, error: 'subjectIri, predicateIri, and objectIri are all required' };
+          return { success: false as const, error: 'subjectIri, predicateIri, and objectIri are all required. Call help({tool:"addLink"}) for the full schema.' };
         }
         const expandError = [subjectIri, predicateIri, objectIri].find(v => v.startsWith('Unknown prefix:'));
         if (expandError) return { success: false as const, error: expandError };
@@ -72,9 +79,12 @@ export const linkTools: McpTool[] = [
     handler: async (params: unknown) => {
       try {
         const raw = (params ?? {}) as LinkParams;
-        const subjectIri = raw.subjectIri ? expandIri(raw.subjectIri) : undefined;
-        const predicateIri = raw.predicateIri ? expandIri(raw.predicateIri) : undefined;
-        const objectIri = raw.objectIri ? expandIri(raw.objectIri) : undefined;
+        const rawS = raw.subjectIri ?? raw.subject ?? raw.s;
+        const rawP = raw.predicateIri ?? raw.predicate ?? raw.p;
+        const rawO = raw.objectIri ?? raw.object ?? raw.o;
+        const subjectIri = rawS ? expandIri(rawS) : undefined;
+        const predicateIri = rawP ? expandIri(rawP) : undefined;
+        const objectIri = rawO ? expandIri(rawO) : undefined;
         if (!subjectIri || !predicateIri || !objectIri) {
           return { success: false as const, error: 'subjectIri, predicateIri, and objectIri are all required' };
         }

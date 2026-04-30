@@ -52,7 +52,7 @@ describe('addLink', () => {
     const result = await addLink.handler({ subjectIri: 'http://s', predicateIri: 'http://p' });
     expect(result).toEqual({
       success: false,
-      error: 'subjectIri, predicateIri, and objectIri are all required',
+      error: 'subjectIri, predicateIri, and objectIri are all required. Call help({tool:"addLink"}) for the full schema.',
     });
     expect(rdfManager.addTriple).not.toHaveBeenCalled();
   });
@@ -61,7 +61,7 @@ describe('addLink', () => {
     const result = await addLink.handler(null);
     expect(result).toEqual({
       success: false,
-      error: 'subjectIri, predicateIri, and objectIri are all required',
+      error: 'subjectIri, predicateIri, and objectIri are all required. Call help({tool:"addLink"}) for the full schema.',
     });
   });
 });

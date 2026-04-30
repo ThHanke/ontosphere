@@ -53,7 +53,7 @@ Key capabilities
 - **Namespace management**: edit namespace URIs directly in the legend panel (rename propagates across all stored triples). Colour-coded namespace badges on nodes and edges.
 - Export the current graph as Turtle, RDF/XML, or JSON-LD.
 - **Workflow catalog**: drag reusable workflow template cards from the sidebar onto the canvas to instantiate connected subgraphs.
-- **MCP support**: exposes a Model Context Protocol server (via the browser's `navigator.modelContext` API) for AI-agent integration. Tools: `loadRdf`, `loadOntology`, `suggestOntologiesForTask`, `queryGraph`, `exportGraph`, `exportImage`, `addNode`, `removeNode`, `expandNode`, `expandAll`, `getNodes`, `addLink`, `removeLink`, `getLinks`, `runLayout`, `clusterNodes`, `layoutNodes`, `focusNode`, `fitCanvas`, `runReasoning`, `clearInferred`, `getNeighbors`, `findPath`, `getNodeDetails`, `updateNode`, `getGraphState`, `addNamespace`, `updateNamespace`, `removeNamespace`, `listNamespaces`, `loadShacl`, `validateGraph`, `getCapabilities`, `help`. MCP manifest at `/.well-known/mcp.json`.
+- **MCP support**: exposes a Model Context Protocol server (via the browser's `navigator.modelContext` API) for AI-agent integration. Tools: `loadRdf`, `loadOntology`, `suggestOntologiesForTask`, `queryGraph`, `exportGraph`, `exportImage`, `addNode`, `removeNode`, `expandNode`, `getNodes`, `addLink`, `removeLink`, `getLinks`, `runLayout`, `clusterNodes`, `layoutNodes`, `focusNode`, `fitCanvas`, `runReasoning`, `clearInferred`, `getNeighbors`, `findPath`, `getNodeDetails`, `updateNode`, `getGraphState`, `setNamespace`, `removeNamespace`, `listNamespaces`, `loadShacl`, `validateGraph`, `getCapabilities`, `help`. MCP manifest at `/.well-known/mcp.json`.
 
 Quick start (development)
 -------------------------
@@ -367,7 +367,7 @@ Ontosphere exposes a full [Model Context Protocol](https://modelcontextprotocol.
 The app has two coupled layers:
 
 - **N3 RDF store** — source of truth. `addNode` / `addLink` write triples here.
-- **Reactodia canvas** — visual mirror. Nodes are *not* created automatically from triples; you must call `addNode` to place a subject on canvas. After adding triples, canvas links refresh automatically. Nodes start collapsed — call `expandNode` or `expandAll` to reveal annotation property cards.
+- **Reactodia canvas** — visual mirror. Nodes are *not* created automatically from triples; you must call `addNode` to place a subject on canvas. After adding triples, canvas links refresh automatically. Nodes start collapsed — call `expandNode` (with an IRI to expand one node, or no args to expand all) to reveal annotation property cards.
 
 OWL-RL reasoning writes inferred triples back to the store and refreshes the canvas.
 
@@ -411,7 +411,7 @@ loadOntology (TBox)
   → addNode ×N  (ABox individuals, rdf:type set)
   → addLink ×N  (object-property triples, edges appear on canvas)
   → runLayout   (dagre-lr recommended)
-  → expandAll   (reveal annotation property cards)
+  → expandNode  (reveal annotation property cards — omit iri to expand all)
   → runReasoning (infer subClass / domain / range entailments)
   → fitCanvas + exportImage   (SVG snapshot, token-efficient)
   → exportGraph(turtle)       (final deliverable)

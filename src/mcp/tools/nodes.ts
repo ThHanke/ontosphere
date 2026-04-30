@@ -33,11 +33,11 @@ const addNode: McpTool = {
   },
   handler: async (params) => {
     try {
-      const raw = params as { iri?: string; typeIri?: string; label?: string };
+      const raw = params as { iri?: string; typeIri?: string; type?: string; label?: string };
       if (!raw.iri) return { success: false, error: 'iri is required' };
       const iri = expandIri(raw.iri);
       if (iri.startsWith('Unknown prefix:')) return { success: false, error: iri };
-      const typeIri = raw.typeIri ? expandIri(raw.typeIri) : undefined;
+      const typeIri = (raw.typeIri ?? raw.type) ? expandIri((raw.typeIri ?? raw.type)!) : undefined;
       if (typeIri?.startsWith('Unknown prefix:')) return { success: false, error: typeIri };
       const { label } = raw;
 
@@ -85,43 +85,32 @@ const removeNode: McpTool = {
 
 const expandNode: McpTool = {
   name: 'expandNode',
-  description: 'Expand a node to show its annotation properties. Pass expand=false to collapse.',
+  description: 'Expand canvas node(s) to show annotation properties. Pass iri to expand one node; omit iri to expand all nodes at once. Pass expand=false to collapse.',
   inputSchema: {
     type: 'object',
     properties: {
       iri: { type: 'string' },
       expand: { type: 'boolean', default: true },
     },
-    required: ['iri'],
   },
   handler: async (params) => {
     try {
-      const { iri, expand = true } = params as { iri: string; expand?: boolean };
-      const { ctx } = getWorkspaceRefs();
-      const el = findEntityElement(iri, ctx.model);
-      if (!el) return { success: false, error: `Element not on canvas: ${iri}` };
-      ctx.model.history.execute(Reactodia.setElementExpanded(el, expand));
-      return { success: true, data: { iri, expanded: expand } };
-    } catch (e) {
-      return { success: false, error: String(e) };
-    }
-  },
-};
-
-const expandAll: McpTool = {
-  name: 'expandAll',
-  description: 'Expand all nodes on the canvas to show their annotation properties.',
-  inputSchema: { type: 'object' },
-  handler: async () => {
-    try {
+      const { iri, expand = true } = (params ?? {}) as { iri?: string; expand?: boolean };
       const { ctx } = getWorkspaceRefs();
       const model = ctx.model;
-      for (const el of model.elements) {
-        if (el instanceof Reactodia.EntityElement) {
-          model.history.execute(Reactodia.setElementExpanded(el, true));
+      if (!iri) {
+        // Expand/collapse all canvas nodes
+        for (const el of model.elements) {
+          if (el instanceof Reactodia.EntityElement) {
+            model.history.execute(Reactodia.setElementExpanded(el, expand));
+          }
         }
+        return { success: true, data: { expanded: model.elements.length } };
       }
-      return { success: true, data: { expanded: model.elements.length } };
+      const el = findEntityElement(iri, model);
+      if (!el) return { success: false, error: `Element not on canvas: ${iri}` };
+      model.history.execute(Reactodia.setElementExpanded(el, expand));
+      return { success: true, data: { iri, expanded: expand } };
     } catch (e) {
       return { success: false, error: String(e) };
     }
@@ -368,4 +357,4 @@ const updateNode: McpTool = {
   },
 };
 
-export const nodeTools: McpTool[] = [addNode, removeNode, expandNode, expandAll, getNodes, getNodeDetails, updateNode];
+export const nodeTools: McpTool[] = [addNode, removeNode, expandNode, getNodes, getNodeDetails, updateNode];

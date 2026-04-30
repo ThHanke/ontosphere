@@ -57,7 +57,7 @@ every node and axiom will be visible on canvas.
 `{"jsonrpc":"2.0","id":19,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.org/ex#Employee"}}}`
 `{"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/ex#collaboratesWith","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.org/ex#Employee"}}}`
 `{"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
-`{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
@@ -115,7 +115,7 @@ until the reasoner fires.
 `{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/eve","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
 `{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.org/frank","predicateIri":"http://xmlns.com/foaf/0.1/member","objectIri":"http://example.org/research"}}}`
 `{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
-`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":50,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
@@ -138,7 +138,7 @@ slug: before-reasoning
 - Everyone typed as `Employee` or above also gets `foaf:Agent` via `foaf:Person → foaf:Agent`
 
 `{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result

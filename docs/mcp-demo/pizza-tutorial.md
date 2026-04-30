@@ -254,7 +254,7 @@ all the way up to CheeseTopping and then PizzaTopping — no extra assertions ne
 `{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#GarlicTopping","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://www.pizza-ontology.com/pizza.owl#VegetableTopping"}}}`
 `{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#AnchoviesTopping","predicateIri":"http://www.w3.org/2000/01/rdf-schema#subClassOf","objectIri":"http://www.pizza-ontology.com/pizza.owl#FishTopping"}}}`
 `{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
-`{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
 
 ```tool-result
@@ -274,7 +274,7 @@ all the way up to CheeseTopping and then PizzaTopping — no extra assertions ne
 ✓ addLink: s=GarlicTopping p=subClassOf o=VegetableTopping
 ✓ addLink: s=AnchoviesTopping p=subClassOf o=FishTopping
 ✓ runLayout: elk-layered
-✓ expandAll
+✓ expandNode
 ✓ runLayout: elk-layered
 
 Canvas: 20 nodes, 27 links
@@ -345,7 +345,7 @@ on the real world.
 `{"jsonrpc":"2.0","id":72,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#isBaseOf","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://www.pizza-ontology.com/pizza.owl#Pizza"}}}`
 `{"jsonrpc":"2.0","id":73,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","predicateIri":"http://www.w3.org/1999/02/22-rdf-syntax-ns#type","objectIri":"http://www.w3.org/2002/07/owl#FunctionalProperty"}}}`
 `{"jsonrpc":"2.0","id":74,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
-`{"jsonrpc":"2.0","id":75,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":75,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":76,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":140}}}`
 
 ```tool-result
@@ -360,7 +360,7 @@ on the real world.
 ✓ addLink: s=isBaseOf p=range o=Pizza
 ✓ addLink: s=hasBase p=type o=FunctionalProperty
 ✓ runLayout: elk-layered
-✓ expandAll
+✓ expandNode
 ✓ runLayout: elk-layered
 
 Canvas: 24 nodes, 37 links
@@ -594,7 +594,7 @@ topping the reasoner will use for classification.
 `{"jsonrpc":"2.0","id":103,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza3","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#anch1"}}}`
 `{"jsonrpc":"2.0","id":104,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza3","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#garlic1"}}}`
 `{"jsonrpc":"2.0","id":105,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza3","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin2"}}}`
-`{"jsonrpc":"2.0","id":106,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":106,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":107,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
 
 ```tool-result
@@ -605,7 +605,7 @@ topping the reasoner will use for classification.
 ✓ addLink: s=pizza3 p=hasTopping o=anch1
 ✓ addLink: s=pizza3 p=hasTopping o=garlic1
 ✓ addLink: s=pizza3 p=hasBase o=thin2
-✓ expandAll
+✓ expandNode
 ✓ runLayout: dagre-lr
 
 Canvas: 17 nodes, 10 links
@@ -635,7 +635,7 @@ fire and classify it — but we also need to observe what the reasoner says abou
 `{"jsonrpc":"2.0","id":139,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza4","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#olive2"}}}`
 `{"jsonrpc":"2.0","id":140,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza4","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasTopping","objectIri":"http://www.pizza-ontology.com/pizza.owl#tom2"}}}`
 `{"jsonrpc":"2.0","id":141,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://www.pizza-ontology.com/pizza.owl#pizza4","predicateIri":"http://www.pizza-ontology.com/pizza.owl#hasBase","objectIri":"http://www.pizza-ontology.com/pizza.owl#thin3"}}}`
-`{"jsonrpc":"2.0","id":142,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":142,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":143,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
 `{"jsonrpc":"2.0","id":202,"method":"tools/call","params":{"name":"focusNode","arguments":{"iri":"http://www.pizza-ontology.com/pizza.owl#pizza4"}}}`
 
@@ -648,7 +648,7 @@ fire and classify it — but we also need to observe what the reasoner says abou
 ✓ addLink: s=pizza4 p=hasTopping o=olive2
 ✓ addLink: s=pizza4 p=hasTopping o=tom2
 ✓ addLink: s=pizza4 p=hasBase o=thin3
-✓ expandAll
+✓ expandNode
 ✓ runLayout: dagre-lr
 ✓ focusNode
 
@@ -680,13 +680,13 @@ fires on our data:
 <summary>3 tool calls ✓</summary>
 
 `{"jsonrpc":"2.0","id":108,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":109,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":109,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":110,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":180}}}`
 
 ```tool-result
 [Ontosphere — 3 tools ✓]
 ✓ runReasoning: 10798 triples inferred
-✓ expandAll
+✓ expandNode
 ✓ runLayout: dagre-lr
 
 Canvas: 21 nodes, 26 links

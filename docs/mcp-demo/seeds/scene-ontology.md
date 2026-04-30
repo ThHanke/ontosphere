@@ -108,7 +108,7 @@ node then wiring the subclass chain and property axioms one by one. No bulk load
 `{"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000066","predicateIri":"http://www.w3.org/2000/01/rdf-schema#domain","objectIri":"http://example.com/scene-ontology#Scene"}}}`
 `{"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://purl.obolibrary.org/obo/RO_0000066","predicateIri":"http://www.w3.org/2000/01/rdf-schema#range","objectIri":"http://example.com/scene-ontology#Location"}}}`
 `{"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
-`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"elk-layered","spacing":200}}}`
 
 ```tool-result
@@ -163,7 +163,7 @@ from the `has_role` relationships we assert next, since `RO:has_role rdfs:domain
 `{"jsonrpc":"2.0","id":59,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#rooftopChase","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#veraAntagonistRole"}}}`
 `{"jsonrpc":"2.0","id":60,"method":"tools/call","params":{"name":"addLink","arguments":{"subjectIri":"http://example.com/scene-ontology#cafeDialogue","predicateIri":"http://purl.obolibrary.org/obo/BFO_0000055","objectIri":"http://example.com/scene-ontology#samSupportingRole"}}}`
 `{"jsonrpc":"2.0","id":61,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
-`{"jsonrpc":"2.0","id":62,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":62,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":63,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
@@ -182,7 +182,7 @@ slug: abox-full
 **Assistant:** Running reasoning. Jake should pick up `BFO:independent_continuant` via `Character → BFO_0000004`, and both scenes should inherit their BFO process superclasses through the `Scene → BFO:process` chain.
 
 `{"jsonrpc":"2.0","id":64,"method":"tools/call","params":{"name":"runReasoning","arguments":{}}}`
-`{"jsonrpc":"2.0","id":65,"method":"tools/call","params":{"name":"expandAll","arguments":{}}}`
+`{"jsonrpc":"2.0","id":65,"method":"tools/call","params":{"name":"expandNode","arguments":{}}}`
 `{"jsonrpc":"2.0","id":66,"method":"tools/call","params":{"name":"runLayout","arguments":{"algorithm":"dagre-lr","spacing":200}}}`
 
 ```tool-result
