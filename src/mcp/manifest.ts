@@ -4,37 +4,28 @@ import type { McpToolManifestEntry } from './types';
 export const mcpServerName = 'Ontosphere';
 
 export const mcpServerDescription =
-  'Interactive RDF/ontology knowledge graph editor — ABox authoring, OWL-RL reasoning, layout, and export. All client-side, no backend.\n\n' +
-  'ABOX vs TBOX — TWO SEPARATE CANVAS VIEWS (critical for AI agents):\n' +
-  'Ontosphere maintains a strict ABox/TBox split. Every node you add is classified by its rdf:type and appears in exactly one view:\n' +
-  '  • ABox view ("abox") — individuals and instance data. Nodes typed as owl:NamedIndividual, skos:Concept, or any non-schema type. This is the default view for authoring instance knowledge.\n' +
-  '  • TBox view ("tbox") — ontology schema. Nodes typed as owl:Class, owl:ObjectProperty, owl:DatatypeProperty, owl:AnnotationProperty, rdfs:Class, etc. This view shows the schema/vocabulary layer.\n' +
-  '  • "Punned" resources (typed as both, e.g. owl:Class AND owl:NamedIndividual) appear in both views.\n' +
-  'Switching views replaces the entire canvas — ABox nodes are invisible in TBox view and vice versa. Use setViewMode before exportImage to capture the right layer. addNode writes triples to the store and the canvas populates automatically in the correct view.\n\n' +
-  'Architecture for AI agents: The app has two coupled layers. (1) N3 RDF store (urn:vg:data) — source of truth for all triples. addNode/addLink write here first. (2) Reactodia canvas — mirrors the store subset matching the active view as draggable node cards and arrows. Nodes start collapsed; call expandNode or expandAll to reveal annotation property cards. OWL-RL reasoning writes inferred triples back to the store (urn:vg:inferred) and refreshes the canvas.\n\n' +
-  'ONTOLOGY DISCOVERY — always the first step:\n' +
-  'OWL, RDFS, RDF, and XSD are pre-loaded. All other ontologies must be loaded explicitly:\n' +
-  '  1. loadOntology(query="use case") — find the right prefix ("calendar" → ical, "music" → mo, "building" → bot, "e-commerce" → gr, …)\n' +
-  '  2. loadOntology(url="<prefix>") — load by prefix name, e.g. loadOntology(url="mo"). Repeat for each domain.\n' +
-  '  3. Register a namespace prefix: addNamespace(prefix, namespace) if you want short-form IRIs.\n' +
-  'IMPORTANT: Prefer domain-specific ontologies over schema.org for knowledge graphs.\n' +
-  'foaf: is already pre-loaded (no loadOntology needed) and is the standard for persons.\n' +
-  'Domain → ontology mapping:\n' +
-  '  • Persons → foaf:Person (pre-loaded)\n' +
-  '  • Calendar events / meetings → ical:Vevent  (loadOntology(query="calendar"))\n' +
-  '  • Organizations → org:Organization  (loadOntology(query="organization"))\n' +
-  '  • Locations / buildings → bot:Building  (loadOntology(query="building"))\n' +
-  '  schema: is a web-markup vocabulary (SEO); foaf:/ical:/org: are proper semantic-web ontologies.\n\n' +
-  'Recommended workflow: loadOntology(query=…) → loadOntology(url="<prefix>") ×N → addNamespace ×N → setViewMode("tbox") → addNode ×N (owl:Class etc.) → addLink ×N (subClassOf etc.) → runLayout → setViewMode("abox") → addNode ×N (individuals) → addLink ×N → runLayout → runReasoning → fitCanvas → exportImage(svg).\n' +
-  'For 5+ ABox individuals, replace N addNode calls with one loadRdf(inline Turtle) — far fewer round-trips.\n\n' +
+  'Browser-based RDF/ontology knowledge graph editor. ABox authoring, OWL-RL reasoning, layout, and export. All client-side, no backend.\n\n' +
+  'KEY RULES FOR AI AGENTS:\n' +
+  '• Two canvas views — ABox (individuals) and TBox (classes/properties). addNode writes to the store; the canvas shows the node in the correct view automatically. Use setViewMode to switch.\n' +
+  '• Ontology discovery first: loadOntology(query="use case") → loadOntology(url="<prefix>") × N → setNamespace × N. foaf: is pre-loaded. OWL/RDFS/RDF/XSD always available.\n' +
+  '• Prefer domain ontologies over schema.org: foaf:Person, ical:Vevent, org:Organization, bot:Building.\n' +
+  '• For 5+ individuals use loadRdf(turtle=...) instead of N×addNode — one round-trip.\n' +
+  '• addLink blank-node limit: use loadRdf for owl:someValuesFrom/equivalentClass restrictions.\n' +
+  '• Batch up to 5 non-dependent calls per relay message. Send discovery (getNodes, queryGraph) alone.\n' +
+  '• Tool failed? Call help({tool:"<name>"}) for the exact parameter schema.\n\n' +
   'GRAPH ARCHITECTURE\n' +
-  'Asserted triples live in urn:vg:data — all mutation tools (addNode, addLink, updateNode, SPARQL CONSTRUCT, etc.) operate here only.\n' +
-  'Inferred triples live in urn:vg:inferred — written by runReasoning, cleared by clearInferred, and read-only from all other tools.\n' +
-  'SHACL shapes live in urn:vg:shapes — loaded by loadShacl, read by validateGraph.\n' +
-  'Mutation tools never touch urn:vg:inferred or urn:vg:shapes; the separation is structural.\n\n' +
-  'Namespace prefixes: rdf: rdfs: owl: xsd: foaf: skos: dc: dcterms: schema: ex: are always available.\n' +
-  'Any prefix defined by a loaded ontology (loadOntology) or registered via addNamespace is also usable in IRI arguments in all subsequent tool calls.\n\n' +
-  'Agent integration: (1) Claude Code / Playwright — call window.__mcpTools[name](params) via browser_evaluate. (2) AI Relay Bridge — any AI chat (ChatGPT, Claude.ai, Gemini) can control Ontosphere via a bookmarklet relay that intercepts JSON-RPC 2.0 tool calls and injects results back automatically; see docs/relay-bridge.md. Full agent guide: AGENTS.md. Example sessions with SVG snapshots: docs/mcp-demo/.';
+  'urn:vg:data = asserted triples (all mutations go here)\n' +
+  'urn:vg:inferred = OWL-RL derived (runReasoning writes; clearInferred removes)\n' +
+  'urn:vg:shapes = SHACL constraints (loadShacl writes; validateGraph reads)\n\n' +
+  'Pre-loaded prefixes: rdf: rdfs: owl: xsd: foaf: skos: dc: dcterms: schema: ex:\n' +
+  'After loadOntology or setNamespace, those prefixes work in all tool IRI arguments.\n\n' +
+  'Recommended workflow:\n' +
+  'loadOntology(query=…) → loadOntology(url="<prefix>") × N → setNamespace × N\n' +
+  '→ setViewMode("tbox") → addNode × N (owl:Class) → addLink × N → runLayout\n' +
+  '→ setViewMode("abox") → loadRdf(turtle=...) OR addNode × N → addLink × N → runLayout\n' +
+  '→ runReasoning → fitCanvas + exportImage(svg)  [last three safe to batch]\n\n' +
+  'Agent integration: (1) Claude Code / Playwright — window.__mcpTools[name](params) via browser_evaluate. ' +
+  '(2) AI Relay Bridge — any AI chat controls Ontosphere via bookmarklet relay; see docs/relay-bridge.md and AGENTS.md.';
 
 export const mcpManifest: McpToolManifestEntry[] = [
   {
@@ -61,16 +52,22 @@ export const mcpManifest: McpToolManifestEntry[] = [
     description:
       'Discover or load well-known ontologies — three modes in one tool. ' +
       '(1) Load: pass url with a prefix name (e.g. "ical", "mo", "bot", "gr") or a namespace/file URL — loads the TBox, does NOT add canvas nodes. ' +
-      '(2) Search: pass query with a use-case keyword ("calendar", "music", "building", "e-commerce", "spatial", "IoT") — returns matching entries with prefix/description/loadUrl. ' +
+      '(2) Search: pass query with a use-case keyword ("calendar", "music", "building", "e-commerce", "spatial", "IoT") — returns matching entries with prefix/description/loadUrl without loading. ' +
       '(3) List all: pass neither — returns all ~55 registered ontologies. ' +
       'If url does not match a known prefix or URL, load fails and suggestions are returned automatically. ' +
       'OWL/RDFS/RDF/XSD are always pre-loaded.',
     inputSchema: {
       type: 'object',
       properties: {
-        url: { type: 'string' },
+        url: {
+          type: 'string',
+          description: 'Prefix name (e.g. "ical", "mo") or full URL to load. Omit to search or list all ontologies.',
+        },
+        query: {
+          type: 'string',
+          description: 'Use-case keyword to search the registry (e.g. "calendar", "building", "IoT"). Returns matching ontologies without loading.',
+        },
       },
-      required: ['url'],
     },
   },
   {
@@ -155,7 +152,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'addNode',
-    description: 'Create a node (RDF subject) on the canvas by writing triples to the store. The node appears in the view that matches its rdf:type — owl:Class/owl:ObjectProperty etc. → TBox view; owl:NamedIndividual or unrecognised types → ABox view. Switch to the correct view with setViewMode BEFORE calling addNode so the node materialises immediately.',
+    description: 'Create a node (RDF subject) on the canvas by writing triples to the store. The node appears in the view that matches its rdf:type — owl:Class/owl:ObjectProperty etc. → TBox view; owl:NamedIndividual or unrecognised types → ABox view. Switch to the correct view with setViewMode BEFORE calling addNode so the node materialises immediately. For 5+ individuals use loadRdf(turtle=...) instead.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -179,20 +176,14 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'expandNode',
-    description: 'Expand one canvas node to show its annotation property card. Use when you need to reveal properties on a specific node. To expand every node at once, use expandAll — do not loop this tool.',
+    description: 'Expand canvas node(s) to show annotation property cards. Pass iri to expand one node; omit iri to expand all nodes at once. Pass expand=false to collapse.',
     inputSchema: {
       type: 'object',
       properties: {
-        iri: { type: 'string' },
+        iri: { type: 'string', description: 'IRI of the node to expand. Omit to expand all canvas nodes.' },
         expand: { type: 'boolean', default: true },
       },
-      required: ['iri'],
     },
-  },
-  {
-    name: 'expandAll',
-    description: 'Expand every canvas node in one call. Use instead of looping expandNode when you want all property cards visible.',
-    inputSchema: { type: 'object' },
   },
   {
     name: 'getNodes',
@@ -304,23 +295,14 @@ export const mcpManifest: McpToolManifestEntry[] = [
     inputSchema: { type: 'object' },
   },
   {
-    name: 'addNamespace',
-    description: 'Register a new IRI prefix so it can be used in abbreviated form in tool parameters (e.g. "myns:Alice" → "http://myns.org/Alice").',
+    name: 'setNamespace',
+    description: 'Register or update an IRI prefix (upsert). Creates the prefix if new, replaces it if already registered. Use before IRI arguments to enable short prefix:local notation.',
     inputSchema: {
       type: 'object',
       properties: {
         prefix: { type: 'string', description: 'Prefix without colon (e.g. "myns")' },
         namespace: { type: 'string', description: 'Full IRI namespace ending with # or / (e.g. "http://myns.org/")' },
       },
-      required: ['prefix', 'namespace'],
-    },
-  },
-  {
-    name: 'updateNamespace',
-    description: 'Change the IRI namespace bound to an existing prefix.',
-    inputSchema: {
-      type: 'object',
-      properties: { prefix: { type: 'string' }, namespace: { type: 'string' } },
       required: ['prefix', 'namespace'],
     },
   },
