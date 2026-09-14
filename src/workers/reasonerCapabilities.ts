@@ -107,6 +107,21 @@ export const CAPABILITIES: readonly CapabilityFact[] = [
       "handles it. DlReasoner keeps the existing graph in that case.",
   },
   {
+    subject: "owl:hasSelf combined with owl:propertyDisjointWith",
+    supported: false,
+    provenance: "observed",
+    established: "2026-09-14",
+    evidence:
+      "_diag/probe-disjointprop2.mjs: P ⊑ ∃R.Self ⊓ ∃S.Self with R propertyDisjointWith S is " +
+      "reported satisfiable, and populating P with an individual still leaves the ontology " +
+      "consistent. _diag/probe-disjointprop.mjs shows the same clash IS caught from ordinary " +
+      "role assertions, so the axiom is understood and it is the combination that is not.",
+    consequence:
+      "Property-disjointness guards cannot be decided by the Self probe on this engine. " +
+      "propertyGuards.ts marks them undecidable rather than reporting them as not enforced, " +
+      "which would be a fabricated finding.",
+  },
+  {
     subject: "W3C OWL 2 conformance suite",
     supported: false,
     provenance: "declared",
