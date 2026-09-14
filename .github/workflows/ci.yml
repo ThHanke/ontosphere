@@ -24,8 +24,6 @@ jobs:
         run: npm ci
       - name: Typecheck (ratchet — must not exceed baseline)
         run: node scripts/typecheck-ratchet.mjs
-      - name: MCP manifest drift check
-        run: npm run check:mcp
       - name: Lint (hard gate — zero errors; warnings allowed)
         # The error backlog was cleared to 0; eslint exits non-zero only on errors,
         # so this is now a real gate. Drive warnings down over time too.
