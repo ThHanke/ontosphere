@@ -25,6 +25,7 @@ import { ensureDefaultNamespaceMap } from "../constants/namespaces.ts";
 import { RDF_TYPE, RDFS_LABEL, SHACL } from "../constants/vocabularies.ts";
 import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
 import { mipsToReasoningError, shaclViolationToEntry } from "./reasoningDiagnostics.ts";
+import { canonicalInferredHierarchy, type Edge } from "./canonicalHierarchy.ts";
 import { RdfReasoner, type LaconicJustification, type LaconicPart, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
@@ -79,6 +80,78 @@ const INFERRED_GRAPH = KONCLUDE_INFERRED_GRAPH_IRI;
 // ---------------------------------------------------------------------------
 
 
+const RDFS_SUBCLASS_OF = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+
+/**
+ * Replace the materialised named-class subsumption edges with THE canonical transitive
+ * reduction of the same hierarchy, in both the store and the returned delta.
+ *
+ * Konclude reports a transitive reduction of the inferred class hierarchy, but not a
+ * canonical one: across independent cold sessions on a byte-identical reasoning base it
+ * emits different subsets of the redundant edges. Measured on PMDco @3b98aad + the Fe-Si
+ * record, ten cold sessions produced 380-389 inferred triples and 59 differing statements,
+ * every one an rdfs:subClassOf between named classes, while the transitive closure was
+ * identical (8246 statements) in all runs. Left alone that makes materialised output,
+ * published triple counts and session-to-session diffs irreproducible.
+ *
+ * Only named-class subClassOf is touched. Blank-node class expressions, rdf:type and every
+ * other materialised predicate pass through unchanged — the variance was confined to named
+ * subsumption, and rewriting more than that would change what the reasoner actually said.
+ */
+function canonicalizeInferredHierarchyInStore(
+  store: N3.Store,
+  delta: InferenceDelta,
+): InferenceDelta {
+  const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+  type TermLike = { termType: string; value: string };
+  const isNamedSubClassOf = (q: { subject: TermLike; predicate: TermLike; object: TermLike }) =>
+    q.predicate.value === RDFS_SUBCLASS_OF &&
+    q.subject.termType === "NamedNode" &&
+    q.object.termType === "NamedNode";
+
+  const inferredQuads = store.getQuads(null, null, null, inferredGraph) as N3.Quad[];
+  const inferredEdges: Edge[] = inferredQuads.filter(isNamedSubClassOf).map((q) => [q.subject.value, q.object.value]);
+  if (inferredEdges.length === 0) return delta;
+
+  // Asserted edges are everything outside the inferred graph — the reduction must be taken
+  // over the WHOLE hierarchy, or edges implied by asserted axioms would survive as noise.
+  const assertedEdges: Edge[] = (store.getQuads(null, N3.DataFactory.namedNode(RDFS_SUBCLASS_OF), null, null) as N3.Quad[])
+    .filter((q) => q.graph.value !== INFERRED_GRAPH && isNamedSubClassOf(q))
+    .map((q) => [q.subject.value, q.object.value]);
+
+  const canonical = canonicalInferredHierarchy(assertedEdges, inferredEdges);
+  const canonicalKeys = new Set(canonical.map(([a, b]) => `${a} ${b}`));
+  const wasReported = new Set(inferredEdges.map(([a, b]) => `${a} ${b}`));
+
+  // Rewrite the inferred graph: drop every reported named subsumption, add the canonical set.
+  store.removeQuads(inferredQuads.filter(isNamedSubClassOf));
+  for (const [a, b] of canonical) {
+    store.addQuad(
+      N3.DataFactory.quad(
+        N3.DataFactory.namedNode(a),
+        N3.DataFactory.namedNode(RDFS_SUBCLASS_OF),
+        N3.DataFactory.namedNode(b),
+        inferredGraph,
+      ),
+    );
+  }
+
+  // The delta drives the shared-store write-back, so it has to agree with the graph.
+  const added = (delta.added ?? []).filter((q) => !isNamedSubClassOf(q) || canonicalKeys.has(`${q.subject.value} ${q.object.value}`));
+  for (const [a, b] of canonical) {
+    if (wasReported.has(`${a} ${b}`)) continue; // already in delta.added
+    added.push(
+      N3.DataFactory.quad(
+        N3.DataFactory.namedNode(a),
+        N3.DataFactory.namedNode(RDFS_SUBCLASS_OF),
+        N3.DataFactory.namedNode(b),
+        inferredGraph,
+      ) as unknown as Quad,
+    );
+  }
+  return { added, removed: delta.removed ?? [] };
+}
+
 class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
@@ -90,13 +163,14 @@ class DlReasoner {
     this.ready = this._reasoner.ready;
   }
 
-  reason(store: N3.Store): Promise<{ delta: InferenceDelta }> {
-    return this._reasoner.materialize(store, {
+  async reason(store: N3.Store): Promise<{ delta: InferenceDelta }> {
+    const result = (await this._reasoner.materialize(store, {
       includeClassHierarchy: true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
       explanations: true,
-    }) as Promise<{ delta: InferenceDelta }>;
+    })) as { delta: InferenceDelta };
+    return { delta: canonicalizeInferredHierarchyInStore(store, result.delta) };
   }
 
   validate(store: N3.Store): Promise<ValidationResult> {
@@ -3189,6 +3263,18 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (!sabAvailable) {
           throw new Error("SharedArrayBuffer unavailable — page needs HTTPS + COOP/COEP headers (or localhost). Use reasonerBackend='n3' as fallback.");
         }
+        // MEMORY: rdf-reasoner-konclude exposes no way to release a loaded knowledge base —
+        // only terminate(). Every loadTripleBuffer builds a new KB in WASM linear memory,
+        // which can grow but never shrink, so reusing one worker across a curation session
+        // leaks a whole KB per reasoning run. Measured on PMDco @3b98aad + the Fe-Si record:
+        // +220 MB per call, linear, no plateau (1371 MB at call 0, 3356 MB at call 9) — on a
+        // 16 GB laptop that is ~6-8 runs before exhaustion.
+        //
+        // Recycling at the START of a run (rather than the end) bounds residency to one KB
+        // while leaving the worker alive afterwards, so the explanation and repair paths
+        // below still find the KB this run just built instead of paying a full reload on
+        // every tooltip.
+        resetDlReasoner();
         const konclude = getDlReasoner();
         await konclude.ready;
         const kQuadCount = kStore.size ?? kStore.countQuads?.(null,null,null,null) ?? 0;

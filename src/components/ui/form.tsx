@@ -4,19 +4,14 @@ import { Slot } from "@radix-ui/react-slot"
 
 import { cn } from "@/lib/utils"
 import { Label } from "@/components/ui/label"
-import {
-  Form,
-  FormField,
-  FormFieldContext,
-  FormItemContext,
-  useFormField,
-} from "./formHelpers"
+import { FormField } from "./formHelpers"
+import { FormItemContext, useFormField } from "./formContext"
 
 /**
  * UI components for form primitives.
- * The contextual helpers (Form, FormField, useFormField, FormItemContext) were moved
- * into `formHelpers.tsx` so this file only exports React components and avoids
- * react-refresh warnings about non-component exports.
+ * The Form and FormField components live in `formHelpers.tsx`, and the contexts plus
+ * the useFormField hook in `formContext.ts`, so every module exports either components
+ * or non-components and none trips react-refresh/only-export-components.
  */
 
 const FormItem = React.forwardRef<

@@ -1,40 +1,14 @@
 /**
- * Minimal stubs for form context helpers.
+ * Minimal stubs for form components.
  * This file exists to satisfy the import in form.tsx.
  * Install react-hook-form and replace with real implementation if forms are needed.
+ *
+ * Only React components are exported here. The contexts and the useFormField hook
+ * live in ./formContext so react-refresh can preserve state for this module.
  */
 import * as React from "react"
 
-type FormFieldContextValue = {
-  name: string
-}
-
-type FormItemContextValue = {
-  id: string
-}
-
-export const FormFieldContext = React.createContext<FormFieldContextValue>(
-  {} as FormFieldContextValue
-)
-
-export const FormItemContext = React.createContext<FormItemContextValue>(
-  {} as FormItemContextValue
-)
-
-export function useFormField() {
-  const fieldContext = React.useContext(FormFieldContext)
-  const itemContext = React.useContext(FormItemContext)
-  const id = itemContext.id
-
-  return {
-    id,
-    name: fieldContext.name,
-    formItemId: `${id}-form-item`,
-    formDescriptionId: `${id}-form-item-description`,
-    formMessageId: `${id}-form-item-message`,
-    error: undefined as any,
-  }
-}
+import { FormFieldContext } from "./formContext"
 
 // Stub Form — wraps children; real impl would use react-hook-form's FormProvider
 export function Form({ children, ...props }: React.PropsWithChildren<Record<string, any>>) {
