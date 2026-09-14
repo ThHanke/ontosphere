@@ -3373,6 +3373,24 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         });
       }
 
+      // STALE INFERENCE: if this run did not produce inferences — the ontology was found
+      // inconsistent, or the reasoner errored or timed out — urn:vg:inferred still holds
+      // whatever the PREVIOUS successful run materialised. SHACL validation below runs
+      // unconditionally over urn:vg:data + urn:vg:inferred, so leaving it in place means a
+      // conformance report computed against entailments that no longer follow from the
+      // current graph. Drop it, which reduces validation to the asserted graph: a defect in
+      // the ontology should not hide constraint violations in the data, but neither may a
+      // conforming result be read as a check of the entailed dataset.
+      const kInferenceIsCurrent = kUsedReasoner && kIsConsistent === true;
+      if (!kInferenceIsCurrent) {
+        const staleGraph = DataFactory.namedNode("urn:vg:inferred");
+        const stale = kStore.getQuads(null, null, null, staleGraph);
+        if (stale.length > 0) {
+          kStore.removeQuads(stale);
+          debugLog("[VG_REASONING_WORKER] dropped stale inferred quads:", stale.length);
+        }
+      }
+
       const kAddedQuads = kUsedReasoner ? skolemizeQuads(kDelta.added, DataFactory) : [];
       const kTouchedSubjects = new Set<string>();
       for (const q of kAddedQuads) {
