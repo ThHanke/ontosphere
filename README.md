@@ -5,7 +5,6 @@
 **Browser-based RDF knowledge-graph editor with client-side OWL 2 DL reasoning, reasoner-verified repair, and a Model Context Protocol server for AI agents.**
 
 [![Live demo](https://img.shields.io/badge/Live_demo-open_app-2ea44f?style=for-the-badge&logo=googlechrome&logoColor=white)](https://thhanke.github.io/ontosphere)
-&nbsp;[![Paper](https://img.shields.io/badge/Paper-ISWC_2026-8a2be2?style=for-the-badge&logo=readthedocs&logoColor=white)](https://thhanke.github.io/ontosphere/paper/)
 &nbsp;[![MCP](https://img.shields.io/badge/MCP-43_tools-ff6f00?style=for-the-badge&logo=robotframework&logoColor=white)](#ai--mcp-integration)
 
 [![DOI](https://zenodo.org/badge/1049705027.svg)](https://doi.org/10.5281/zenodo.19605270)
@@ -28,7 +27,6 @@
 | 🤖 &nbsp;Connect an AI agent | [AI / MCP integration](#ai--mcp-integration) |
 | 💻 &nbsp;Run it locally | [Quick start](#quick-start-development) |
 | 📂 &nbsp;Load my own data | [Startup / URL parameters](#startup--url-parameters) |
-| 📄 &nbsp;Read the paper | [ISWC 2026 demo paper ↗](https://thhanke.github.io/ontosphere/paper/) |
 | 🛠️ &nbsp;Contribute | [Contributing](#contributing--development-notes) |
 
 </div>
@@ -717,7 +715,7 @@ step (tool calls via `window.__mcpTools`, UI actions via Playwright locators).
 inject messages programmatically via `addChatMessage()`, and call tools on the app
 iframe via `callToolOnStage()`. No relay popup needed. Example: `pizza-tutorial-chat`.
 
-**Feature demos** — focused 60–90 second demos, one per paper feature section. All use
+**Feature demos** — focused 60–90 second demos, one per feature section. All use
 `reasoning-demo.ttl` as the shared dataset. Seeds mix MCP tool calls with UI action blocks.
 
 To re-record all videos:
@@ -840,7 +838,7 @@ headers or the WASM reasoner will silently fall back to a non-threaded mode.
 ### OntoAuthor-Mat benchmark
 
 The **OntoAuthor-Mat** benchmark — six ontology-authoring tasks for materials science covering
-OWL 2 DL patterns — accompanies the [ISWC 2026 demo paper](https://thhanke.github.io/ontosphere/paper/).
+OWL 2 DL patterns.
 Task data lives in [`benchmarks/ontoauthor-mat/`](benchmarks/ontoauthor-mat/).
 
 | Task | OWL 2 DL pattern | Domain scenario | SHACL shapes | CQ queries |
@@ -917,8 +915,7 @@ so every reported result can be traced back to a specific model response.
 
 ### Data Availability Statement
 
-All software, benchmark data, and study scripts necessary to reproduce the results reported
-in the paper are openly available. The source code is hosted at
+All software, benchmark data, and study scripts are openly available. The source code is hosted at
 <https://github.com/ThHanke/ontosphere> and archived on Zenodo at
 <https://doi.org/10.5281/zenodo.19605270>. No proprietary or restricted data were used.
 The live application is deployed at <https://thhanke.github.io/ontosphere>.

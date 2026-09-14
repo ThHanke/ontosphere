@@ -54,9 +54,12 @@ docs/demo-keyframes/
 # OpenWebUI demo auth state — contains session tokens, never commit
 .playwright/owui-auth.json
 
-# Paper build artifacts (regenerable via scripts/build-paper-zip.sh)
+# Paper (rejected ISWC submission) — keep local, never commit
+paper/
+public/paper/
 ontosphere-iswc2026-paper.zip
-public/paper/lncs-splnproc.zip
+ontosphere-iswc2026-paper.pdf
+scripts/build-paper-zip.sh
 
 # Research workspace (paper drafts, study data) and orchestration state — local only
 _research_workspace/
