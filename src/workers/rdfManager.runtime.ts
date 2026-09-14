@@ -27,6 +27,7 @@ import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
 import { mipsToReasoningError, shaclViolationToEntry } from "./reasoningDiagnostics.ts";
 import { canonicalInferredHierarchy, type Edge } from "./canonicalHierarchy.ts";
 import { findCharacteristicViolations } from "./propertyCharacteristicGuard.ts";
+import { classifyEntailment } from "./entailmentVerdict.ts";
 import { RdfReasoner, type LaconicJustification, type LaconicPart, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
@@ -3387,14 +3388,22 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             );
           const termValue = (t: { value: string; termType?: string }) =>
             t.termType === "BlankNode" ? `_:${t.value}` : t.value;
+          // `isEntailed` is kept for existing consumers, but a bare boolean-or-null cannot
+          // say WHICH kind of "no" it is: a decided non-entailment under the open world
+          // assumption is a sound answer about the ontology, while an inconsistent ontology,
+          // a vacuous entailment or a reasoner failure are non-answers that a caller must
+          // not read as findings. `verdict` carries that distinction to MCP agents and the UI.
+          const answer = classifyEntailment({ isEntailed, ontologyInconsistent, vacuous, reason });
           result = {
             isEntailed,
+            verdict: answer.verdict,
+            ...(answer.undeterminedKind ? { undeterminedKind: answer.undeterminedKind } : {}),
             justifications: justifications.map((j) =>
               j.map((q) => ({ subject: termValue(q.subject), predicate: q.predicate.value, object: termValue(q.object) })),
             ),
             ...(ontologyInconsistent ? { ontologyInconsistent: true } : {}),
             ...(vacuous ? { vacuous: true } : {}),
-            ...(reason ? { reason } : {}),
+            ...(answer.reason ?? reason ? { reason: answer.reason ?? reason } : {}),
           };
           _entailmentCache.set(cacheKey, result);
           break;
