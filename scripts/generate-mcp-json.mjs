@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Regenerate public/.well-known/mcp.json from src/mcp/manifest.ts
 // Run: node scripts/generate-mcp-json.mjs
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
@@ -40,5 +40,6 @@ const out = {
 };
 
 const dest = resolve(root, 'public/.well-known/mcp.json');
+mkdirSync(dirname(dest), { recursive: true });
 writeFileSync(dest, JSON.stringify(out, null, 2) + '\n');
 console.log(`Written ${manifest.length} tools to public/.well-known/mcp.json`);
