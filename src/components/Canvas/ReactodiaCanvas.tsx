@@ -26,6 +26,7 @@ import { rdfLinkTemplateResolver } from '@/templates/RdfLinkTemplate';
 import { PrefixContext } from '@/providers/PrefixContext';
 import { generateEntityIri } from '@/utils/iriUtils';
 import ResizableNamespaceLegend from './ResizableNamespaceLegend';
+import { TrackpadZoomDampener } from './TrackpadZoomDampener';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { useShaclResultStore } from '@/stores/shaclResultStore';
@@ -2024,6 +2025,7 @@ export default function ReactodiaCanvas() {
                   </div>
                 </div>
               </Reactodia.ViewportDock>
+              <TrackpadZoomDampener />
             </Reactodia.DefaultWorkspace>
           </PrefixContext.Provider>
         </Reactodia.Workspace>
