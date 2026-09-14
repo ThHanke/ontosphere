@@ -27,7 +27,7 @@ import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
 import { mipsToReasoningError, shaclViolationToEntry } from "./reasoningDiagnostics.ts";
 import { canonicalInferredHierarchy, type Edge } from "./canonicalHierarchy.ts";
 import { findCharacteristicViolations } from "./propertyCharacteristicGuard.ts";
-import { classifyEntailment } from "./entailmentVerdict.ts";
+import { classifyEntailment, explainWithConfirmedNegative } from "./entailmentVerdict.ts";
 import { RdfReasoner, type LaconicJustification, type LaconicPart, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
@@ -276,19 +276,36 @@ class DlReasoner {
     vacuous?: boolean;
     reason?: string;
   }> {
-    return this._reasoner.explainEntailment(
-      reasoningBase(store),
-      subjectIri,
-      predicateIri,
-      objectIri,
-      { inferredGraph: INFERRED_GRAPH, justificationMode: 'causal', ...opts },
-    ) as Promise<{
+    // `causal` is the fast path: it reads the reasoner's dep-chain cache and answers in tens
+    // of milliseconds. When that cache does not carry the statement it reports
+    // `isEntailed: false` with no justifications -- the same answer it gives for a statement
+    // that genuinely is not entailed. Measured on A ⊑ B ⊑ C:
+    //
+    //   A ⊑ C (entailed)      causal  false, 0 justifications, 48 ms
+    //                         minimal true,  1 justification, 1392 ms
+    //   A ⊑ D (not entailed)  causal  false, 0 justifications, 35 ms
+    //                         minimal false, 0 justifications,  543 ms
+    //
+    // So a `false` from `causal` cannot be reported as a decided non-entailment: it is
+    // either that or a cache miss on something that does follow. Confirm every negative with
+    // `minimal`, which uses axiom removal and is exact. Positives keep the fast path.
+    const base = reasoningBase(store);
+    const options = { inferredGraph: INFERRED_GRAPH, ...opts };
+    type Result = {
       isEntailed: boolean | null;
       justifications: N3.Quad[][];
       ontologyInconsistent?: boolean;
       vacuous?: boolean;
       reason?: string;
-    }>;
+    };
+    return explainWithConfirmedNegative<Result>(
+      () => this._reasoner.explainEntailment(
+        base, subjectIri, predicateIri, objectIri, { ...options, justificationMode: 'causal' },
+      ) as Promise<Result>,
+      () => this._reasoner.explainEntailment(
+        base, subjectIri, predicateIri, objectIri, { ...options, justificationMode: 'minimal' },
+      ) as Promise<Result>,
+    );
   }
 
   terminate(): void {

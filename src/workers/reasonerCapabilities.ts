@@ -122,6 +122,21 @@ export const CAPABILITIES: readonly CapabilityFact[] = [
       "which would be a fabricated finding.",
   },
   {
+    subject: "explainEntailment in justificationMode 'causal' deciding non-entailment",
+    supported: false,
+    provenance: "observed",
+    established: "2026-09-14",
+    evidence:
+      "_diag/probe-explain3.mjs on A subClassOf B subClassOf C: the entailed A subClassOf C " +
+      "returns isEntailed false with no justifications in 48 ms, while justificationMode " +
+      "'minimal' returns true with a correct two-axiom justification in 1392 ms. A genuinely " +
+      "non-entailed statement returns false in both modes.",
+    consequence:
+      "A false from 'causal' is either a true negative or a cache miss on something that does " +
+      "follow, and the two are indistinguishable. DlReasoner confirms every negative with " +
+      "'minimal' before reporting it, so positives keep the fast path and negatives are exact.",
+  },
+  {
     subject: "W3C OWL 2 conformance suite",
     supported: false,
     provenance: "declared",

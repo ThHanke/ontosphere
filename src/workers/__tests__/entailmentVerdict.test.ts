@@ -4,8 +4,8 @@
 // and in particular the precedence, since an inconsistent ontology entails everything and a
 // vacuous entailment holds of nothing.
 
-import { describe, it, expect } from 'vitest';
-import { classifyEntailment, isDecided } from '../entailmentVerdict.ts';
+import { describe, it, expect, vi } from 'vitest';
+import { classifyEntailment, isDecided, explainWithConfirmedNegative } from '../entailmentVerdict.ts';
 import { CAPABILITIES, knownGaps, observedFacts, capabilityFor, tableAgeDays, TABLE_UPDATED } from '../reasonerCapabilities.ts';
 
 describe('classifyEntailment', () => {
@@ -100,5 +100,37 @@ describe('reasoner capability manifest', () => {
   it('reports its own age so the table is never presented as current', () => {
     expect(tableAgeDays(new Date(`${TABLE_UPDATED}T00:00:00Z`))).toBe(0);
     expect(tableAgeDays(new Date('2027-09-14T00:00:00Z'))).toBeGreaterThan(360);
+  });
+});
+
+describe('explainWithConfirmedNegative', () => {
+  it('trusts a positive from the fast oracle and does not ask the exact one', async () => {
+    const fast = vi.fn(async () => ({ isEntailed: true as const, tag: 'fast' }));
+    const exact = vi.fn(async () => ({ isEntailed: true as const, tag: 'exact' }));
+    const out = await explainWithConfirmedNegative(fast, exact);
+    expect(out.tag).toBe('fast');
+    expect(exact).not.toHaveBeenCalled();
+  });
+
+  it('THE POINT: a negative from the fast oracle is re-asked exactly', async () => {
+    // causal reports false on a cache miss, which is indistinguishable from a real negative.
+    const fast = vi.fn(async (): Promise<{ isEntailed: boolean | null; tag: string }> => ({ isEntailed: false, tag: 'fast' }));
+    const exact = vi.fn(async (): Promise<{ isEntailed: boolean | null; tag: string }> => ({ isEntailed: true, tag: 'exact' }));
+    const out = await explainWithConfirmedNegative(fast, exact);
+    expect(out.isEntailed, 'the missed entailment must be recovered').toBe(true);
+    expect(out.tag).toBe('exact');
+  });
+
+  it('a genuine negative survives confirmation', async () => {
+    const fast = vi.fn(async () => ({ isEntailed: false as const }));
+    const exact = vi.fn(async () => ({ isEntailed: false as const }));
+    expect((await explainWithConfirmedNegative(fast, exact)).isEntailed).toBe(false);
+    expect(exact).toHaveBeenCalledTimes(1);
+  });
+
+  it('null is treated as unconfirmed and re-asked', async () => {
+    const fast = vi.fn(async () => ({ isEntailed: null }));
+    const exact = vi.fn(async () => ({ isEntailed: true as const }));
+    expect((await explainWithConfirmedNegative(fast, exact)).isEntailed).toBe(true);
   });
 });
