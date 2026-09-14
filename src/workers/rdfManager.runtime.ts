@@ -152,6 +152,41 @@ function canonicalizeInferredHierarchyInStore(
   return { added, removed: delta.removed ?? [] };
 }
 
+/**
+ * Graphs that must never enter the reasoning base.
+ *
+ * urn:vg:inferred and urn:konclude:explanations hold the reasoner's OWN output from the
+ * previous run. Feeding them back makes a repeat run on an unchanged fixture dramatically
+ * slower for an identical result: on LUBM-1 (103 410 triples) a second call took 64.3 s
+ * against 7.9 s cold, and clearing these graphs first brought it back to 7.5 s. Entailment
+ * is monotone so the result never changed, the reasoner was simply re-deriving its own
+ * conclusions over a base inflated from 100 837 to 320 460 quads.
+ *
+ * urn:vg:shapes, urn:vg:provenance and urn:vg:workflows are SHACL shapes, the edit journal
+ * and UI state. They are not OWL axioms and must not be classified as if they were.
+ *
+ * v1.5.2 filtered the base at every Konclude entry point; the filter was dropped when
+ * reasoning moved to the rdf-reasoner-konclude package API and the whole shared store
+ * started being passed straight through.
+ */
+const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
+  INFERRED_GRAPH,
+  "urn:konclude:explanations",
+  "urn:vg:shapes",
+  "urn:vg:provenance",
+  "urn:vg:workflows",
+]);
+
+/** The asserted axioms only: everything except the graphs above. Exported for tests. */
+export function reasoningBase(store: N3.Store): N3.Store {
+  const base = new N3.Store();
+  for (const q of store.getQuads(null, null, null, null) as N3.Quad[]) {
+    const g = q.graph.termType === "DefaultGraph" ? "" : q.graph.value;
+    if (!NON_AXIOM_GRAPHS.has(g)) base.addQuad(q);
+  }
+  return base;
+}
+
 class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
@@ -164,21 +199,48 @@ class DlReasoner {
   }
 
   async reason(store: N3.Store): Promise<{ delta: InferenceDelta }> {
-    const result = (await this._reasoner.materialize(store, {
+    // Reason over a filtered copy, then publish the results into the caller's store.
+    // `explanations` is not requested: nothing in the app reads urn:konclude:explanations
+    // (entailment tooltips call explainEntailment instead), and it added thousands of
+    // quads per run that only had to be filtered out again on the next one.
+    const base = reasoningBase(store);
+    const result = (await this._reasoner.materialize(base, {
       includeClassHierarchy: true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
-      explanations: true,
     })) as { delta: InferenceDelta };
-    return { delta: canonicalizeInferredHierarchyInStore(store, result.delta) };
+    const delta = canonicalizeInferredHierarchyInStore(base, result.delta);
+
+    const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+    const produced = base.getQuads(null, null, null, inferredGraph) as N3.Quad[];
+
+    // RdfReasoner caches materialize() on a fingerprint of the store it is given, and on a
+    // cache hit it returns early WITHOUT repopulating the inferred graph (the package notes
+    // this is "acceptable for the current use-cases"). Because we now hand it a freshly
+    // filtered base, two runs over an unchanged base fingerprint identically and the second
+    // would hand back nothing. Publishing that would wipe a correct inferred graph.
+    //
+    // An unchanged base entails exactly what it entailed last time, so keeping what is
+    // already there is the correct response. In production this branch should not be
+    // reached, since resetDlReasoner() gives every run a reasoner with an empty cache, but
+    // correctness must not depend on that.
+    const cacheHitWithNothingWritten =
+      produced.length === 0 &&
+      (delta.added?.length ?? 0) === 0 &&
+      store.getQuads(null, null, null, inferredGraph).length > 0;
+    if (cacheHitWithNothingWritten) return { delta };
+
+    store.removeQuads(store.getQuads(null, null, null, inferredGraph));
+    for (const q of produced) store.addQuad(q);
+    return { delta };
   }
 
   validate(store: N3.Store): Promise<ValidationResult> {
-    return this._reasoner.validate(store) as Promise<ValidationResult>;
+    return this._reasoner.validate(reasoningBase(store)) as Promise<ValidationResult>;
   }
 
   explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
-    return this._reasoner.explainInconsistency(store, { maxJustifications, inferredGraph: INFERRED_GRAPH }) as Promise<N3.Quad[][]>;
+    return this._reasoner.explainInconsistency(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH }) as Promise<N3.Quad[][]>;
   }
 
   explainInconsistencyLaconic(
@@ -191,7 +253,7 @@ class DlReasoner {
     }>
   > {
     return (async () => {
-      const results = await this._reasoner.explainInconsistencyLaconic(store, { maxJustifications, inferredGraph: INFERRED_GRAPH });
+      const results = await this._reasoner.explainInconsistencyLaconic(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH });
       return (results as Array<{ justification: N3.Quad[]; laconic: LaconicJustification }>).map((r) => ({
         justification: r.justification as N3.Quad[],
         laconic: serializeLaconicJustification(r.laconic),
@@ -213,7 +275,7 @@ class DlReasoner {
     reason?: string;
   }> {
     return this._reasoner.explainEntailment(
-      store,
+      reasoningBase(store),
       subjectIri,
       predicateIri,
       objectIri,
