@@ -103,25 +103,124 @@
 
     const CHANNEL_NAME = 'ontosphere-relay-v1';
 
-    // ── SECURITY: opener-based trust ──────────────────────────────────────────
+    // ── SECURITY: origin allowlist ────────────────────────────────────────────
     // This popup grants graph READ/WRITE access (the full MCP toolset, including
     // queryGraph with INSERT/DELETE that can mutate or wipe the user's graph) to
-    // whatever window opens it. The trust anchor is the USER ACTION: the user
-    // deliberately dragged the bookmarklet to their AI chat tab, which then called
-    // window.open() to create this popup. We trust any origin that sends a valid
-    // vg-call, because only the bookmarklet (user-installed) can open this popup.
+    // whatever window drives it.
     //
-    // Defence in depth: we still reject the opaque "null" origin (sandboxed iframes)
-    // and the wildcard '*'. Same-origin and localhost are always accepted.
+    // It previously accepted EVERY concrete origin, on the reasoning that only the
+    // user-installed bookmarklet can open the popup, so the opener is the trust
+    // anchor. That is weaker than it looks: the popup is a normal window, and any
+    // page that obtains a handle to it can post to it. "The user installed a
+    // bookmarklet once" is not consent for an arbitrary origin to rewrite the graph.
+    //
+    // So: known AI platforms are allowed by default, the user can approve any other
+    // origin explicitly (remembered in localStorage), and an unapproved origin is
+    // never forwarded. The opaque "null" origin and the wildcard stay rejected
+    // outright and cannot be approved.
+
+    const DEFAULT_ALLOWED_ORIGINS = [
+      'https://chatgpt.com',
+      'https://chat.openai.com',
+      'https://claude.ai',
+      'https://gemini.google.com',
+      'https://fhgenie.fraunhofer.de',
+      'https://gpuserver1-sit.iwm.fraunhofer.de',
+    ];
+    const APPROVED_ORIGINS_KEY = 'ontosphere.relay.approvedOrigins';
+
+    function loadApprovedOrigins() {
+      try {
+        const raw = localStorage.getItem(APPROVED_ORIGINS_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        return Array.isArray(parsed) ? parsed.filter((o) => typeof o === 'string') : [];
+      } catch (_) {
+        return []; // private mode / blocked storage: fall back to defaults only
+      }
+    }
+
+    function approveOrigin(origin) {
+      const approved = loadApprovedOrigins();
+      if (!approved.includes(origin)) approved.push(origin);
+      try { localStorage.setItem(APPROVED_ORIGINS_KEY, JSON.stringify(approved)); } catch (_) { /* not fatal */ }
+    }
+
+    // Same-origin and loopback are always allowed: the app itself and local dev.
+    function isLocalOrigin(origin) {
+      if (origin === window.location.origin) return true;
+      try {
+        const h = new URL(origin).hostname;
+        return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1';
+      } catch (_) {
+        return false;
+      }
+    }
 
     // Pure, testable origin check. Returns true iff `origin` may drive the relay.
     function isOriginAllowed(origin) {
       if (typeof origin !== 'string' || origin === '' || origin === '*' || origin === 'null') {
         return false;
       }
-      // Any concrete origin is accepted — the popup can only be opened by the
-      // user-installed bookmarklet, so the opener itself is the trust anchor.
-      return true;
+      if (isLocalOrigin(origin)) return true;
+      if (DEFAULT_ALLOWED_ORIGINS.indexOf(origin) !== -1) return true;
+      return loadApprovedOrigins().indexOf(origin) !== -1;
+    }
+
+    // An origin that is merely unknown can be approved by the user; an opaque or
+    // wildcard origin can not, because there is no origin to bind the approval to.
+    function isApprovable(origin) {
+      return typeof origin === 'string' && origin !== '' && origin !== '*' && origin !== 'null';
+    }
+
+    // Ask the user whether an unknown origin may drive the relay. Approval is per
+    // origin and remembered; until it is given nothing from that origin is forwarded.
+    let pendingApprovalOrigin = null;
+    function promptOriginApproval(origin, pendingData) {
+      if (pendingApprovalOrigin === origin) return; // already asking about this one
+      pendingApprovalOrigin = origin;
+
+      const box = document.createElement('div');
+      box.style.cssText = 'margin:12px 0;padding:12px;border:2px solid #b45309;border-radius:6px;background:#fffbeb;color:#1f2937;font-size:13px';
+      const text = document.createElement('div');
+      text.style.cssText = 'margin-bottom:8px';
+      const strong = document.createElement('strong');
+      strong.textContent = 'Unrecognised origin';
+      text.appendChild(strong);
+      // textContent, never innerHTML: the origin is attacker-controlled input.
+      text.appendChild(document.createTextNode(' — '));
+      const code = document.createElement('code');
+      code.textContent = origin;
+      text.appendChild(code);
+      text.appendChild(document.createTextNode(
+        ' wants to read and modify your graph. Only allow this if you opened Ontosphere from that site.'));
+      box.appendChild(text);
+
+      const allow = document.createElement('button');
+      allow.textContent = 'Allow this site';
+      allow.style.cssText = 'margin-right:8px;padding:6px 10px;cursor:pointer';
+      const deny = document.createElement('button');
+      deny.textContent = 'Block';
+      deny.style.cssText = 'padding:6px 10px;cursor:pointer';
+      box.appendChild(allow);
+      box.appendChild(deny);
+
+      allow.addEventListener('click', function () {
+        approveOrigin(origin);
+        pendingApprovalOrigin = null;
+        box.remove();
+        // Replay the call that triggered the prompt so the user does not have to retry.
+        if (pendingData) {
+          window.postMessage(pendingData, window.location.origin);
+          if (!openerOrigin) openerOrigin = origin;
+          if (bc) { try { bc.postMessage(pendingData); } catch (_) { /* ignore */ } }
+        }
+      });
+      deny.addEventListener('click', function () {
+        pendingApprovalOrigin = null;
+        box.remove();
+      });
+
+      activity.parentNode.insertBefore(box, activity);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
@@ -245,6 +344,10 @@
       // the BroadcastChannel (which executes tools in the Ontosphere tab).
       if (!isOriginAllowed(evt.origin)) {
         console.warn('[relay] Rejected message from untrusted origin:', evt.origin);
+        // Unknown but concrete origins are offered to the user rather than silently
+        // dropped, so a legitimate platform we do not ship in the defaults still works
+        // with one explicit approval. The message is NOT forwarded until then.
+        if (isApprovable(evt.origin)) promptOriginApproval(evt.origin, evt.data);
         return;
       }
 

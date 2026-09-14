@@ -26,6 +26,7 @@ import { RDF_TYPE, RDFS_LABEL, SHACL } from "../constants/vocabularies.ts";
 import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
 import { mipsToReasoningError, shaclViolationToEntry } from "./reasoningDiagnostics.ts";
 import { canonicalInferredHierarchy, type Edge } from "./canonicalHierarchy.ts";
+import { findCharacteristicViolations } from "./propertyCharacteristicGuard.ts";
 import { RdfReasoner, type LaconicJustification, type LaconicPart, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
@@ -1174,10 +1175,119 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     source: "shacl";
   }
 
+  interface ShaclShapeTargets {
+    /** IRI of the node shape. */
+    shape: string;
+    /** How many focus nodes this shape selected from the validated data graph. */
+    targetCount: number;
+  }
+
   interface ShaclValidationResult {
     conforms: boolean;
     violations: ShaclViolation[];
     shapeCount: number;
+    /**
+     * Per-shape focus-node counts.
+     *
+     * `conforms: true` on its own is ambiguous: it covers both "every selected focus node
+     * satisfied the shape" and "the shape selected nothing, so nothing was checked."
+     * Reviewer 4 (comment 7) raised exactly this about the sentence "When only the asserted
+     * graph is validated, the shape is not applied", and the distinction carries the whole
+     * worked example -- before classification the semiconductor shape selects no focus node,
+     * after it selects one and the missing quality becomes visible. Reporting the counts
+     * makes that observable in the tool's output instead of only in prose.
+     */
+    shapeTargets: ShaclShapeTargets[];
+    /** Shapes that selected no focus node at all: checked nothing, vacuously conforming. */
+    untargetedShapeCount: number;
+  }
+
+  /**
+   * Count focus nodes per node shape, per SHACL section 2.1.3 target declarations:
+   * sh:targetNode, sh:targetClass (including subclasses, as sh:targetClass matches
+   * rdf:type/rdfs:subClassOf*), sh:targetSubjectsOf, sh:targetObjectsOf, and the implicit
+   * class target for a shape that is itself an rdfs:Class.
+   *
+   * Counted over the same data graph the validator sees (urn:vg:data + urn:vg:inferred), so
+   * the counts move with the entailment state exactly as the targeting does.
+   */
+  function countShapeTargets(
+    shapesQuads: readonly N3.Quad[],
+    dataQuads: readonly N3.Quad[],
+  ): ShaclShapeTargets[] {
+    const RDF_TYPE_IRI_LOCAL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+    const SUBCLASS_OF = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+    const SH = "http://www.w3.org/ns/shacl#";
+    const RDFS_CLASS = "http://www.w3.org/2000/01/rdf-schema#Class";
+
+    // data indexes
+    const typesOf = new Map<string, Set<string>>();      // instance -> asserted/inferred types
+    const subjectsOf = new Map<string, Set<string>>();   // predicate -> subjects
+    const objectsOf = new Map<string, Set<string>>();    // predicate -> object nodes
+    const subClassOf = new Map<string, Set<string>>();   // class -> direct superclasses
+    const add = (m: Map<string, Set<string>>, k: string, v: string) => {
+      let s = m.get(k);
+      if (!s) m.set(k, (s = new Set()));
+      s.add(v);
+    };
+    for (const q of dataQuads) {
+      const p = q.predicate.value;
+      add(subjectsOf, p, q.subject.value);
+      if (q.object.termType !== "Literal") add(objectsOf, p, q.object.value);
+      if (p === RDF_TYPE_IRI_LOCAL) add(typesOf, q.subject.value, q.object.value);
+      if (p === SUBCLASS_OF && q.object.termType === "NamedNode") add(subClassOf, q.subject.value, q.object.value);
+    }
+    // classes whose instances count as instances of `cls` (cls plus everything below it)
+    const descendantsOf = (cls: string): Set<string> => {
+      const out = new Set<string>([cls]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const [sub, supers] of subClassOf) {
+          if (out.has(sub)) continue;
+          for (const sup of supers) {
+            if (out.has(sup)) { out.add(sub); grew = true; break; }
+          }
+        }
+      }
+      return out;
+    };
+
+    // shape declarations
+    const shapeIris = new Set<string>();
+    const decl = new Map<string, { nodes: string[]; classes: string[]; subjOf: string[]; objOf: string[]; isClass: boolean }>();
+    const of = (iri: string) => {
+      let d = decl.get(iri);
+      if (!d) decl.set(iri, (d = { nodes: [], classes: [], subjOf: [], objOf: [], isClass: false }));
+      return d;
+    };
+    for (const q of shapesQuads) {
+      const s = q.subject.value, p = q.predicate.value, o = q.object.value;
+      if (p === RDF_TYPE_IRI_LOCAL && (o === `${SH}NodeShape` || o === `${SH}PropertyShape`)) shapeIris.add(s);
+      else if (p === `${SH}targetNode`) { shapeIris.add(s); of(s).nodes.push(o); }
+      else if (p === `${SH}targetClass`) { shapeIris.add(s); of(s).classes.push(o); }
+      else if (p === `${SH}targetSubjectsOf`) { shapeIris.add(s); of(s).subjOf.push(o); }
+      else if (p === `${SH}targetObjectsOf`) { shapeIris.add(s); of(s).objOf.push(o); }
+      else if (p === RDF_TYPE_IRI_LOCAL && o === RDFS_CLASS) of(s).isClass = true;
+    }
+
+    const out: ShaclShapeTargets[] = [];
+    for (const shape of shapeIris) {
+      const d = decl.get(shape) ?? { nodes: [], classes: [], subjOf: [], objOf: [], isClass: false };
+      const focus = new Set<string>(d.nodes);
+      const classTargets = [...d.classes, ...(d.isClass ? [shape] : [])];
+      for (const cls of classTargets) {
+        const matching = descendantsOf(cls);
+        for (const [inst, types] of typesOf) {
+          for (const t of types) if (matching.has(t)) { focus.add(inst); break; }
+        }
+      }
+      for (const p of d.subjOf) for (const s of subjectsOf.get(p) ?? []) focus.add(s);
+      for (const p of d.objOf) for (const o of objectsOf.get(p) ?? []) focus.add(o);
+      out.push({ shape, targetCount: focus.size });
+    }
+    out.sort((a, b) => a.shape.localeCompare(b.shape));
+    return out;
   }
 
   async function runShaclValidation(): Promise<ShaclValidationResult> {
@@ -1188,7 +1298,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const shapesGraph = DataFactory.namedNode("urn:vg:shapes");
     const shapesQuads = store.getQuads(null, null, null, shapesGraph) || [];
     if (shapesQuads.length === 0) {
-      return { conforms: true, violations: [], shapeCount: 0 };
+      return { conforms: true, violations: [], shapeCount: 0, shapeTargets: [], untargetedShapeCount: 0 };
     }
 
     const dataGraph = DataFactory.namedNode("urn:vg:data");
@@ -1197,6 +1307,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       ...(store.getQuads(null, null, null, dataGraph) || []),
       ...(store.getQuads(null, null, null, inferredGraph) || []),
     ];
+
+    // Focus-node counts over the same data the validator sees, so a conforming result can
+    // be told apart from a shape that simply selected nothing (Reviewer 4, comment 7).
+    const shapeTargets = countShapeTargets(shapesQuads as N3.Quad[], dataQuads as N3.Quad[]);
+    const untargetedShapeCount = shapeTargets.filter((t) => t.targetCount === 0).length;
 
     const [shaclMod, sparqlMod, dataModelMod, datasetMod] = await Promise.all([
       import("shacl-engine") as Promise<any>,
@@ -1246,6 +1361,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           sourceShape: null, constraint: null, source: "shacl" as const,
         }],
         shapeCount,
+        shapeTargets,
+        untargetedShapeCount,
       };
     }
 
@@ -1285,7 +1402,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       };
     }).filter((v: ShaclViolation) => !v.focusNode || dataSubjects.has(v.focusNode));
 
-    return { conforms: report.conforms, violations, shapeCount };
+    return { conforms: report.conforms, violations, shapeCount, shapeTargets, untargetedShapeCount };
   }
 
   function collectGraphCountsFromStore(store: any): Record<string, number> {
@@ -1643,7 +1760,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   function normalizeExportFormat(format?: string) {
     const raw = typeof format === "string" ? format.toLowerCase().trim() : "";
     if (raw === "application/ld+json" || raw === "ld+json" || raw === "jsonld" || raw === "json-ld") {
-      return { writerFormat: "application/ld+json", mediaType: "application/ld+json", dropGraph: true, dataset: false };
+      // JSON-LD 1.1 CAN represent named graphs (a node object with @graph), so this is a
+      // dataset format like N-Quads and TriG. It was previously flattened into the default
+      // graph, which silently lost the asserted/inferred partition on export and made an
+      // exported record indistinguishable from its own entailments.
+      return { writerFormat: "application/ld+json", mediaType: "application/ld+json", dropGraph: false, dataset: true };
     }
     if (raw === "application/rdf+xml" || raw === "rdfxml" || raw === "rdf+xml" || raw === "rdf-xml") {
       return { writerFormat: "application/rdf+xml", mediaType: "application/rdf+xml", dropGraph: true, dataset: false };
@@ -2333,8 +2454,20 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
           if (formatInfo.mediaType === "application/ld+json") {
             // N3.js Writer does not support JSON-LD — build expanded JSON-LD manually.
-            const nodeMap = new Map<string, Record<string, any[]>>();
+            // Quads are grouped by graph first: default-graph nodes stay at the top level,
+            // and each named graph becomes a { "@id": <graph>, "@graph": [...] } node object,
+            // which is how JSON-LD 1.1 expresses a dataset. Without this the urn:vg:*
+            // partition is lost and an exported record cannot be told apart from the
+            // statements that were inferred from it.
+            const byGraph = new Map<string, Map<string, Record<string, any[]>>>();
+            const nodeMapFor = (graphId: string) => {
+              let m = byGraph.get(graphId);
+              if (!m) byGraph.set(graphId, (m = new Map()));
+              return m;
+            };
             for (const q of toWrite) {
+              const graphId = q.graph.termType === "DefaultGraph" ? "" : q.graph.value;
+              const nodeMap = nodeMapFor(graphId);
               const subjId =
                 q.subject.termType === "BlankNode"
                   ? `_:${q.subject.value}`
@@ -2360,7 +2493,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                 node[predId].push(lit);
               }
             }
-            output = JSON.stringify(Array.from(nodeMap.values()), null, 2);
+            const jsonldOut: any[] = [];
+            for (const n of byGraph.get("")?.values() ?? []) jsonldOut.push(n);
+            for (const [graphId, nodeMap] of byGraph) {
+              if (graphId === "") continue;
+              jsonldOut.push({ "@id": graphId, "@graph": Array.from(nodeMap.values()) });
+            }
+            output = JSON.stringify(jsonldOut, null, 2);
           } else if (formatInfo.mediaType === "application/rdf+xml") {
             // N3.js Writer does not support RDF/XML — build it manually.
             const xe = (s: string) =>
@@ -3343,7 +3482,28 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         debugLog("[VG_REASONING_WORKER] Konclude input quads:", kQuadCount);
         reasoningStage({ type: "reasoningStage", id: msg.id, stage: "consistency-check", meta: { backend: 'konclude' } });
         const kStart = Date.now();
-        const kConsistencyResult = (await konclude.validate(kStore)).consistent;
+
+        // Konclude does not enforce every property characteristic: an asymmetric property
+        // asserted of an individual and itself is reported consistent although the graph
+        // has no model (see propertyCharacteristicGuard.ts for the measurement). Because
+        // this check is the gate that decides whether entailments are materialised and
+        // validation may proceed, the gap is closed before asking the reasoner.
+        const guardViolations = findCharacteristicViolations(
+          reasoningBase(kStore as N3.Store).getQuads(null, null, null, null) as N3.Quad[],
+        );
+        const kConsistencyResult =
+          guardViolations.length === 0 && (await konclude.validate(kStore)).consistent;
+        if (guardViolations.length > 0) {
+          debugLog("[VG_REASONING_WORKER] property-characteristic violations:", guardViolations.length);
+          for (const v of guardViolations) {
+            kMipsErrors.push({
+              rule: `owl:${v.characteristic}`,
+              severity: "error",
+              message: v.message,
+              nodeId: v.subject,
+            });
+          }
+        }
         if (kConsistencyResult) {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-start", meta: { backend: 'konclude' } });
           const result = await konclude.reason(kStore);
