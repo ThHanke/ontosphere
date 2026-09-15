@@ -159,6 +159,13 @@ export interface RepairSuggestion {
    */
   verifiedConsistent?: boolean;
   /**
+   * Set when explainDiagnostics runs with `assessGuardCost`: what removing this axiom costs
+   * in declared class-disjointness guards. `restores-consistency-with-collateral` marks a
+   * repair that restores consistency by deleting a constraint the ontology used to reject
+   * modelling errors with.
+   */
+  guardImpact?: import('../../workers/repairImpact.ts').RepairImpact;
+  /**
    * Set by the caller after symbolic verification of the FULL hitting set
    * (all inconsistency repairs removed together): true when removing every
    * inconsistency repair's axiom at once restores global consistency. This is
@@ -1003,7 +1010,8 @@ export async function verifyDeletionSetMinimality(
     for (const idx of combinations(n, k)) {
       const subset = idx.map((i) => items[i]);
       checksPerformed += 1;
-      // eslint-disable-next-line no-await-in-loop -- deterministic smallest-first search
+      // Sequential by design: deterministic smallest-first search, each check depends
+      // on the previous result, so the awaits cannot be parallelised.
       const consistent = await check(subset);
       if (consistent) {
         return {

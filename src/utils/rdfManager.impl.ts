@@ -785,13 +785,22 @@ export class RDFManagerImpl {
     };
   }
 
-  async runShaclValidation(): Promise<{ conforms: boolean; violations: ShaclViolation[]; shapeCount: number }> {
+  async runShaclValidation(): Promise<{
+    conforms: boolean;
+    violations: ShaclViolation[];
+    shapeCount: number;
+    /** Focus nodes selected per shape; a shape with 0 checked nothing. */
+    shapeTargets: { shape: string; targetCount: number }[];
+    untargetedShapeCount: number;
+  }> {
     const response = await this.worker.call("runShaclValidation", undefined);
     const safe = isPlainObject(response) ? response : {};
     return {
       conforms: typeof safe.conforms === "boolean" ? safe.conforms : true,
       violations: Array.isArray(safe.violations) ? safe.violations : [],
       shapeCount: typeof safe.shapeCount === "number" ? safe.shapeCount : 0,
+      shapeTargets: Array.isArray(safe.shapeTargets) ? safe.shapeTargets : [],
+      untargetedShapeCount: typeof safe.untargetedShapeCount === "number" ? safe.untargetedShapeCount : 0,
     };
   }
 
@@ -1025,13 +1034,19 @@ export class RDFManagerImpl {
    */
   async verifyRepairDetailed(
     removals: VerifyRepairRemoval[],
+    options: { measureGuards?: boolean } = {},
   ): Promise<{
     verifiedConsistent: boolean;
     removedCount: number;
     requestedCount: number;
     matchedCount: number;
+    /** Present when `measureGuards` was requested: the repair's cost in disjointness guards. */
+    guardImpact?: import("../workers/repairImpact.ts").RepairImpact;
   }> {
-    const response = await this.worker.call("verifyRepair", { removals });
+    const response = await this.worker.call("verifyRepair", {
+      removals,
+      ...(options.measureGuards ? { measureGuards: true } : {}),
+    });
     const safe = (isPlainObject(response) ? response : {}) as Record<string, unknown>;
     const num = (v: unknown): number => (typeof v === "number" ? v : 0);
     return {
@@ -1039,6 +1054,9 @@ export class RDFManagerImpl {
       removedCount: num(safe.removedCount),
       requestedCount: num(safe.requestedCount),
       matchedCount: num(safe.matchedCount),
+      ...(isPlainObject(safe.guardImpact)
+        ? { guardImpact: safe.guardImpact as unknown as import("../workers/repairImpact.ts").RepairImpact }
+        : {}),
     };
   }
 

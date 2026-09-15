@@ -25,6 +25,11 @@ import { ensureDefaultNamespaceMap } from "../constants/namespaces.ts";
 import { RDF_TYPE, RDFS_LABEL, SHACL } from "../constants/vocabularies.ts";
 import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
 import { mipsToReasoningError, shaclViolationToEntry } from "./reasoningDiagnostics.ts";
+import { canonicalInferredHierarchy, type Edge } from "./canonicalHierarchy.ts";
+import { findCharacteristicViolations } from "./propertyCharacteristicGuard.ts";
+import { classifyEntailment, explainWithConfirmedNegative } from "./entailmentVerdict.ts";
+import { declaredDisjointPairs, buildProbeTriples, interpretProbeResults, type GuardVerdict } from "./guardSets.ts";
+import { assessRepairImpact, type RepairImpact } from "./repairImpact.ts";
 import { RdfReasoner, type LaconicJustification, type LaconicPart, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
@@ -52,15 +57,17 @@ type SerializedLaconicJustification = {
 };
 
 function serializeLaconicJustification(lj: LaconicJustification): SerializedLaconicJustification {
+  // Blank nodes are named as the store names them (urn:vg:bnode:*), so parts match stored axioms.
+  const str = (t: N3.Term) => reskolemize(t).value;
   return {
     parts: lj.parts.map((p: LaconicPart) => ({
-      subject: p.quad.subject.value,
+      subject: str(p.quad.subject as N3.Term),
       predicate: p.quad.predicate.value,
-      object: p.quad.object.value,
+      object: str(p.quad.object as N3.Term),
       ...(p.quad.object.termType === "Literal" ? { objectIsLiteral: true } : {}),
-      sourceSubject: p.sourceQuad.subject.value,
+      sourceSubject: str(p.sourceQuad.subject as N3.Term),
       sourcePredicate: p.sourceQuad.predicate.value,
-      sourceObject: p.sourceQuad.object.value,
+      sourceObject: str(p.sourceQuad.object as N3.Term),
       isPartOf: p.isPartOf,
     })),
     sharpened: lj.sharpened,
@@ -79,6 +86,153 @@ const INFERRED_GRAPH = KONCLUDE_INFERRED_GRAPH_IRI;
 // ---------------------------------------------------------------------------
 
 
+const RDFS_SUBCLASS_OF = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+
+/**
+ * Replace the materialised named-class subsumption edges with THE canonical transitive
+ * reduction of the same hierarchy, in both the store and the returned delta.
+ *
+ * Konclude reports a transitive reduction of the inferred class hierarchy, but not a
+ * canonical one: across independent cold sessions on a byte-identical reasoning base it
+ * emits different subsets of the redundant edges. Measured on PMDco @3b98aad + the Fe-Si
+ * record, ten cold sessions produced 380-389 inferred triples and 59 differing statements,
+ * every one an rdfs:subClassOf between named classes, while the transitive closure was
+ * identical (8246 statements) in all runs. Left alone that makes materialised output,
+ * published triple counts and session-to-session diffs irreproducible.
+ *
+ * Only named-class subClassOf is touched. Blank-node class expressions, rdf:type and every
+ * other materialised predicate pass through unchanged — the variance was confined to named
+ * subsumption, and rewriting more than that would change what the reasoner actually said.
+ */
+function canonicalizeInferredHierarchyInStore(
+  store: N3.Store,
+  delta: InferenceDelta,
+): InferenceDelta {
+  const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+  type TermLike = { termType: string; value: string };
+  const isNamedSubClassOf = (q: { subject: TermLike; predicate: TermLike; object: TermLike }) =>
+    q.predicate.value === RDFS_SUBCLASS_OF &&
+    q.subject.termType === "NamedNode" &&
+    q.object.termType === "NamedNode";
+
+  const inferredQuads = store.getQuads(null, null, null, inferredGraph) as N3.Quad[];
+  const inferredEdges: Edge[] = inferredQuads.filter(isNamedSubClassOf).map((q) => [q.subject.value, q.object.value]);
+  if (inferredEdges.length === 0) return delta;
+
+  // Asserted edges are everything outside the inferred graph — the reduction must be taken
+  // over the WHOLE hierarchy, or edges implied by asserted axioms would survive as noise.
+  const assertedEdges: Edge[] = (store.getQuads(null, N3.DataFactory.namedNode(RDFS_SUBCLASS_OF), null, null) as N3.Quad[])
+    .filter((q) => q.graph.value !== INFERRED_GRAPH && isNamedSubClassOf(q))
+    .map((q) => [q.subject.value, q.object.value]);
+
+  const canonical = canonicalInferredHierarchy(assertedEdges, inferredEdges);
+  const canonicalKeys = new Set(canonical.map(([a, b]) => `${a} ${b}`));
+  const wasReported = new Set(inferredEdges.map(([a, b]) => `${a} ${b}`));
+
+  // Rewrite the inferred graph: drop every reported named subsumption, add the canonical set.
+  store.removeQuads(inferredQuads.filter(isNamedSubClassOf));
+  for (const [a, b] of canonical) {
+    store.addQuad(
+      N3.DataFactory.quad(
+        N3.DataFactory.namedNode(a),
+        N3.DataFactory.namedNode(RDFS_SUBCLASS_OF),
+        N3.DataFactory.namedNode(b),
+        inferredGraph,
+      ),
+    );
+  }
+
+  // The delta drives the shared-store write-back, so it has to agree with the graph.
+  const added = (delta.added ?? []).filter((q) => !isNamedSubClassOf(q) || canonicalKeys.has(`${q.subject.value} ${q.object.value}`));
+  for (const [a, b] of canonical) {
+    if (wasReported.has(`${a} ${b}`)) continue; // already in delta.added
+    added.push(
+      N3.DataFactory.quad(
+        N3.DataFactory.namedNode(a),
+        N3.DataFactory.namedNode(RDFS_SUBCLASS_OF),
+        N3.DataFactory.namedNode(b),
+        inferredGraph,
+      ) as unknown as Quad,
+    );
+  }
+  return { added, removed: delta.removed ?? [] };
+}
+
+/**
+ * Graphs that must never enter the reasoning base.
+ *
+ * urn:vg:inferred and urn:konclude:explanations hold the reasoner's OWN output from the
+ * previous run. Feeding them back makes a repeat run on an unchanged fixture dramatically
+ * slower for an identical result: on LUBM-1 (103 410 triples) a second call took 64.3 s
+ * against 7.9 s cold, and clearing these graphs first brought it back to 7.5 s. Entailment
+ * is monotone so the result never changed, the reasoner was simply re-deriving its own
+ * conclusions over a base inflated from 100 837 to 320 460 quads.
+ *
+ * urn:vg:shapes, urn:vg:provenance and urn:vg:workflows are SHACL shapes, the edit journal
+ * and UI state. They are not OWL axioms and must not be classified as if they were.
+ *
+ * v1.5.2 filtered the base at every Konclude entry point; the filter was dropped when
+ * reasoning moved to the rdf-reasoner-konclude package API and the whole shared store
+ * started being passed straight through.
+ */
+const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
+  INFERRED_GRAPH,
+  "urn:konclude:explanations",
+  "urn:vg:shapes",
+  "urn:vg:provenance",
+  "urn:vg:workflows",
+]);
+
+const SKOLEM_PREFIX = "urn:vg:bnode:";
+
+function deskolemize(t: N3.Term): N3.Term {
+  return t.termType === "NamedNode" && t.value.startsWith(SKOLEM_PREFIX)
+    ? N3.DataFactory.blankNode(t.value.slice(SKOLEM_PREFIX.length))
+    : t;
+}
+
+function reskolemize(t: N3.Term): N3.Term {
+  return t.termType === "BlankNode" ? N3.DataFactory.namedNode(`${SKOLEM_PREFIX}${t.value}`) : t;
+}
+
+/** Reasoner output back into the store's skolemized form, so it matches what is stored. Exported for tests. */
+export function reskolemizeQuad(q: N3.Quad): N3.Quad {
+  if (q.subject.termType !== "BlankNode" && q.object.termType !== "BlankNode") return q;
+  return N3.DataFactory.quad(
+    reskolemize(q.subject) as N3.Quad_Subject, q.predicate, reskolemize(q.object) as N3.Quad_Object, q.graph,
+  );
+}
+
+const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
+  (quads ?? []).map((q) => reskolemizeQuad(q as N3.Quad));
+
+/**
+ * The asserted axioms only: everything except the graphs above, with blank nodes restored.
+ *
+ * The store keeps blank nodes skolemized as `urn:vg:bnode:*` IRIs. Handed to the reasoner in
+ * that form, every class expression built from blank nodes (restrictions, intersections, RDF
+ * lists) becomes an unrelated named resource and nothing it defines is inferred:
+ * `CFRP a Composite ; hasConstituent CarbonFiber` no longer classifies CFRP under
+ * `FiberReinforced ≡ Composite ⊓ ∃hasConstituent.Fiber`. v1.5.2 de-skolemized at every
+ * reasoner entry point; like the graph filter, that step was lost in the move to the package
+ * API. Exported for tests.
+ */
+export function reasoningBase(store: N3.Store): N3.Store {
+  const base = new N3.Store();
+  for (const q of store.getQuads(null, null, null, null) as N3.Quad[]) {
+    const g = q.graph.termType === "DefaultGraph" ? "" : q.graph.value;
+    if (NON_AXIOM_GRAPHS.has(g)) continue;
+    const s = deskolemize(q.subject);
+    const o = deskolemize(q.object);
+    base.addQuad(
+      s === q.subject && o === q.object
+        ? q
+        : N3.DataFactory.quad(s as N3.Quad_Subject, q.predicate, o as N3.Quad_Object, q.graph),
+    );
+  }
+  return base;
+}
+
 class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
@@ -90,21 +244,63 @@ class DlReasoner {
     this.ready = this._reasoner.ready;
   }
 
-  reason(store: N3.Store): Promise<{ delta: InferenceDelta }> {
-    return this._reasoner.materialize(store, {
+  async reason(store: N3.Store): Promise<{ delta: InferenceDelta }> {
+    // Reason over a filtered copy, then publish the results into the caller's store.
+    // `explanations` is not requested: nothing in the app reads urn:konclude:explanations
+    // (entailment tooltips call explainEntailment instead), and it added thousands of
+    // quads per run that only had to be filtered out again on the next one.
+    const base = reasoningBase(store);
+    const result = (await this._reasoner.materialize(base, {
       includeClassHierarchy: true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
-      explanations: true,
-    }) as Promise<{ delta: InferenceDelta }>;
+    })) as { delta: InferenceDelta };
+    const canonical = canonicalizeInferredHierarchyInStore(base, result.delta);
+    const delta = { added: reskolemizeAll(canonical.added), removed: reskolemizeAll(canonical.removed) } as InferenceDelta;
+
+    const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+    const produced = reskolemizeAll(base.getQuads(null, null, null, inferredGraph));
+
+    // RdfReasoner caches materialize() on a fingerprint of the store it is given, and on a
+    // cache hit it returns early WITHOUT repopulating the inferred graph (the package notes
+    // this is "acceptable for the current use-cases"). Because we now hand it a freshly
+    // filtered base, two runs over an unchanged base fingerprint identically and the second
+    // would hand back nothing. Publishing that would wipe a correct inferred graph.
+    //
+    // An unchanged base entails exactly what it entailed last time, so keeping what is
+    // already there is the correct response. In production this branch should not be
+    // reached, since resetDlReasoner() gives every run a reasoner with an empty cache, but
+    // correctness must not depend on that.
+    const cacheHitWithNothingWritten =
+      produced.length === 0 &&
+      (delta.added?.length ?? 0) === 0 &&
+      store.getQuads(null, null, null, inferredGraph).length > 0;
+    if (cacheHitWithNothingWritten) return { delta };
+
+    store.removeQuads(store.getQuads(null, null, null, inferredGraph));
+    for (const q of produced) store.addQuad(q);
+    return { delta };
   }
 
-  validate(store: N3.Store): Promise<ValidationResult> {
-    return this._reasoner.validate(store) as Promise<ValidationResult>;
+  /**
+   * Consistency only. On PMDco + the Fe-Si record this answers in 4.3-5.0 s where validate()
+   * takes 8.4-8.5 s for the same verdict, because validate() also collects justifications and
+   * unsatisfiable-class warnings. Use it wherever only the verdict is read.
+   */
+  checkConsistency(store: N3.Store): Promise<boolean> {
+    return this._reasoner.checkConsistency(reasoningBase(store));
   }
 
-  explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
-    return this._reasoner.explainInconsistency(store, { maxJustifications, inferredGraph: INFERRED_GRAPH }) as Promise<N3.Quad[][]>;
+  async validate(store: N3.Store): Promise<ValidationResult> {
+    const result = (await this._reasoner.validate(reasoningBase(store))) as ValidationResult;
+    return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
+  }
+
+  async explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
+    const mips = (await this._reasoner.explainInconsistency(reasoningBase(store), {
+      maxJustifications, inferredGraph: INFERRED_GRAPH,
+    })) as N3.Quad[][];
+    return mips.map((j) => reskolemizeAll(j));
   }
 
   explainInconsistencyLaconic(
@@ -117,15 +313,15 @@ class DlReasoner {
     }>
   > {
     return (async () => {
-      const results = await this._reasoner.explainInconsistencyLaconic(store, { maxJustifications, inferredGraph: INFERRED_GRAPH });
+      const results = await this._reasoner.explainInconsistencyLaconic(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH });
       return (results as Array<{ justification: N3.Quad[]; laconic: LaconicJustification }>).map((r) => ({
-        justification: r.justification as N3.Quad[],
+        justification: reskolemizeAll(r.justification),
         laconic: serializeLaconicJustification(r.laconic),
       }));
     })();
   }
 
-  explainEntailment(
+  async explainEntailment(
     store: N3.Store,
     subjectIri: string,
     predicateIri: string,
@@ -138,19 +334,37 @@ class DlReasoner {
     vacuous?: boolean;
     reason?: string;
   }> {
-    return this._reasoner.explainEntailment(
-      store,
-      subjectIri,
-      predicateIri,
-      objectIri,
-      { inferredGraph: INFERRED_GRAPH, justificationMode: 'causal', ...opts },
-    ) as Promise<{
+    // `causal` is the fast path: it reads the reasoner's dep-chain cache and answers in tens
+    // of milliseconds. When that cache does not carry the statement it reports
+    // `isEntailed: false` with no justifications -- the same answer it gives for a statement
+    // that genuinely is not entailed. Measured on A ⊑ B ⊑ C:
+    //
+    //   A ⊑ C (entailed)      causal  false, 0 justifications, 48 ms
+    //                         minimal true,  1 justification, 1392 ms
+    //   A ⊑ D (not entailed)  causal  false, 0 justifications, 35 ms
+    //                         minimal false, 0 justifications,  543 ms
+    //
+    // So a `false` from `causal` cannot be reported as a decided non-entailment: it is
+    // either that or a cache miss on something that does follow. Confirm every negative with
+    // `minimal`, which uses axiom removal and is exact. Positives keep the fast path.
+    const base = reasoningBase(store);
+    const options = { inferredGraph: INFERRED_GRAPH, ...opts };
+    type Result = {
       isEntailed: boolean | null;
       justifications: N3.Quad[][];
       ontologyInconsistent?: boolean;
       vacuous?: boolean;
       reason?: string;
-    }>;
+    };
+    const result = await explainWithConfirmedNegative<Result>(
+      () => this._reasoner.explainEntailment(
+        base, subjectIri, predicateIri, objectIri, { ...options, justificationMode: 'causal' },
+      ) as Promise<Result>,
+      () => this._reasoner.explainEntailment(
+        base, subjectIri, predicateIri, objectIri, { ...options, justificationMode: 'minimal' },
+      ) as Promise<Result>,
+    );
+    return { ...result, justifications: (result.justifications ?? []).map((j) => reskolemizeAll(j)) };
   }
 
   terminate(): void {
@@ -171,6 +385,8 @@ let _cachedQueryEngine: QueryEngine | null = null;
 export interface DlReasonerLike {
   readonly ready: Promise<void>;
   reason(store: N3.Store): Promise<{ delta: InferenceDelta }>;
+  /** Consistency verdict only; optional so test adapters may provide validate() alone. */
+  checkConsistency?(store: N3.Store): Promise<boolean>;
   validate(store: N3.Store): Promise<ValidationResult>;
   explainInconsistency(store: N3.Store, maxJustifications?: number): Promise<N3.Quad[][]>;
   /**
@@ -525,6 +741,19 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     return resetSharedStore({ restore: true });
   }
 
+  // Reasoner use is serialised. The reasoner's terminate() rejects every pending call, and a
+  // reasoning run recycles the reasoner when it starts, so an overlapping run, or a graph removal
+  // that resets the reasoner, would kill whatever call is in flight ("Worker terminated").
+  const REASONER_COMMANDS: ReadonlySet<string> = new Set([
+    "runReasoning", "explainInconsistency", "validate", "verifyRepair", "explainEntailment",
+  ]);
+  let reasonerQueue: Promise<unknown> = Promise.resolve();
+  function withReasoner<T>(fn: () => Promise<T>): Promise<T> {
+    const next = reasonerQueue.then(fn, fn);
+    reasonerQueue = next.then(() => undefined, () => undefined);
+    return next;
+  }
+
   function handleInbound(incoming: unknown) {
     if (!incoming) return;
 
@@ -537,17 +766,19 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
     switch (incoming.type) {
       case "command":
-        void handleCommand(incoming);
+        void (REASONER_COMMANDS.has(incoming.command)
+          ? withReasoner(() => handleCommand(incoming))
+          : handleCommand(incoming));
         return;
       case "runReasoning": {
         const hasExternalQuads = Array.isArray(incoming.quads) && incoming.quads.length > 0;
-        handleRunReasoning(incoming, {
+        withReasoner(() => handleRunReasoning(incoming, {
           mutateSharedStore: !hasExternalQuads,
           includeAdded: hasExternalQuads,
           emitSubjects: !hasExternalQuads,
           emitChange: !hasExternalQuads,
           emitResultEvent: false,
-        })
+        }))
           .then((result) => {
             post(result);
           })
@@ -1038,10 +1269,131 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     source: "shacl";
   }
 
+  interface ShaclShapeTargets {
+    /** IRI of the node shape. */
+    shape: string;
+    /** How many focus nodes this shape selected from the validated data graph. */
+    targetCount: number;
+  }
+
   interface ShaclValidationResult {
     conforms: boolean;
     violations: ShaclViolation[];
     shapeCount: number;
+    /**
+     * Per-shape focus-node counts.
+     *
+     * `conforms: true` on its own is ambiguous: it covers both "every selected focus node
+     * satisfied the shape" and "the shape selected nothing, so nothing was checked."
+     * Reviewer 4 (comment 7) raised exactly this about the sentence "When only the asserted
+     * graph is validated, the shape is not applied", and the distinction carries the whole
+     * worked example -- before classification the semiconductor shape selects no focus node,
+     * after it selects one and the missing quality becomes visible. Reporting the counts
+     * makes that observable in the tool's output instead of only in prose.
+     */
+    shapeTargets: ShaclShapeTargets[];
+    /** Shapes that selected no focus node at all: checked nothing, vacuously conforming. */
+    untargetedShapeCount: number;
+  }
+
+  /**
+   * Count focus nodes per node shape, per SHACL section 2.1.3 target declarations:
+   * sh:targetNode, sh:targetClass (including subclasses, as sh:targetClass matches
+   * rdf:type/rdfs:subClassOf*), sh:targetSubjectsOf, sh:targetObjectsOf, and the implicit
+   * class target for a shape that is itself an rdfs:Class.
+   *
+   * Counted over the same data graph the validator sees (urn:vg:data + urn:vg:inferred), so
+   * the counts move with the entailment state exactly as the targeting does.
+   */
+  function countShapeTargets(
+    shapesQuads: readonly N3.Quad[],
+    dataQuads: readonly N3.Quad[],
+  ): ShaclShapeTargets[] {
+    const RDF_TYPE_IRI_LOCAL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+    const SUBCLASS_OF = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+    const SH = "http://www.w3.org/ns/shacl#";
+    const RDFS_CLASS = "http://www.w3.org/2000/01/rdf-schema#Class";
+
+    // data indexes
+    const typesOf = new Map<string, Set<string>>();      // instance -> asserted/inferred types
+    const subjectsOf = new Map<string, Set<string>>();   // predicate -> subjects
+    const objectsOf = new Map<string, Set<string>>();    // predicate -> object nodes
+    const subClassOf = new Map<string, Set<string>>();   // class -> direct superclasses
+    const add = (m: Map<string, Set<string>>, k: string, v: string) => {
+      let s = m.get(k);
+      if (!s) m.set(k, (s = new Set()));
+      s.add(v);
+    };
+    for (const q of dataQuads) {
+      const p = q.predicate.value;
+      add(subjectsOf, p, q.subject.value);
+      if (q.object.termType !== "Literal") add(objectsOf, p, q.object.value);
+      if (p === RDF_TYPE_IRI_LOCAL) add(typesOf, q.subject.value, q.object.value);
+      if (p === SUBCLASS_OF && q.object.termType === "NamedNode") add(subClassOf, q.subject.value, q.object.value);
+    }
+    // classes whose instances count as instances of `cls` (cls plus everything below it)
+    const descendantsOf = (cls: string): Set<string> => {
+      const out = new Set<string>([cls]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const [sub, supers] of subClassOf) {
+          if (out.has(sub)) continue;
+          for (const sup of supers) {
+            if (out.has(sup)) { out.add(sub); grew = true; break; }
+          }
+        }
+      }
+      return out;
+    };
+
+    // shape declarations
+    const shapeIris = new Set<string>();
+    const referenced = new Set<string>();
+    const SHAPE_REFERENCES = new Set([
+      `${SH}property`, `${SH}node`, `${SH}not`, `${SH}qualifiedValueShape`,
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#first",
+    ]);
+    const decl =new Map<string, { nodes: string[]; classes: string[]; subjOf: string[]; objOf: string[]; isClass: boolean }>();
+    const of = (iri: string) => {
+      let d = decl.get(iri);
+      if (!d) decl.set(iri, (d = { nodes: [], classes: [], subjOf: [], objOf: [], isClass: false }));
+      return d;
+    };
+    for (const q of shapesQuads) {
+      const s = q.subject.value, p = q.predicate.value, o = q.object.value;
+      if (p === RDF_TYPE_IRI_LOCAL && (o === `${SH}NodeShape` || o === `${SH}PropertyShape`)) shapeIris.add(s);
+      else if (p === `${SH}targetNode`) { shapeIris.add(s); of(s).nodes.push(o); }
+      else if (p === `${SH}targetClass`) { shapeIris.add(s); of(s).classes.push(o); }
+      else if (p === `${SH}targetSubjectsOf`) { shapeIris.add(s); of(s).subjOf.push(o); }
+      else if (p === `${SH}targetObjectsOf`) { shapeIris.add(s); of(s).objOf.push(o); }
+      else if (p === RDF_TYPE_IRI_LOCAL && o === RDFS_CLASS) of(s).isClass = true;
+      // ponytail: rdf:first over-approximates sh:and/sh:or/sh:xone membership; non-shape
+      // list items (sh:in values, ignored properties) never enter shapeIris, so it is harmless.
+      if (SHAPE_REFERENCES.has(p)) referenced.add(o);
+    }
+
+    const out: ShaclShapeTargets[] = [];
+    for (const shape of shapeIris) {
+      const d = decl.get(shape) ?? { nodes: [], classes: [], subjOf: [], objOf: [], isClass: false };
+      const hasOwnTarget = d.isClass || d.nodes.length + d.classes.length + d.subjOf.length + d.objOf.length > 0;
+      // A shape reached only through another shape (sh:property, sh:node, ...) is checked on
+      // its parent's focus nodes, so counting it as untargeted would report it as inert.
+      if (!hasOwnTarget && referenced.has(shape)) continue;
+      const focus = new Set<string>(d.nodes);
+      const classTargets = [...d.classes, ...(d.isClass ? [shape] : [])];
+      for (const cls of classTargets) {
+        const matching = descendantsOf(cls);
+        for (const [inst, types] of typesOf) {
+          for (const t of types) if (matching.has(t)) { focus.add(inst); break; }
+        }
+      }
+      for (const p of d.subjOf) for (const s of subjectsOf.get(p) ?? []) focus.add(s);
+      for (const p of d.objOf) for (const o of objectsOf.get(p) ?? []) focus.add(o);
+      out.push({ shape, targetCount: focus.size });
+    }
+    out.sort((a, b) => a.shape.localeCompare(b.shape));
+    return out;
   }
 
   async function runShaclValidation(): Promise<ShaclValidationResult> {
@@ -1052,7 +1404,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const shapesGraph = DataFactory.namedNode("urn:vg:shapes");
     const shapesQuads = store.getQuads(null, null, null, shapesGraph) || [];
     if (shapesQuads.length === 0) {
-      return { conforms: true, violations: [], shapeCount: 0 };
+      return { conforms: true, violations: [], shapeCount: 0, shapeTargets: [], untargetedShapeCount: 0 };
     }
 
     const dataGraph = DataFactory.namedNode("urn:vg:data");
@@ -1061,6 +1413,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       ...(store.getQuads(null, null, null, dataGraph) || []),
       ...(store.getQuads(null, null, null, inferredGraph) || []),
     ];
+
+    // Focus-node counts over the same data the validator sees, so a conforming result can
+    // be told apart from a shape that simply selected nothing (Reviewer 4, comment 7).
+    const shapeTargets = countShapeTargets(shapesQuads as N3.Quad[], dataQuads as N3.Quad[]);
+    const untargetedShapeCount = shapeTargets.filter((t) => t.targetCount === 0).length;
 
     const [shaclMod, sparqlMod, dataModelMod, datasetMod] = await Promise.all([
       import("shacl-engine") as Promise<any>,
@@ -1110,6 +1467,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           sourceShape: null, constraint: null, source: "shacl" as const,
         }],
         shapeCount,
+        shapeTargets,
+        untargetedShapeCount,
       };
     }
 
@@ -1149,7 +1508,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       };
     }).filter((v: ShaclViolation) => !v.focusNode || dataSubjects.has(v.focusNode));
 
-    return { conforms: report.conforms, violations, shapeCount };
+    return { conforms: report.conforms, violations, shapeCount, shapeTargets, untargetedShapeCount };
   }
 
   function collectGraphCountsFromStore(store: any): Record<string, number> {
@@ -1507,7 +1866,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   function normalizeExportFormat(format?: string) {
     const raw = typeof format === "string" ? format.toLowerCase().trim() : "";
     if (raw === "application/ld+json" || raw === "ld+json" || raw === "jsonld" || raw === "json-ld") {
-      return { writerFormat: "application/ld+json", mediaType: "application/ld+json", dropGraph: true, dataset: false };
+      // JSON-LD 1.1 CAN represent named graphs (a node object with @graph), so this is a
+      // dataset format like N-Quads and TriG. It was previously flattened into the default
+      // graph, which silently lost the asserted/inferred partition on export and made an
+      // exported record indistinguishable from its own entailments.
+      return { writerFormat: "application/ld+json", mediaType: "application/ld+json", dropGraph: false, dataset: true };
     }
     if (raw === "application/rdf+xml" || raw === "rdfxml" || raw === "rdf+xml" || raw === "rdf-xml") {
       return { writerFormat: "application/rdf+xml", mediaType: "application/rdf+xml", dropGraph: true, dataset: false };
@@ -1710,7 +2073,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               );
             }
           }
-          if (removed > 0) resetDlReasoner();
+          // queued behind any reasoner call in flight rather than terminating it
+          if (removed > 0) void withReasoner(async () => resetDlReasoner());
           result = { graphName, removed };
           break;
         }
@@ -2070,7 +2434,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             emitChange({ reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removed: removedSubjects.length });
             emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removedSubjects });
           }
-          if (removedSubjects.length > 0) resetDlReasoner();
+          if (removedSubjects.length > 0) void withReasoner(async () => resetDlReasoner());
           result = { removed: removedSubjects.length, removedSubjects };
           break;
         }
@@ -2197,8 +2561,20 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
           if (formatInfo.mediaType === "application/ld+json") {
             // N3.js Writer does not support JSON-LD — build expanded JSON-LD manually.
-            const nodeMap = new Map<string, Record<string, any[]>>();
+            // Quads are grouped by graph first: default-graph nodes stay at the top level,
+            // and each named graph becomes a { "@id": <graph>, "@graph": [...] } node object,
+            // which is how JSON-LD 1.1 expresses a dataset. Without this the urn:vg:*
+            // partition is lost and an exported record cannot be told apart from the
+            // statements that were inferred from it.
+            const byGraph = new Map<string, Map<string, Record<string, any[]>>>();
+            const nodeMapFor = (graphId: string) => {
+              let m = byGraph.get(graphId);
+              if (!m) byGraph.set(graphId, (m = new Map()));
+              return m;
+            };
             for (const q of toWrite) {
+              const graphId = q.graph.termType === "DefaultGraph" ? "" : q.graph.value;
+              const nodeMap = nodeMapFor(graphId);
               const subjId =
                 q.subject.termType === "BlankNode"
                   ? `_:${q.subject.value}`
@@ -2224,7 +2600,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                 node[predId].push(lit);
               }
             }
-            output = JSON.stringify(Array.from(nodeMap.values()), null, 2);
+            const jsonldOut: any[] = [];
+            for (const n of byGraph.get("")?.values() ?? []) jsonldOut.push(n);
+            for (const [graphId, nodeMap] of byGraph) {
+              if (graphId === "") continue;
+              jsonldOut.push({ "@id": graphId, "@graph": Array.from(nodeMap.values()) });
+            }
+            output = JSON.stringify(jsonldOut, null, 2);
           } else if (formatInfo.mediaType === "application/rdf+xml") {
             // N3.js Writer does not support RDF/XML — build it manually.
             const xe = (s: string) =>
@@ -3029,6 +3411,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               objectLanguage?: string;
               graph?: string;
             }[];
+            measureGuards?: boolean;
           };
           const { StoreCls } = resolveN3();
           if (!StoreCls) throw new Error("n3-store-unavailable");
@@ -3068,12 +3451,44 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             copy.addQuad(q);
           }
           const removedCount = allQuads.length - copy.size;
-          const verifiedConsistent = (await konclude.validate(copy)).consistent;
+          const copyValidation = await konclude.validate(copy);
+          const verifiedConsistent = copyValidation.consistent;
+
+          // What the repair costs in guards: declared disjoint class pairs that still reject a
+          // modelling error afterwards. The ontology under repair is inconsistent, so every
+          // probe on it would be vacuous; the baseline is the declared pool, which any
+          // consistent version of this ontology enforces. The repaired copy is decided by one
+          // probe classification over the whole pool.
+          let guardImpact: RepairImpact | undefined;
+          if (p.measureGuards) {
+            const pool = declaredDisjointPairs(reasoningBase(source).getQuads(null, null, null, null));
+            const before: GuardVerdict[] = pool.map((pair) => ({ pair, enforced: true, vacuous: false }));
+            let after: GuardVerdict[] = pool.map((pair) => ({ pair, enforced: false, vacuous: false }));
+            if (verifiedConsistent && pool.length > 0) {
+              const probeStore = reasoningBase(copy);
+              for (const [s, pr, o] of buildProbeTriples(pool)) {
+                probeStore.addQuad(N3.DataFactory.quad(
+                  N3.DataFactory.namedNode(s), N3.DataFactory.namedNode(pr), N3.DataFactory.namedNode(o),
+                ));
+              }
+              const unsatOf = (v: { warnings?: { classIRI: string }[] }) =>
+                new Set((v.warnings ?? []).map((w) => w.classIRI));
+              after = interpretProbeResults(pool, unsatOf(await konclude.validate(probeStore)), unsatOf(copyValidation));
+            }
+            guardImpact = assessRepairImpact({
+              wasInconsistent: true,
+              consistencyRestored: verifiedConsistent,
+              classGuardsBefore: before,
+              classGuardsAfter: after,
+            });
+          }
+
           result = {
             verifiedConsistent,
             removedCount,
             requestedCount: removals.length,
             matchedCount: matchedIdx.size,
+            ...(guardImpact ? { guardImpact } : {}),
           };
           break;
         }
@@ -3112,14 +3527,22 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             );
           const termValue = (t: { value: string; termType?: string }) =>
             t.termType === "BlankNode" ? `_:${t.value}` : t.value;
+          // `isEntailed` is kept for existing consumers, but a bare boolean-or-null cannot
+          // say WHICH kind of "no" it is: a decided non-entailment under the open world
+          // assumption is a sound answer about the ontology, while an inconsistent ontology,
+          // a vacuous entailment or a reasoner failure are non-answers that a caller must
+          // not read as findings. `verdict` carries that distinction to MCP agents and the UI.
+          const answer = classifyEntailment({ isEntailed, ontologyInconsistent, vacuous, reason });
           result = {
             isEntailed,
+            verdict: answer.verdict,
+            ...(answer.undeterminedKind ? { undeterminedKind: answer.undeterminedKind } : {}),
             justifications: justifications.map((j) =>
               j.map((q) => ({ subject: termValue(q.subject), predicate: q.predicate.value, object: termValue(q.object) })),
             ),
             ...(ontologyInconsistent ? { ontologyInconsistent: true } : {}),
             ...(vacuous ? { vacuous: true } : {}),
-            ...(reason ? { reason } : {}),
+            ...(answer.reason ?? reason ? { reason: answer.reason ?? reason } : {}),
           };
           _entailmentCache.set(cacheKey, result);
           break;
@@ -3189,13 +3612,50 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (!sabAvailable) {
           throw new Error("SharedArrayBuffer unavailable — page needs HTTPS + COOP/COEP headers (or localhost). Use reasonerBackend='n3' as fallback.");
         }
+        // MEMORY: rdf-reasoner-konclude exposes no way to release a loaded knowledge base —
+        // only terminate(). Every loadTripleBuffer builds a new KB in WASM linear memory,
+        // which can grow but never shrink, so reusing one worker across a curation session
+        // leaks a whole KB per reasoning run. Measured on PMDco @3b98aad + the Fe-Si record:
+        // +220 MB per call, linear, no plateau (1371 MB at call 0, 3356 MB at call 9) — on a
+        // 16 GB laptop that is ~6-8 runs before exhaustion.
+        //
+        // Recycling at the START of a run (rather than the end) bounds residency to one KB
+        // while leaving the worker alive afterwards, so the explanation and repair paths
+        // below still find the KB this run just built instead of paying a full reload on
+        // every tooltip.
+        resetDlReasoner();
         const konclude = getDlReasoner();
         await konclude.ready;
         const kQuadCount = kStore.size ?? kStore.countQuads?.(null,null,null,null) ?? 0;
         debugLog("[VG_REASONING_WORKER] Konclude input quads:", kQuadCount);
         reasoningStage({ type: "reasoningStage", id: msg.id, stage: "consistency-check", meta: { backend: 'konclude' } });
         const kStart = Date.now();
-        const kConsistencyResult = (await konclude.validate(kStore)).consistent;
+
+        // Konclude does not enforce every property characteristic: an asymmetric property
+        // asserted of an individual and itself is reported consistent although the graph
+        // has no model (see propertyCharacteristicGuard.ts for the measurement). Because
+        // this check is the gate that decides whether entailments are materialised and
+        // validation may proceed, the gap is closed before asking the reasoner.
+        const guardViolations = findCharacteristicViolations(
+          reasoningBase(kStore as N3.Store).getQuads(null, null, null, null) as N3.Quad[],
+        );
+        // Only the verdict is read here; the inconsistent branch explains separately.
+        const kConsistencyResult =
+          guardViolations.length === 0 &&
+          (konclude.checkConsistency
+            ? await konclude.checkConsistency(kStore)
+            : (await konclude.validate(kStore)).consistent);
+        if (guardViolations.length > 0) {
+          debugLog("[VG_REASONING_WORKER] property-characteristic violations:", guardViolations.length);
+          for (const v of guardViolations) {
+            kMipsErrors.push({
+              rule: `owl:${v.characteristic}`,
+              severity: "error",
+              message: v.message,
+              nodeId: v.subject,
+            });
+          }
+        }
         if (kConsistencyResult) {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-start", meta: { backend: 'konclude' } });
           const result = await konclude.reason(kStore);
@@ -3223,6 +3683,24 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           severity: "error",
           message: `OWL DL reasoning could not complete: ${errMsg}`,
         });
+      }
+
+      // STALE INFERENCE: if this run did not produce inferences — the ontology was found
+      // inconsistent, or the reasoner errored or timed out — urn:vg:inferred still holds
+      // whatever the PREVIOUS successful run materialised. SHACL validation below runs
+      // unconditionally over urn:vg:data + urn:vg:inferred, so leaving it in place means a
+      // conformance report computed against entailments that no longer follow from the
+      // current graph. Drop it, which reduces validation to the asserted graph: a defect in
+      // the ontology should not hide constraint violations in the data, but neither may a
+      // conforming result be read as a check of the entailed dataset.
+      const kInferenceIsCurrent = kUsedReasoner && kIsConsistent === true;
+      if (!kInferenceIsCurrent) {
+        const staleGraph = DataFactory.namedNode("urn:vg:inferred");
+        const stale = kStore.getQuads(null, null, null, staleGraph);
+        if (stale.length > 0) {
+          kStore.removeQuads(stale);
+          debugLog("[VG_REASONING_WORKER] dropped stale inferred quads:", stale.length);
+        }
       }
 
       const kAddedQuads = kUsedReasoner ? skolemizeQuads(kDelta.added, DataFactory) : [];

@@ -263,11 +263,20 @@ const explainDiagnostics: McpTool = {
         default: 3,
         description: 'Maximum number of independent inconsistency justifications (MIPS) to return when inconsistent.',
       },
+      assessGuardCost: {
+        type: 'boolean',
+        default: false,
+        description:
+          'Also measure what each deletion repair costs in declared class-disjointness guards (one extra classification per repair). ' +
+          "Each repair then carries guardImpact { verdict, classGuardsDestroyed, summary }; verdict 'restores-consistency-with-collateral' " +
+          'means the repair restores consistency by deleting a constraint the ontology used to reject modelling errors with.',
+      },
     },
   },
   async handler(params): Promise<McpResult> {
     try {
-      const { maxJustifications = 3 } = (params ?? {}) as { maxJustifications?: number };
+      const { maxJustifications = 3, assessGuardCost = false } =
+        (params ?? {}) as { maxJustifications?: number; assessGuardCost?: boolean };
 
       // 1. Run reasoning to compute consistency, classify, and run SHACL.
       const reasoning = await rdfManager.runReasoning();
@@ -380,7 +389,13 @@ const explainDiagnostics: McpTool = {
               // BUG B: thread the object-term + source graph so VERIFY targets the
               // IDENTICAL triple APPLY (removeLink) removes — not a same-lexical
               // sibling in another graph / with another datatype.
-              r.verifiedConsistent = await rdfManager.verifyRepair([repairToRemoval(r)]);
+              if (assessGuardCost && r.kind !== 'weaken') {
+                const detailed = await rdfManager.verifyRepairDetailed([repairToRemoval(r)], { measureGuards: true });
+                r.verifiedConsistent = detailed.verifiedConsistent;
+                if (detailed.guardImpact) r.guardImpact = detailed.guardImpact;
+              } else {
+                r.verifiedConsistent = await rdfManager.verifyRepair([repairToRemoval(r)]);
+              }
             } catch {
               // Leave verifiedConsistent undefined when the oracle is unavailable.
             }

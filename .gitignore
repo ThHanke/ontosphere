@@ -69,3 +69,5 @@ _research_workspace/
 # Benchmark ontology files (temporary, not for production)
 public/bench-*.owl*
 public/bench-*.ttl
+public/pmdco-bench.ttl
+public/fesi-record.ttl

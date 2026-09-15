@@ -52,14 +52,14 @@ test.describe('relay.html — opener-origin trust model (security)', () => {
     await close();
   });
 
-  test('isOriginAllowed: any concrete origin accepted, opaque/empty/wildcard rejected', async ({ page }) => {
+  test('isOriginAllowed: known platforms and local origins accepted, unknown/opaque rejected', async ({ page }) => {
     await page.goto(`${origin}/relay.html`);
     await page.waitForFunction(() => typeof (window as any).isOriginAllowed === 'function');
 
     const result = await page.evaluate((selfOrigin) => {
       const f = (window as any).isOriginAllowed as (o: string) => boolean;
       return {
-        // ── Accepted (any concrete origin) ──
+        // ── Accepted (known AI platforms + local) ──
         chatgpt:       f('https://chatgpt.com'),
         claude:        f('https://claude.ai'),
         gemini:        f('https://gemini.google.com'),
@@ -68,8 +68,9 @@ test.describe('relay.html — opener-origin trust model (security)', () => {
         sameOrigin:    f(selfOrigin),
         localhost:     f('http://localhost:5173'),
         loopback:      f('http://127.0.0.1:8080'),
+        // ── Rejected: unknown until the user approves it explicitly ──
         arbitrary:     f('https://any-ai-platform.example'),
-        // ── Rejected (opaque/empty/wildcard) ──
+        // ── Rejected (opaque/empty/wildcard), never approvable ──
         star:          f('*'),
         nullOrigin:    f('null'),
         empty:         f(''),
@@ -85,7 +86,8 @@ test.describe('relay.html — opener-origin trust model (security)', () => {
     expect(result.sameOrigin).toBe(true);
     expect(result.localhost).toBe(true);
     expect(result.loopback).toBe(true);
-    expect(result.arbitrary).toBe(true);
+    // An unknown origin is NOT trusted by default: it must be approved by the user.
+    expect(result.arbitrary).toBe(false);
 
     // Rejected
     expect(result.star).toBe(false);
@@ -93,7 +95,7 @@ test.describe('relay.html — opener-origin trust model (security)', () => {
     expect(result.empty).toBe(false);
   });
 
-  test('live message handler: opaque-origin vg-call is NOT forwarded, concrete origin IS forwarded', async ({ page }) => {
+  test('live message handler: only an allowlisted origin is forwarded', async ({ page }) => {
     await page.goto(`${origin}/relay.html`);
     await page.waitForFunction(() => typeof (window as any).isOriginAllowed === 'function');
 
@@ -113,10 +115,12 @@ test.describe('relay.html — opener-origin trust model (security)', () => {
         }));
       }
 
-      // Opaque "null" origin — must be ignored.
+      // Opaque "null" origin — must be ignored, and is not even approvable.
       fire('null', 'queryGraph');
-      // Concrete origin (arbitrary) — must be forwarded.
-      fire('https://any-ai-platform.example', 'addNode');
+      // Unknown concrete origin — must NOT be forwarded until the user approves it.
+      fire('https://any-ai-platform.example', 'deleteNode');
+      // Known AI platform — allowed by default, must be forwarded.
+      fire('https://claude.ai', 'addNode');
 
       await new Promise((r) => setTimeout(r, 300));
       bc.close();
@@ -126,6 +130,7 @@ test.describe('relay.html — opener-origin trust model (security)', () => {
     expect(forwarded).toHaveLength(1);
     expect(forwarded[0].tool).toBe('addNode');
     expect(forwarded.some((m) => m.tool === 'queryGraph')).toBe(false);
+    expect(forwarded.some((m) => m.tool === 'deleteNode'), 'unapproved origin must not drive the relay').toBe(false);
   });
 
   test('source contains no "*" postMessage target fallback', () => {

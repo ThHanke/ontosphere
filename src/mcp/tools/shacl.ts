@@ -9,7 +9,7 @@ const SHACL_GRAPH = 'urn:vg:shapes';
 // ---------------------------------------------------------------------------
 const loadShacl: McpTool = {
   name: 'loadShacl',
-  description: 'Load SHACL shapes from inline Turtle text into the shapes graph (urn:vg:shapes). Call validateGraph to run validation after loading.',
+  description: 'Load SHACL shapes from inline Turtle text into the shapes graph (urn:vg:shapes), adding to any shapes already loaded. Call validateGraph to run validation after loading.',
   inputSchema: {
     type: 'object',
     required: ['turtle'],
@@ -44,7 +44,7 @@ const loadShacl: McpTool = {
 // ---------------------------------------------------------------------------
 const validateGraph: McpTool = {
   name: 'validateGraph',
-  description: 'Validate the asserted graph (urn:vg:data) plus inferred graph against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag and structured violation list.',
+  description: 'Validate the asserted graph (urn:vg:data) plus inferred graph against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag, structured violation list, and how many shapes selected at least one focus node: conforms:true with untargetedShapeCount equal to shapeCount means nothing was checked.',
   inputSchema: {
     type: 'object',
     properties: {},
@@ -52,7 +52,18 @@ const validateGraph: McpTool = {
   async handler(): Promise<McpResult> {
     try {
       const result = await rdfManager.runShaclValidation();
-      return { success: true, data: { conforms: result.conforms, violations: result.violations } };
+      const targeted = (result.shapeTargets ?? []).filter((t) => t.targetCount > 0);
+      return {
+        success: true,
+        data: {
+          conforms: result.conforms,
+          violations: result.violations,
+          shapeCount: result.shapeTargets?.length ?? 0,
+          untargetedShapeCount: result.untargetedShapeCount ?? 0,
+          // only shapes that checked something; the full list can run to hundreds of entries
+          targetedShapes: targeted,
+        },
+      };
     } catch (e) {
       return { success: false, error: String(e) };
     }
@@ -64,7 +75,7 @@ const validateGraph: McpTool = {
 // ---------------------------------------------------------------------------
 const loadShaclFromUrl: McpTool = {
   name: 'loadShaclFromUrl',
-  description: 'Load SHACL shapes from a URL into urn:vg:shapes. Supports direct .ttl file URLs, GitHub folder tree URLs (auto-discovers .ttl/.shacl files), and comma-separated mixes.',
+  description: 'Load SHACL shapes from a URL into urn:vg:shapes, replacing any shapes already loaded. Supports direct .ttl file URLs, GitHub folder tree URLs (auto-discovers .ttl/.shacl files), and comma-separated mixes.',
   inputSchema: {
     type: 'object',
     required: ['url'],

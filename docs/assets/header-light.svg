@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="1200" height="360" role="img" aria-label="Ontosphere: browser-native OWL 2 DL reasoning and SHACL validation for RDF knowledge graphs">
+  <defs>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#06b6d4"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#09090b"/>
+      <stop offset="1" stop-color="#3f3f46"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#06b6d4" stop-opacity="0.45"/>
+    </linearGradient>
+    <radialGradient id="node" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#bae6fd"/>
+      <stop offset="0.45" stop-color="#0ea5e9"/>
+      <stop offset="1" stop-color="#1d4ed8"/>
+    </radialGradient>
+    <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+      <circle cx="11" cy="11" r="1" fill="#0f172a" fill-opacity="0.09"/>
+    </pattern>
+    <radialGradient id="fade" cx="0.78" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="dotmask"><rect width="1200" height="360" fill="url(#fade)"/></mask>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="60"/></filter>
+    <filter id="soft" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.08"/>
+    </filter>
+    <clipPath id="card"><rect x="16" y="16" width="1168" height="328" rx="22"/></clipPath>
+  </defs>
+
+  <rect x="16" y="16" width="1168" height="328" rx="22" fill="url(#bg)" filter="url(#shadow)"/>
+  <g clip-path="url(#card)">
+    <ellipse cx="220" cy="30" rx="320" ry="150" fill="#3b82f6" fill-opacity="0.13" filter="url(#blur)"/>
+    <ellipse cx="1010" cy="310" rx="300" ry="160" fill="#06b6d4" fill-opacity="0.12" filter="url(#blur)"/>
+    <rect width="1200" height="360" fill="url(#dots)" mask="url(#dotmask)"/>
+
+    <!-- graph -->
+    <g transform="translate(1000 178)">
+      <ellipse rx="150" ry="52" fill="none" stroke="#0f172a" stroke-opacity="0.08" transform="rotate(-18)"/>
+      <ellipse rx="150" ry="52" fill="none" stroke="#0f172a" stroke-opacity="0.06" transform="rotate(38)"/>
+      <g stroke="url(#edge)" stroke-width="1.6">
+        <line x1="-54" y1="12" x2="8" y2="-96"/>
+        <line x1="-54" y1="12" x2="-18" y2="96"/>
+        <line x1="-54" y1="12" x2="-118" y2="-30"/>
+        <line x1="8" y1="-96" x2="92" y2="-8"/>
+        <line x1="92" y1="-8" x2="-18" y2="96"/>
+        <line x1="92" y1="-8" x2="132" y2="74"/>
+      </g>
+      <line x1="-54" y1="12" x2="92" y2="-8" stroke="#f59e0b" stroke-width="1.8" stroke-dasharray="5 6"/>
+      <circle cx="-54" cy="12" r="22" fill="#3b82f6" fill-opacity="0.25" filter="url(#soft)"/>
+      <circle cx="-54" cy="12" r="14" fill="url(#node)"/>
+      <circle cx="8" cy="-96" r="9" fill="url(#node)"/>
+      <circle cx="-18" cy="96" r="7" fill="url(#node)"/>
+      <circle cx="-118" cy="-30" r="6" fill="url(#node)"/>
+      <circle cx="132" cy="74" r="6" fill="url(#node)"/>
+      <circle cx="92" cy="-8" r="16" fill="#f59e0b" fill-opacity="0.25" filter="url(#soft)"/>
+      <circle cx="92" cy="-8" r="9" fill="#f59e0b"/>
+    </g>
+  </g>
+  <rect x="16.5" y="16.5" width="1167" height="327" rx="21.5" fill="none" stroke="#e4e4e7"/>
+
+  <!-- app mark -->
+  <g transform="translate(72 72)">
+    <rect width="64" height="64" rx="16" fill="url(#accent)"/>
+    <g stroke="#ffffff" stroke-width="2.4" stroke-linecap="round">
+      <line x1="25" y1="36" x2="36" y2="18"/>
+      <line x1="25" y1="36" x2="30" y2="50"/>
+      <line x1="25" y1="36" x2="14" y2="29"/>
+      <line x1="25" y1="36" x2="48" y2="32" stroke-opacity="0.65"/>
+    </g>
+    <circle cx="25" cy="36" r="5.5" fill="#ffffff"/>
+    <circle cx="36" cy="18" r="3.5" fill="#ffffff"/>
+    <circle cx="30" cy="50" r="2.6" fill="#ffffff"/>
+    <circle cx="14" cy="29" r="2.6" fill="#ffffff"/>
+    <circle cx="48" cy="32" r="3.5" fill="#fde68a"/>
+  </g>
+
+  <g font-family="Inter, 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif">
+    <text x="156" y="102" font-size="13" font-weight="600" letter-spacing="3" fill="#2563eb">KNOWLEDGE GRAPH WORKBENCH</text>
+    <text x="68" y="196" font-size="72" font-weight="700" letter-spacing="-2.5" fill="url(#title)">Ontosphere</text>
+    <text x="72" y="238" font-size="22" fill="#52525b">OWL 2 DL reasoning and SHACL validation, native in the browser.</text>
+
+    <g font-size="14" font-weight="500" fill="#27272a">
+      <rect x="72" y="270" width="136" height="34" rx="17" fill="#ffffff" stroke="#e4e4e7"/>
+      <circle cx="92" cy="287" r="4" fill="#2563eb"/>
+      <text x="104" y="292">OWL 2 DL</text>
+      <rect x="218" y="270" width="112" height="34" rx="17" fill="#ffffff" stroke="#e4e4e7"/>
+      <circle cx="238" cy="287" r="4" fill="#06b6d4"/>
+      <text x="250" y="292">SHACL</text>
+      <rect x="340" y="270" width="176" height="34" rx="17" fill="#ffffff" stroke="#e4e4e7"/>
+      <circle cx="360" cy="287" r="4" fill="#f59e0b"/>
+      <text x="372" y="292">Verified repair</text>
+      <rect x="526" y="270" width="112" height="34" rx="17" fill="#ffffff" stroke="#e4e4e7"/>
+      <circle cx="546" cy="287" r="4" fill="#10b981"/>
+      <text x="558" y="292">MCP</text>
+      <rect x="648" y="270" width="148" height="34" rx="17" fill="#ffffff" stroke="#e4e4e7"/>
+      <circle cx="668" cy="287" r="4" fill="#71717a"/>
+      <text x="680" y="292">No backend</text>
+    </g>
+  </g>
+</svg>
