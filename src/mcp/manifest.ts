@@ -105,10 +105,10 @@ export const mcpManifest: McpToolManifestEntry[] = [
   {
     name: 'exportGraph',
     description:
-      'Export the current RDF graph. turtle | jsonld | rdfxml flatten the store into a single ' +
-      'default graph (named-graph structure is lost). nquads | trig are dataset-faithful: they ' +
+      'Export the current RDF graph. turtle | rdfxml flatten the store into a single default ' +
+      'graph (named-graph structure is lost). nquads | trig | jsonld are dataset-faithful: they ' +
       'collect quads from every urn:vg:* graph (data, inferred, shapes, ontologies, workflows) ' +
-      'and preserve each graph IRI, so the multi-graph partition round-trips on re-import.',
+      'and preserve each graph IRI (JSON-LD as one @graph per named graph), so the partition round-trips on re-import.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -423,6 +423,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
       type: 'object',
       properties: {
         maxJustifications: { type: 'number', default: 3, description: 'Max independent inconsistency justifications (MIPS) to return.' },
+        assessGuardCost: { type: 'boolean', default: false, description: "Also measure what each deletion repair costs in declared class-disjointness guards (one extra classification per repair). Each repair then carries guardImpact { verdict, classGuardsDestroyed, summary }; verdict 'restores-consistency-with-collateral' marks a repair that restores consistency by deleting a constraint the ontology used to reject modelling errors with." },
       },
     },
   },
@@ -547,7 +548,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'validateGraph',
-    description: 'Validate the asserted graph (urn:vg:data) against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag and structured violation list.',
+    description: 'Validate the asserted graph (urn:vg:data) plus the inferred graph (urn:vg:inferred) against SHACL shapes loaded in urn:vg:shapes. Returns { conforms, violations, shapeCount, untargetedShapeCount, targetedShapes }. targetedShapes lists the shapes that selected at least one focus node; conforms:true with untargetedShapeCount equal to shapeCount means nothing was checked. Run runReasoning first when shape targets depend on inferred types.',
     inputSchema: {
       type: 'object',
       properties: {},

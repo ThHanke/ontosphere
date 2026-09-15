@@ -162,6 +162,8 @@ export type RDFWorkerCommandPayloads = {
       objectLanguage?: string;
       graph?: string;
     }[];
+    /** Also measure which declared class-disjointness guards survive the repair. */
+    measureGuards?: boolean;
   };
   /**
    * Search existing ontology terms (classes / properties / individuals) by
@@ -682,8 +684,12 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
   },
   verifyRepair(payload) {
     assertPlainObject(payload, "verifyRepair payload must be an object");
-    const { removals } = payload as { removals: unknown };
+    const { removals, measureGuards } = payload as { removals: unknown; measureGuards?: unknown };
     assertArray(removals, "verifyRepair.removals must be an array");
+    invariant(
+      typeof measureGuards === "undefined" || typeof measureGuards === "boolean",
+      "verifyRepair.measureGuards must be a boolean when provided",
+    );
     for (const entry of removals as unknown[]) {
       assertPlainObject(entry, "verifyRepair.removals entry must be an object");
       const r = entry as Record<string, unknown>;

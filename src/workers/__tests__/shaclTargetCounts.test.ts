@@ -114,6 +114,29 @@ describe('SHACL reports focus-node counts per shape', () => {
     runtime.terminate();
   });
 
+  it('property shapes reached through sh:property are not reported as untargeted', async () => {
+    const { runtime, seed, validate } = makeRuntime();
+    // PMDco auto-shape style: the node shape is its own target class, the property shape is named
+    await seed('urn:vg:shapes', [
+      N3.DataFactory.quad(nn(`${EX}Semiconductor`), nn(RDF_TYPE), nn(`${SH}NodeShape`)),
+      N3.DataFactory.quad(nn(`${EX}Semiconductor`), nn(RDF_TYPE), nn('http://www.w3.org/2000/01/rdf-schema#Class')),
+      N3.DataFactory.quad(nn(`${EX}Semiconductor`), nn(`${SH}property`), nn(`${EX}Semiconductor-hasQuality`)),
+      N3.DataFactory.quad(nn(`${EX}Semiconductor-hasQuality`), nn(RDF_TYPE), nn(`${SH}PropertyShape`)),
+      N3.DataFactory.quad(nn(`${EX}Semiconductor-hasQuality`), nn(`${SH}path`), nn(`${EX}hasQuality`)),
+      N3.DataFactory.quad(nn(`${EX}Orphan`), nn(RDF_TYPE), nn(`${SH}PropertyShape`)),
+    ]);
+    await seed('urn:vg:data', [
+      N3.DataFactory.quad(nn(`${EX}some_silicon`), nn(RDF_TYPE), nn(`${EX}Semiconductor`)),
+    ]);
+
+    const report = await validate();
+    const shapes = report.shapeTargets.map((t: any) => t.shape);
+    expect(shapes).not.toContain(`${EX}Semiconductor-hasQuality`);
+    expect(report.shapeTargets.find((t: any) => t.shape === `${EX}Semiconductor`).targetCount).toBe(1);
+    expect(report.untargetedShapeCount, 'only the unreferenced, untargeted shape is inert').toBe(1);
+    runtime.terminate();
+  });
+
   it('counts sh:targetNode, sh:targetSubjectsOf and sh:targetObjectsOf', async () => {
     const { runtime, seed, validate } = makeRuntime();
     await seed('urn:vg:shapes', [

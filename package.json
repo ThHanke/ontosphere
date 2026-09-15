@@ -1,6 +1,6 @@
 {
   "name": "ontosphere",
-  "description": "Browser-based interactive RDF/ontology knowledge graph editor — authoring, OWL 2 DL reasoning (Konclude), clustering, multi-algorithm layout, and MCP support. Runs entirely client-side.",
+  "description": "Browser-native RDF knowledge graph workbench: OWL 2 DL reasoning (Konclude, WebAssembly), SHACL validation, reasoner-verified repair, and MCP tools for AI agents. Runs entirely client-side.",
   "version": "1.7.2",
   "license": "Apache-2.0",
   "author": "Thomas Hanke <thomas.hnke82@gmail.com> (https://github.com/ThHanke)",

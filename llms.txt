@@ -1,0 +1,135 @@
+# Ontosphere
+
+> Browser-native workbench for RDF knowledge graphs: OWL 2 DL reasoning with Konclude compiled to WebAssembly, SHACL validation over asserted and inferred data, reasoner-verified repair, and a Model Context Protocol (MCP) tool surface for AI agents. Everything runs client-side in one browser tab; there is no backend.
+
+Ontosphere is open source under the Apache-2.0 licence and developed at the Fraunhofer Institute for Mechanics of Materials IWM. An agent can drive every operation a person can: load ontologies and data, author triples, classify, validate, diagnose, repair, and export.
+
+## Links
+
+- [Live application](https://thhanke.github.io/ontosphere/): runs in a current desktop browser; nothing to install.
+- [Source repository](https://github.com/ThHanke/ontosphere): TypeScript, React, Web Workers.
+- [README](https://github.com/ThHanke/ontosphere/blob/main/README.md): user and developer documentation.
+- [MCP manifest](https://thhanke.github.io/ontosphere/.well-known/mcp.json): every tool with its description and JSON input schema.
+- [AI relay guide](https://github.com/ThHanke/ontosphere/blob/main/docs/relay-bridge.md): connecting chat assistants.
+- [Citation metadata](https://github.com/ThHanke/ontosphere/blob/main/CITATION.cff): concept DOI 10.5281/zenodo.19605270.
+
+## Capabilities
+
+- Load RDF from files, URLs, SPARQL endpoints and Fuseki datasets (Turtle, N-Triples, N-Quads, TriG, RDF/XML and JSON-LD, parsed with rdf-parse); `owl:imports` are followed unless disabled.
+- Author nodes and triples on a canvas or through tools, with undo and a PROV-O journal of every agent edit that can be reverted per batch.
+- Reason with OWL 2 DL (SROIQ(D)): consistency, classification, realisation, unsatisfiable classes, inconsistency justifications (MIPS) with laconic refinement, and justifications for any entailed axiom.
+- Validate with SHACL, including SPARQL-based constraints, over asserted plus inferred data. Reports say which shapes selected a focus node.
+- Repair inconsistencies with reasoner-verified deletion and axiom-weakening suggestions, optionally measuring which declared disjointness constraints a repair would remove.
+- Export Turtle or RDF/XML (single graph), or N-Quads, TriG and JSON-LD that keep every named graph; produce the W3C RDFC-1.0 canonical form and a content hash; generate VoID and DCAT metadata.
+
+## Graph model
+
+- `urn:vg:data`: asserted triples. All edits go here.
+- `urn:vg:ontologies`: loaded ontologies.
+- `urn:vg:inferred`: reasoner output, replaced on every run and identical across runs for the same input.
+- `urn:vg:shapes`: SHACL shapes. Never reasoned over.
+- `urn:vg:provenance`: the PROV-O edit journal. In memory, cleared on reload, not exported.
+- `urn:vg:workflows`: workflow templates.
+- Blank nodes are stored as `urn:vg:bnode:*` IRIs and restored to blank nodes before reasoning, so class expressions such as restrictions and intersections are reasoned over correctly.
+
+## Connecting an agent
+
+1. Browsers that expose `navigator.modelContext` register the tools when the app loads.
+2. Headless automation (for example Playwright): define `navigator.modelContext` with an init script before the page loads, then call tools as `window.__mcpTools[name](params)`. Each call resolves to `{ success, data | error }`.
+3. Chat assistants: the AI Relay bookmarklet reads backtick-wrapped JSON-RPC 2.0 `tools/call` lines from the chat and returns results. chatgpt.com, chat.openai.com, claude.ai and gemini.google.com are allowed by default; any other origin needs explicit approval in the app.
+
+Call `help` first: it returns relay instructions and the full tool list, and `help({ tool })` returns one tool's exact schema.
+
+## Tools (42)
+
+### Graph and export
+
+- `loadRdf`: load instance data from a URL or inline Turtle into `urn:vg:data`.
+- `loadOntology`: search, list or load well-known ontologies by prefix, keyword or URL into `urn:vg:ontologies`.
+- `suggestOntologiesForTask`: suggest compatible ontology sets for a plain-language task.
+- `queryGraph`: run a SPARQL query or update against the store.
+- `exportGraph`: export as turtle, rdfxml, nquads, trig or jsonld.
+- `canonicalizeGraph`: W3C RDFC-1.0 canonical N-Quads plus a content hash.
+- `exportImage`: export the canvas as SVG text or a PNG data URI.
+- `setViewMode`: switch between the ABox (individuals) and TBox (classes and properties) views.
+- `getCapabilities`: list layout algorithms, export formats and loaded ontologies.
+- `getGraphState`: summarise the canvas, including SHACL status.
+- `help`: relay instructions, the tool list, or one tool's schema.
+
+### Nodes
+
+- `addNode`: create a new entity.
+- `removeNode`: remove an individual and all of its triples.
+- `expandNode`: show annotation properties on one or all nodes.
+- `getNodes`: find or filter known classes and individuals.
+- `getNodeDetails`: every asserted and inferred triple for one entity.
+- `updateNode`: change annotation properties without touching edges.
+- `searchTerms`: find existing classes, properties and individuals by label or local name, to reuse IRIs.
+
+### Links
+
+- `addTriple`: assert any triple, including OWL restrictions through blank-node labels.
+- `removeLink`: remove any triple; this is how repairs are applied.
+- `getLinks`: list object-property triples.
+
+### Layout and navigation
+
+- `runLayout`: apply dagre-lr, dagre-tb, elk-layered, elk-force, elk-stress or elk-radial.
+- `clusterNodes`: group nodes into clusters.
+- `layoutNodes`: lay out a subset of nodes together.
+- `focusNode`: pan and zoom to one node.
+- `fitCanvas`: fit all nodes in view.
+- `getNeighbors`: nodes and edges within a number of hops.
+- `findPath`: shortest route between two nodes.
+
+### Reasoning and diagnosis
+
+- `runReasoning`: run OWL 2 DL reasoning and write `urn:vg:inferred`; reports consistency.
+- `clearInferred`: remove all inferred triples without touching asserted data.
+- `explainDiagnostics`: one structured diagnosis: consistency, justifications, unsatisfiable classes, OWL 2 profile, SHACL violations, and ranked, verified repairs. `assessGuardCost: true` adds each repair's cost in disjointness guards.
+- `explainEntailment`: whether an axiom is entailed and why, with justifications. A negative from the fast path is confirmed with the exact one.
+
+### Namespaces
+
+- `setNamespace`: register or update a prefix.
+- `removeNamespace`: remove a prefix.
+- `listNamespaces`: list registered prefixes.
+
+### SHACL
+
+- `loadShacl`: load shapes from inline Turtle.
+- `loadShaclFromUrl`: load shapes from a file URL, a GitHub folder URL, or a comma-separated list.
+- `validateGraph`: validate asserted plus inferred data; returns violations and how many shapes selected a focus node.
+
+### Provenance
+
+- `listAgentEdits`: recorded edit batches, most recent first.
+- `diffAgentEdits`: the triples a batch added and removed.
+- `revertAgentBatch`: undo a batch.
+
+### Metadata
+
+- `generateDatasetMetadata`: VoID and DCAT description of the dataset for FAIR publishing.
+
+## Recommended workflow
+
+1. `loadOntology` for the vocabulary, then `searchTerms` to reuse its IRIs.
+2. `loadRdf` (turtle) for many statements, or `addNode` and `addTriple` for a few.
+3. `loadShaclFromUrl` or `loadShacl` if the data has shapes.
+4. `runReasoning`, then `validateGraph`, since shape targets often depend on inferred types.
+5. If `isConsistent` is false, `explainDiagnostics`; apply the whole verified deletion set with `removeLink`, or a weakening batch, then reason again.
+6. `exportGraph` with `trig` or `nquads` to keep asserted, inferred and shape graphs apart.
+
+## Reading results correctly
+
+- `validateGraph` `conforms: true` while `untargetedShapeCount` equals `shapeCount` means no shape selected anything: nothing was checked.
+- In `explainDiagnostics`, a repair's `verifiedConsistent` says whether removing that one axiom alone restores consistency. With several independent contradictions it is often false for every correct repair; trust `repairSetVerifiedConsistent`, which covers the whole set.
+- A `guardImpact.verdict` of `restores-consistency-with-collateral` means the repair works by deleting a constraint the ontology used to reject errors with.
+- `explainEntailment` reports undetermined when the reasoner could not decide, which is different from a decided non-entailment.
+
+## Limits
+
+- State lives in the browser session. Nothing persists across reloads; export to keep work.
+- The WebAssembly reasoner needs cross-origin isolation (COOP/COEP headers). The live application and the bundled servers set them.
+- Sizes of roughly 10^5 triples classify in seconds; very large graphs are better served by server-side reasoning.
+- Exact justifications cost seconds on small ontologies and grow quickly with ontology size.

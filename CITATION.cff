@@ -1,17 +1,16 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
 title: "Ontosphere"
-version: "1.5.0"
+version: "1.7.4"
 abstract: >
-  Ontosphere is a browser-based RDF/ontology knowledge graph editor. It loads RDF
-  from local files, remote URLs, or SPARQL/Fuseki endpoints; lets users author
-  nodes and edges directly on the canvas; runs OWL 2 DL reasoning (via Konclude) with visual
-  differentiation of inferred triples; and applies multi-algorithm layout
-  (Dagre, ELK) and automatic clustering for large graphs. Additional features
-  include namespace management with live URI renaming, a drag-and-drop workflow
-  template catalog, and a Model Context Protocol (MCP) server for AI-agent
-  integration. All computation runs entirely client-side in the browser against
-  an in-memory RDF store backed by Web Workers — no backend required.
+  Ontosphere is a browser-native workbench for RDF knowledge graphs. It loads
+  RDF from files, URLs and SPARQL endpoints, lets users author triples on a
+  canvas, classifies the graph with an OWL 2 DL reasoner (Konclude compiled to
+  WebAssembly), validates it with SHACL over the asserted and inferred graphs,
+  and proposes reasoner-verified repairs. Named graphs keep asserted, inferred
+  and shape triples apart through export, and every operation is available to
+  AI agents through a Model Context Protocol tool surface. All computation runs
+  client-side in the browser; no backend is required.
 authors:
   - family-names: Hanke
     given-names: Thomas
@@ -25,7 +24,7 @@ authors:
 repository-code: "https://github.com/ThHanke/ontosphere"
 url: "https://thhanke.github.io/ontosphere/"
 license: Apache-2.0
-date-released: "2026-06-16"
+date-released: "2026-09-07"
 keywords:
   - rdf
   - ontology
@@ -41,6 +40,9 @@ keywords:
   - graph-editor
   - fair-data
   - reactodia
+  - shacl
+  - owl2-dl
+  - webassembly
   - mcp
 identifiers:
   - type: doi

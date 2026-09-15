@@ -28,6 +28,8 @@ import { mipsToReasoningError, shaclViolationToEntry } from "./reasoningDiagnost
 import { canonicalInferredHierarchy, type Edge } from "./canonicalHierarchy.ts";
 import { findCharacteristicViolations } from "./propertyCharacteristicGuard.ts";
 import { classifyEntailment, explainWithConfirmedNegative } from "./entailmentVerdict.ts";
+import { declaredDisjointPairs, buildProbeTriples, interpretProbeResults, type GuardVerdict } from "./guardSets.ts";
+import { assessRepairImpact, type RepairImpact } from "./repairImpact.ts";
 import { RdfReasoner, type LaconicJustification, type LaconicPart, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
@@ -55,15 +57,17 @@ type SerializedLaconicJustification = {
 };
 
 function serializeLaconicJustification(lj: LaconicJustification): SerializedLaconicJustification {
+  // Blank nodes are named as the store names them (urn:vg:bnode:*), so parts match stored axioms.
+  const str = (t: N3.Term) => reskolemize(t).value;
   return {
     parts: lj.parts.map((p: LaconicPart) => ({
-      subject: p.quad.subject.value,
+      subject: str(p.quad.subject as N3.Term),
       predicate: p.quad.predicate.value,
-      object: p.quad.object.value,
+      object: str(p.quad.object as N3.Term),
       ...(p.quad.object.termType === "Literal" ? { objectIsLiteral: true } : {}),
-      sourceSubject: p.sourceQuad.subject.value,
+      sourceSubject: str(p.sourceQuad.subject as N3.Term),
       sourcePredicate: p.sourceQuad.predicate.value,
-      sourceObject: p.sourceQuad.object.value,
+      sourceObject: str(p.sourceQuad.object as N3.Term),
       isPartOf: p.isPartOf,
     })),
     sharpened: lj.sharpened,
@@ -179,12 +183,52 @@ const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
   "urn:vg:workflows",
 ]);
 
-/** The asserted axioms only: everything except the graphs above. Exported for tests. */
+const SKOLEM_PREFIX = "urn:vg:bnode:";
+
+function deskolemize(t: N3.Term): N3.Term {
+  return t.termType === "NamedNode" && t.value.startsWith(SKOLEM_PREFIX)
+    ? N3.DataFactory.blankNode(t.value.slice(SKOLEM_PREFIX.length))
+    : t;
+}
+
+function reskolemize(t: N3.Term): N3.Term {
+  return t.termType === "BlankNode" ? N3.DataFactory.namedNode(`${SKOLEM_PREFIX}${t.value}`) : t;
+}
+
+/** Reasoner output back into the store's skolemized form, so it matches what is stored. Exported for tests. */
+export function reskolemizeQuad(q: N3.Quad): N3.Quad {
+  if (q.subject.termType !== "BlankNode" && q.object.termType !== "BlankNode") return q;
+  return N3.DataFactory.quad(
+    reskolemize(q.subject) as N3.Quad_Subject, q.predicate, reskolemize(q.object) as N3.Quad_Object, q.graph,
+  );
+}
+
+const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
+  (quads ?? []).map((q) => reskolemizeQuad(q as N3.Quad));
+
+/**
+ * The asserted axioms only: everything except the graphs above, with blank nodes restored.
+ *
+ * The store keeps blank nodes skolemized as `urn:vg:bnode:*` IRIs. Handed to the reasoner in
+ * that form, every class expression built from blank nodes (restrictions, intersections, RDF
+ * lists) becomes an unrelated named resource and nothing it defines is inferred:
+ * `CFRP a Composite ; hasConstituent CarbonFiber` no longer classifies CFRP under
+ * `FiberReinforced ≡ Composite ⊓ ∃hasConstituent.Fiber`. v1.5.2 de-skolemized at every
+ * reasoner entry point; like the graph filter, that step was lost in the move to the package
+ * API. Exported for tests.
+ */
 export function reasoningBase(store: N3.Store): N3.Store {
   const base = new N3.Store();
   for (const q of store.getQuads(null, null, null, null) as N3.Quad[]) {
     const g = q.graph.termType === "DefaultGraph" ? "" : q.graph.value;
-    if (!NON_AXIOM_GRAPHS.has(g)) base.addQuad(q);
+    if (NON_AXIOM_GRAPHS.has(g)) continue;
+    const s = deskolemize(q.subject);
+    const o = deskolemize(q.object);
+    base.addQuad(
+      s === q.subject && o === q.object
+        ? q
+        : N3.DataFactory.quad(s as N3.Quad_Subject, q.predicate, o as N3.Quad_Object, q.graph),
+    );
   }
   return base;
 }
@@ -211,10 +255,11 @@ class DlReasoner {
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
     })) as { delta: InferenceDelta };
-    const delta = canonicalizeInferredHierarchyInStore(base, result.delta);
+    const canonical = canonicalizeInferredHierarchyInStore(base, result.delta);
+    const delta = { added: reskolemizeAll(canonical.added), removed: reskolemizeAll(canonical.removed) } as InferenceDelta;
 
     const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
-    const produced = base.getQuads(null, null, null, inferredGraph) as N3.Quad[];
+    const produced = reskolemizeAll(base.getQuads(null, null, null, inferredGraph));
 
     // RdfReasoner caches materialize() on a fingerprint of the store it is given, and on a
     // cache hit it returns early WITHOUT repopulating the inferred graph (the package notes
@@ -237,12 +282,25 @@ class DlReasoner {
     return { delta };
   }
 
-  validate(store: N3.Store): Promise<ValidationResult> {
-    return this._reasoner.validate(reasoningBase(store)) as Promise<ValidationResult>;
+  /**
+   * Consistency only. On PMDco + the Fe-Si record this answers in 4.3-5.0 s where validate()
+   * takes 8.4-8.5 s for the same verdict, because validate() also collects justifications and
+   * unsatisfiable-class warnings. Use it wherever only the verdict is read.
+   */
+  checkConsistency(store: N3.Store): Promise<boolean> {
+    return this._reasoner.checkConsistency(reasoningBase(store));
   }
 
-  explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
-    return this._reasoner.explainInconsistency(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH }) as Promise<N3.Quad[][]>;
+  async validate(store: N3.Store): Promise<ValidationResult> {
+    const result = (await this._reasoner.validate(reasoningBase(store))) as ValidationResult;
+    return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
+  }
+
+  async explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
+    const mips = (await this._reasoner.explainInconsistency(reasoningBase(store), {
+      maxJustifications, inferredGraph: INFERRED_GRAPH,
+    })) as N3.Quad[][];
+    return mips.map((j) => reskolemizeAll(j));
   }
 
   explainInconsistencyLaconic(
@@ -257,13 +315,13 @@ class DlReasoner {
     return (async () => {
       const results = await this._reasoner.explainInconsistencyLaconic(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH });
       return (results as Array<{ justification: N3.Quad[]; laconic: LaconicJustification }>).map((r) => ({
-        justification: r.justification as N3.Quad[],
+        justification: reskolemizeAll(r.justification),
         laconic: serializeLaconicJustification(r.laconic),
       }));
     })();
   }
 
-  explainEntailment(
+  async explainEntailment(
     store: N3.Store,
     subjectIri: string,
     predicateIri: string,
@@ -298,7 +356,7 @@ class DlReasoner {
       vacuous?: boolean;
       reason?: string;
     };
-    return explainWithConfirmedNegative<Result>(
+    const result = await explainWithConfirmedNegative<Result>(
       () => this._reasoner.explainEntailment(
         base, subjectIri, predicateIri, objectIri, { ...options, justificationMode: 'causal' },
       ) as Promise<Result>,
@@ -306,6 +364,7 @@ class DlReasoner {
         base, subjectIri, predicateIri, objectIri, { ...options, justificationMode: 'minimal' },
       ) as Promise<Result>,
     );
+    return { ...result, justifications: (result.justifications ?? []).map((j) => reskolemizeAll(j)) };
   }
 
   terminate(): void {
@@ -326,6 +385,8 @@ let _cachedQueryEngine: QueryEngine | null = null;
 export interface DlReasonerLike {
   readonly ready: Promise<void>;
   reason(store: N3.Store): Promise<{ delta: InferenceDelta }>;
+  /** Consistency verdict only; optional so test adapters may provide validate() alone. */
+  checkConsistency?(store: N3.Store): Promise<boolean>;
   validate(store: N3.Store): Promise<ValidationResult>;
   explainInconsistency(store: N3.Store, maxJustifications?: number): Promise<N3.Quad[][]>;
   /**
@@ -1273,7 +1334,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
     // shape declarations
     const shapeIris = new Set<string>();
-    const decl = new Map<string, { nodes: string[]; classes: string[]; subjOf: string[]; objOf: string[]; isClass: boolean }>();
+    const referenced = new Set<string>();
+    const SHAPE_REFERENCES = new Set([
+      `${SH}property`, `${SH}node`, `${SH}not`, `${SH}qualifiedValueShape`,
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#first",
+    ]);
+    const decl =new Map<string, { nodes: string[]; classes: string[]; subjOf: string[]; objOf: string[]; isClass: boolean }>();
     const of = (iri: string) => {
       let d = decl.get(iri);
       if (!d) decl.set(iri, (d = { nodes: [], classes: [], subjOf: [], objOf: [], isClass: false }));
@@ -1287,11 +1353,18 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       else if (p === `${SH}targetSubjectsOf`) { shapeIris.add(s); of(s).subjOf.push(o); }
       else if (p === `${SH}targetObjectsOf`) { shapeIris.add(s); of(s).objOf.push(o); }
       else if (p === RDF_TYPE_IRI_LOCAL && o === RDFS_CLASS) of(s).isClass = true;
+      // ponytail: rdf:first over-approximates sh:and/sh:or/sh:xone membership; non-shape
+      // list items (sh:in values, ignored properties) never enter shapeIris, so it is harmless.
+      if (SHAPE_REFERENCES.has(p)) referenced.add(o);
     }
 
     const out: ShaclShapeTargets[] = [];
     for (const shape of shapeIris) {
       const d = decl.get(shape) ?? { nodes: [], classes: [], subjOf: [], objOf: [], isClass: false };
+      const hasOwnTarget = d.isClass || d.nodes.length + d.classes.length + d.subjOf.length + d.objOf.length > 0;
+      // A shape reached only through another shape (sh:property, sh:node, ...) is checked on
+      // its parent's focus nodes, so counting it as untargeted would report it as inert.
+      if (!hasOwnTarget && referenced.has(shape)) continue;
       const focus = new Set<string>(d.nodes);
       const classTargets = [...d.classes, ...(d.isClass ? [shape] : [])];
       for (const cls of classTargets) {
@@ -3322,6 +3395,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               objectLanguage?: string;
               graph?: string;
             }[];
+            measureGuards?: boolean;
           };
           const { StoreCls } = resolveN3();
           if (!StoreCls) throw new Error("n3-store-unavailable");
@@ -3361,12 +3435,44 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             copy.addQuad(q);
           }
           const removedCount = allQuads.length - copy.size;
-          const verifiedConsistent = (await konclude.validate(copy)).consistent;
+          const copyValidation = await konclude.validate(copy);
+          const verifiedConsistent = copyValidation.consistent;
+
+          // What the repair costs in guards: declared disjoint class pairs that still reject a
+          // modelling error afterwards. The ontology under repair is inconsistent, so every
+          // probe on it would be vacuous; the baseline is the declared pool, which any
+          // consistent version of this ontology enforces. The repaired copy is decided by one
+          // probe classification over the whole pool.
+          let guardImpact: RepairImpact | undefined;
+          if (p.measureGuards) {
+            const pool = declaredDisjointPairs(reasoningBase(source).getQuads(null, null, null, null));
+            const before: GuardVerdict[] = pool.map((pair) => ({ pair, enforced: true, vacuous: false }));
+            let after: GuardVerdict[] = pool.map((pair) => ({ pair, enforced: false, vacuous: false }));
+            if (verifiedConsistent && pool.length > 0) {
+              const probeStore = reasoningBase(copy);
+              for (const [s, pr, o] of buildProbeTriples(pool)) {
+                probeStore.addQuad(N3.DataFactory.quad(
+                  N3.DataFactory.namedNode(s), N3.DataFactory.namedNode(pr), N3.DataFactory.namedNode(o),
+                ));
+              }
+              const unsatOf = (v: { warnings?: { classIRI: string }[] }) =>
+                new Set((v.warnings ?? []).map((w) => w.classIRI));
+              after = interpretProbeResults(pool, unsatOf(await konclude.validate(probeStore)), unsatOf(copyValidation));
+            }
+            guardImpact = assessRepairImpact({
+              wasInconsistent: true,
+              consistencyRestored: verifiedConsistent,
+              classGuardsBefore: before,
+              classGuardsAfter: after,
+            });
+          }
+
           result = {
             verifiedConsistent,
             removedCount,
             requestedCount: removals.length,
             matchedCount: matchedIdx.size,
+            ...(guardImpact ? { guardImpact } : {}),
           };
           break;
         }
@@ -3517,8 +3623,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         const guardViolations = findCharacteristicViolations(
           reasoningBase(kStore as N3.Store).getQuads(null, null, null, null) as N3.Quad[],
         );
+        // Only the verdict is read here; the inconsistent branch explains separately.
         const kConsistencyResult =
-          guardViolations.length === 0 && (await konclude.validate(kStore)).consistent;
+          guardViolations.length === 0 &&
+          (konclude.checkConsistency
+            ? await konclude.checkConsistency(kStore)
+            : (await konclude.validate(kStore)).consistent);
         if (guardViolations.length > 0) {
           debugLog("[VG_REASONING_WORKER] property-characteristic violations:", guardViolations.length);
           for (const v of guardViolations) {
