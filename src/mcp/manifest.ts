@@ -537,7 +537,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'loadShacl',
-    description: 'Load SHACL shapes from inline Turtle text into the shapes graph (urn:vg:shapes). Call validateGraph to run validation after loading.',
+    description: 'Load SHACL shapes from inline Turtle text into the shapes graph (urn:vg:shapes), adding to any shapes already loaded. Call validateGraph to run validation after loading.',
     inputSchema: {
       type: 'object',
       required: ['turtle'],
@@ -556,7 +556,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'loadShaclFromUrl',
-    description: 'Load SHACL shapes from a URL into urn:vg:shapes. Supports direct .ttl file URLs, GitHub folder tree URLs (auto-discovers .ttl/.shacl files), and comma-separated mixes.',
+    description: 'Load SHACL shapes from a URL into urn:vg:shapes, replacing any shapes already loaded. Supports direct .ttl file URLs, GitHub folder tree URLs (auto-discovers .ttl/.shacl files), and comma-separated mixes.',
     inputSchema: {
       type: 'object',
       required: ['url'],

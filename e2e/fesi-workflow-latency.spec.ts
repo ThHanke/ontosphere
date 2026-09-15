@@ -55,6 +55,14 @@ async function ok(page: Page, tool: string, params: object) {
   return res;
 }
 
+/** What validation saw: shape quads loaded, and whether the silicon portion is typed semiconductor. */
+async function validationInputs(page: Page) {
+  const inferredType = await callTool(page, 'queryGraph', {
+    sparql: `ASK { GRAPH <urn:vg:inferred> { <${EX}some_silicon> a <https://w3id.org/pmd/co/PMD_0090000> } }`,
+  });
+  return { shapeQuads: await graphQuads(page, 'urn:vg:shapes'), siliconSemiconductor: inferredType?.data?.boolean === true };
+}
+
 const recordViolations = (res: any) =>
   (res?.data?.violations ?? []).filter((v: any) => String(v.focusNode ?? '').startsWith(EX))
     .map((v: any) => `${v.focusNode.slice(EX.length)} ${String(v.path ?? '').split('/').pop()}`).sort();
@@ -63,9 +71,12 @@ test.describe('Fe-Si workflow latency', () => {
   test.describe.configure({ mode: 'serial', timeout: 900_000 });
 
   test('edit-to-report latency across cold sessions', async ({ browser, request }) => {
+    // The dev server answers a missing file with its index.html fallback and status 200, so
+    // an OK status alone does not mean the fixture exists.
     for (const url of [ONT, REC, SHAPES]) {
-      const head = await request.get(url);
-      test.skip(!head.ok(), `fixture not served: ${url}`);
+      const res = await request.get(url);
+      const isHtml = (res.headers()['content-type'] ?? '').includes('text/html');
+      test.skip(!res.ok() || isHtml, `fixture not served: ${url}`);
     }
     if (SHOTS) fs.mkdirSync(SHOTS, { recursive: true });
 
@@ -116,10 +127,17 @@ test.describe('Fe-Si workflow latency', () => {
       }
       await shot('01-loaded');
 
+      const inputsAsserted = await validationInputs(page);
       const v0 = await time('validateAsserted', () => ok(page, 'validateGraph', {}));
       await shot('02-validated-asserted');
       const r1 = await time('reason', () => ok(page, 'runReasoning', { reasonerBackend: 'konclude', shaclValidation: false }));
       await shot('03-reasoned');
+      const inputsReasoned = await validationInputs(page);
+      // The full inferred set, so any difference between sessions can be traced to triples.
+      const inferredRows = (await callTool(page, 'queryGraph', {
+        sparql: 'SELECT ?s ?p ?o WHERE { GRAPH <urn:vg:inferred> { ?s ?p ?o } }', limit: 100000,
+      }))?.data?.rows ?? [];
+      const inferredTriples = [...new Set(inferredRows.map((r: any) => `${r.s} ${r.p} ${r.o}`))].sort();
       const v1 = await time('validateReasoned', () => ok(page, 'validateGraph', {}));
       await shot('04-validated-reasoned');
 
@@ -137,7 +155,7 @@ test.describe('Fe-Si workflow latency', () => {
 
       const editToReport = ms.correct + ms.reasonAfterCorrection + ms.validateAfterCorrection;
       const s = {
-        session: i, loadedQuads: loaded, ms, editToReportMs: editToReport,
+        session: i, loadedQuads: loaded, ms, editToReportMs: editToReport, inputsAsserted, inputsReasoned, inferredTriples,
         inferred: Number(r1.data?.inferredTriples ?? 0),
         asserted: recordViolations(v0), reasoned: recordViolations(v1), corrected: recordViolations(v2),
         exportOk: exp?.success === true,

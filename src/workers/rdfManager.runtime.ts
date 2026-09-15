@@ -741,6 +741,19 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     return resetSharedStore({ restore: true });
   }
 
+  // Reasoner use is serialised. The reasoner's terminate() rejects every pending call, and a
+  // reasoning run recycles the reasoner when it starts, so an overlapping run, or a graph removal
+  // that resets the reasoner, would kill whatever call is in flight ("Worker terminated").
+  const REASONER_COMMANDS: ReadonlySet<string> = new Set([
+    "runReasoning", "explainInconsistency", "validate", "verifyRepair", "explainEntailment",
+  ]);
+  let reasonerQueue: Promise<unknown> = Promise.resolve();
+  function withReasoner<T>(fn: () => Promise<T>): Promise<T> {
+    const next = reasonerQueue.then(fn, fn);
+    reasonerQueue = next.then(() => undefined, () => undefined);
+    return next;
+  }
+
   function handleInbound(incoming: unknown) {
     if (!incoming) return;
 
@@ -753,17 +766,19 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
     switch (incoming.type) {
       case "command":
-        void handleCommand(incoming);
+        void (REASONER_COMMANDS.has(incoming.command)
+          ? withReasoner(() => handleCommand(incoming))
+          : handleCommand(incoming));
         return;
       case "runReasoning": {
         const hasExternalQuads = Array.isArray(incoming.quads) && incoming.quads.length > 0;
-        handleRunReasoning(incoming, {
+        withReasoner(() => handleRunReasoning(incoming, {
           mutateSharedStore: !hasExternalQuads,
           includeAdded: hasExternalQuads,
           emitSubjects: !hasExternalQuads,
           emitChange: !hasExternalQuads,
           emitResultEvent: false,
-        })
+        }))
           .then((result) => {
             post(result);
           })
@@ -2058,7 +2073,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               );
             }
           }
-          if (removed > 0) resetDlReasoner();
+          // queued behind any reasoner call in flight rather than terminating it
+          if (removed > 0) void withReasoner(async () => resetDlReasoner());
           result = { graphName, removed };
           break;
         }
@@ -2418,7 +2434,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             emitChange({ reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removed: removedSubjects.length });
             emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removedSubjects });
           }
-          if (removedSubjects.length > 0) resetDlReasoner();
+          if (removedSubjects.length > 0) void withReasoner(async () => resetDlReasoner());
           result = { removed: removedSubjects.length, removedSubjects };
           break;
         }

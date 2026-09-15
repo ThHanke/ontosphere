@@ -274,11 +274,11 @@ Every report also says how many shapes selected a focus node. A report that conf
 
 | Loading shapes | |
 |---|---|
-| `?shaclShapes=` URL parameter | A `.ttl` URL, a GitHub folder URL, or a comma-separated list |
-| Settings, SHACL tab | A saved shapes URL, with bundled presets |
+| `?shaclShapes=` URL parameter | A `.ttl` URL, a GitHub folder URL, or a comma-separated list, loaded on startup |
+| Settings, SHACL tab | A saved shapes URL, loaded on startup when no `?shaclShapes=` is given, with bundled presets |
 | `loadShaclFromUrl` tool | Loading driven by an agent |
 
-Shapes go into `urn:vg:shapes`, which is never reasoned over.
+Shapes go into `urn:vg:shapes`, which is never reasoned over. Loading from the Settings tab or with `loadShaclFromUrl` replaces the shapes already there; `loadShacl` adds to them. Startup shapes are a default: they are applied only if the shapes graph is still empty once they have been fetched, so shapes loaded right after opening the app are kept.
 
 | Bundled preset | Targets | Checks |
 |---|---|---|
@@ -301,7 +301,7 @@ URL parameters control what loads on startup. All mechanisms are additive and ru
 | `ontologies` | Replace the autoload list, for example `?ontologies=owl,rdf,rdfs`. |
 | `ontology` | Add to the autoload list, for example `?ontology=bfo,dcat`. |
 | `loadImports` | `false` disables `owl:imports` discovery for the session. |
-| `shaclShapes` | Shapes to load on startup, overriding the configured URL for the session. |
+| `shaclShapes` | Shapes to load on startup, overriding the configured URL for the session. Applied only if no shapes have been loaded by then. |
 
 ```text
 https://thhanke.github.io/ontosphere/?rdfUrl=https://example.org/data.ttl&ontology=bfo2020&shaclShapes=https://example.org/shapes.ttl
@@ -563,12 +563,12 @@ Chromium, five cold sessions on the same host: the PMDco core ontology (10,756 t
 
 | Step | Median | Range |
 |---|---:|---:|
-| Load ontology | 0.79 s | 0.75–0.81 s |
-| Load record and shapes | 0.41 s | 0.32–0.45 s |
-| Reason | 15.7 s | 15.0–16.8 s |
-| Validate | 0.25 s | 0.16–0.27 s |
-| Edit two triples, reason and validate again | **16.3 s** | 15.2–18.5 s |
-| Export TriG | 0.18 s | 0.13–0.19 s |
+| Load ontology | 0.76 s | 0.71–0.84 s |
+| Load record and shapes | 0.40 s | 0.32–0.44 s |
+| Reason | 17.7 s | 17.2–17.7 s |
+| Validate | 0.14 s | 0.12–0.16 s |
+| Edit two triples, reason and validate again | **17.4 s** | 17.0–17.5 s |
+| Export TriG | 0.18 s | 0.17–0.19 s |
 
 The validation report was identical in every session: two violations on the asserted record, one after reasoning, none after the correction.
 

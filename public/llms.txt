@@ -97,8 +97,8 @@ Call `help` first: it returns relay instructions and the full tool list, and `he
 
 ### SHACL
 
-- `loadShacl`: load shapes from inline Turtle.
-- `loadShaclFromUrl`: load shapes from a file URL, a GitHub folder URL, or a comma-separated list.
+- `loadShacl`: load shapes from inline Turtle, adding to any already loaded.
+- `loadShaclFromUrl`: load shapes from a file URL, a GitHub folder URL, or a comma-separated list, replacing any already loaded.
 - `validateGraph`: validate asserted plus inferred data; returns violations and how many shapes selected a focus node.
 
 ### Provenance
