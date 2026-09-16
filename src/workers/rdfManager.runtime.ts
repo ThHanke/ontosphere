@@ -99,6 +99,10 @@ class DlReasoner {
     }) as Promise<{ delta: InferenceDelta }>;
   }
 
+  checkConsistency(store: N3.Store): Promise<boolean> {
+    return this._reasoner.checkConsistency(store);
+  }
+
   validate(store: N3.Store): Promise<ValidationResult> {
     return this._reasoner.validate(store) as Promise<ValidationResult>;
   }
@@ -170,6 +174,7 @@ let _cachedQueryEngine: QueryEngine | null = null;
  */
 export interface DlReasonerLike {
   readonly ready: Promise<void>;
+  checkConsistency(store: N3.Store): Promise<boolean>;
   reason(store: N3.Store): Promise<{ delta: InferenceDelta }>;
   validate(store: N3.Store): Promise<ValidationResult>;
   explainInconsistency(store: N3.Store, maxJustifications?: number): Promise<N3.Quad[][]>;
@@ -3068,7 +3073,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             copy.addQuad(q);
           }
           const removedCount = allQuads.length - copy.size;
-          const verifiedConsistent = (await konclude.validate(copy)).consistent;
+          const verifiedConsistent = await konclude.checkConsistency(copy);
           result = {
             verifiedConsistent,
             removedCount,
@@ -3195,7 +3200,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         debugLog("[VG_REASONING_WORKER] Konclude input quads:", kQuadCount);
         reasoningStage({ type: "reasoningStage", id: msg.id, stage: "consistency-check", meta: { backend: 'konclude' } });
         const kStart = Date.now();
-        const kConsistencyResult = (await konclude.validate(kStore)).consistent;
+        const kConsistencyResult = await konclude.checkConsistency(kStore);
         if (kConsistencyResult) {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-start", meta: { backend: 'konclude' } });
           const result = await konclude.reason(kStore);
