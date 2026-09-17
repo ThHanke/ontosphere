@@ -3296,6 +3296,17 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         });
       }
 
+      // Inferences are only current after a consistent run. Otherwise the previous run's
+      // inferred graph is dropped, so SHACL validation below reads the asserted graph and
+      // the canvas is told the inferred quads are gone.
+      if (!(kUsedReasoner && kIsConsistent === true)) {
+        const stale = kStore.getQuads(null, null, null, DataFactory.namedNode(INFERRED_GRAPH));
+        if (stale.length > 0) {
+          kStore.removeQuads(stale);
+          kDelta = { added: [], removed: stale };
+        }
+      }
+
       const kAddedQuads = kUsedReasoner ? skolemizeQuads(kDelta.added, DataFactory) : [];
       const kTouchedSubjects = new Set<string>();
       for (const q of kAddedQuads) {
