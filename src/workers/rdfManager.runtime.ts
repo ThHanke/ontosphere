@@ -25,6 +25,7 @@ import { ensureDefaultNamespaceMap } from "../constants/namespaces.ts";
 import { RDF_TYPE, RDFS_LABEL, SHACL } from "../constants/vocabularies.ts";
 import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
 import { mipsToReasoningError, shaclViolationToEntry } from "./reasoningDiagnostics.ts";
+import { canonicalInferredHierarchy, type Edge } from "./canonicalHierarchy.ts";
 import { RdfReasoner, type LaconicJustification, type LaconicPart, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
@@ -129,6 +130,30 @@ export function reasoningBase(store: N3.Store): N3.Store {
 // ---------------------------------------------------------------------------
 
 
+const RDFS_SUBCLASS_OF = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+
+/**
+ * Replace the inferred named-class rdfs:subClassOf edges in the store with the canonical
+ * reduction (see canonicalHierarchy.ts), so the inferred graph is the same in every session.
+ * Exported for tests.
+ */
+export function canonicalizeInferredHierarchyInStore(store: N3.Store): void {
+  const isNamedSubClassOf = (q: N3.Quad) =>
+    q.subject.termType === "NamedNode" && q.object.termType === "NamedNode";
+  const subClassOf = N3.DataFactory.namedNode(RDFS_SUBCLASS_OF);
+  const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+  const reported = (store.getQuads(null, subClassOf, null, inferredGraph) as N3.Quad[]).filter(isNamedSubClassOf);
+  if (reported.length === 0) return;
+  const asserted: Edge[] = (store.getQuads(null, subClassOf, null, null) as N3.Quad[])
+    .filter((q) => q.graph.value !== INFERRED_GRAPH && isNamedSubClassOf(q))
+    .map((q) => [q.subject.value, q.object.value]);
+  const canonical = canonicalInferredHierarchy(asserted, reported.map((q) => [q.subject.value, q.object.value]));
+  store.removeQuads(reported);
+  for (const [a, b] of canonical) {
+    store.addQuad(N3.DataFactory.namedNode(a), subClassOf, N3.DataFactory.namedNode(b), inferredGraph);
+  }
+}
+
 class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
@@ -147,16 +172,22 @@ class DlReasoner {
     const base = reasoningBase(store);
     // The explanation graph is not requested: nothing in the app reads
     // urn:konclude:explanations, and on LUBM-1 it held 162,638 quads per run.
-    const result = (await this._reasoner.materialize(base, {
-      includeClassHierarchy: true,
-      inferredGraph: INFERRED_GRAPH,
-      returnDelta: true,
-    })) as { delta: InferenceDelta };
+    await this._reasoner.materialize(base, { includeClassHierarchy: true, inferredGraph: INFERRED_GRAPH });
+    canonicalizeInferredHierarchyInStore(base);
+
     const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
-    store.removeQuads(store.getQuads(null, null, null, inferredGraph));
-    store.addQuads(reskolemizeAll(base.getQuads(null, null, null, inferredGraph)));
+    const before = store.getQuads(null, null, null, inferredGraph) as N3.Quad[];
+    const after = reskolemizeAll(base.getQuads(null, null, null, inferredGraph));
+    const key = (q: N3.Quad) => `${q.subject.value}\0${q.predicate.value}\0${q.object.value}`;
+    const beforeKeys = new Set(before.map(key));
+    const afterKeys = new Set(after.map(key));
+    store.removeQuads(before);
+    store.addQuads(after);
     return {
-      delta: { added: reskolemizeAll(result.delta.added), removed: reskolemizeAll(result.delta.removed) } as InferenceDelta,
+      delta: {
+        added: after.filter((q) => !beforeKeys.has(key(q))),
+        removed: before.filter((q) => !afterKeys.has(key(q))),
+      } as InferenceDelta,
     };
   }
 
