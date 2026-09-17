@@ -3274,6 +3274,10 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (!sabAvailable) {
           throw new Error("SharedArrayBuffer unavailable — page needs HTTPS + COOP/COEP headers (or localhost). Use reasonerBackend='n3' as fallback.");
         }
+        // The package releases a knowledge base only through terminate(), and each run
+        // loads a new one into WASM memory, so every run starts from a fresh reasoner.
+        // Runs are queued (withReasoner), so no other reasoner call is in flight here.
+        resetDlReasoner();
         const konclude = getDlReasoner();
         await konclude.ready;
         const kQuadCount = kStore.size ?? kStore.countQuads?.(null,null,null,null) ?? 0;
