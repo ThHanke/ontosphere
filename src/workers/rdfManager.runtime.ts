@@ -54,13 +54,13 @@ type SerializedLaconicJustification = {
 function serializeLaconicJustification(lj: LaconicJustification): SerializedLaconicJustification {
   return {
     parts: lj.parts.map((p: LaconicPart) => ({
-      subject: p.quad.subject.value,
+      subject: storedValue(p.quad.subject),
       predicate: p.quad.predicate.value,
-      object: p.quad.object.value,
+      object: storedValue(p.quad.object),
       ...(p.quad.object.termType === "Literal" ? { objectIsLiteral: true } : {}),
-      sourceSubject: p.sourceQuad.subject.value,
+      sourceSubject: storedValue(p.sourceQuad.subject),
       sourcePredicate: p.sourceQuad.predicate.value,
-      sourceObject: p.sourceQuad.object.value,
+      sourceObject: storedValue(p.sourceQuad.object),
       isPartOf: p.isPartOf,
     })),
     sharpened: lj.sharpened,
@@ -69,6 +69,56 @@ function serializeLaconicJustification(lj: LaconicJustification): SerializedLaco
 }
 
 const INFERRED_GRAPH = KONCLUDE_INFERRED_GRAPH_IRI;
+
+const SKOLEM_PREFIX = "urn:vg:bnode:";
+
+function deskolemize(t: N3.Term): N3.Term {
+  return t.termType === "NamedNode" && t.value.startsWith(SKOLEM_PREFIX)
+    ? N3.DataFactory.blankNode(t.value.slice(SKOLEM_PREFIX.length))
+    : t;
+}
+
+/** A term's value as the store holds it. */
+function storedValue(t: { termType: string; value: string }): string {
+  return t.termType === "BlankNode" ? `${SKOLEM_PREFIX}${t.value}` : t.value;
+}
+
+function reskolemize(t: N3.Term): N3.Term {
+  return t.termType === "BlankNode" ? N3.DataFactory.namedNode(`${SKOLEM_PREFIX}${t.value}`) : t;
+}
+
+/** Reasoner output back into the store's skolemized form. Exported for tests. */
+export function reskolemizeQuad(q: N3.Quad): N3.Quad {
+  if (q.subject.termType !== "BlankNode" && q.object.termType !== "BlankNode") return q;
+  return N3.DataFactory.quad(
+    reskolemize(q.subject) as N3.Quad_Subject, q.predicate, reskolemize(q.object) as N3.Quad_Object, q.graph,
+  );
+}
+
+const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
+  (quads ?? []).map((q) => reskolemizeQuad(q as N3.Quad));
+
+/**
+ * A copy of the store with blank nodes restored.
+ *
+ * The store keeps blank nodes skolemized as `urn:vg:bnode:*` IRIs. Konclude reads a class
+ * expression built from blank nodes (intersectionOf, unionOf, oneOf and the RDF lists they
+ * use) only in blank-node form, so the reasoner is always handed this copy.
+ * Exported for tests.
+ */
+export function reasoningBase(store: N3.Store): N3.Store {
+  const base = new N3.Store();
+  for (const q of store.getQuads(null, null, null, null) as N3.Quad[]) {
+    const s = deskolemize(q.subject);
+    const o = deskolemize(q.object);
+    base.addQuad(
+      s === q.subject && o === q.object
+        ? q
+        : N3.DataFactory.quad(s as N3.Quad_Subject, q.predicate, o as N3.Quad_Object, q.graph),
+    );
+  }
+  return base;
+}
 
 
 
@@ -90,25 +140,40 @@ class DlReasoner {
     this.ready = this._reasoner.ready;
   }
 
-  reason(store: N3.Store): Promise<{ delta: InferenceDelta }> {
-    return this._reasoner.materialize(store, {
+  async reason(store: N3.Store): Promise<{ delta: InferenceDelta }> {
+    // Reason over the blank-node copy, then publish its inferred graph into the store.
+    // On a cache hit the package leaves the copy's inferred graph as copied, so the
+    // store keeps what it had.
+    const base = reasoningBase(store);
+    // The explanation graph is not requested: nothing in the app reads
+    // urn:konclude:explanations, and on LUBM-1 it held 162,638 quads per run.
+    const result = (await this._reasoner.materialize(base, {
       includeClassHierarchy: true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
-      explanations: true,
-    }) as Promise<{ delta: InferenceDelta }>;
+    })) as { delta: InferenceDelta };
+    const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+    store.removeQuads(store.getQuads(null, null, null, inferredGraph));
+    store.addQuads(reskolemizeAll(base.getQuads(null, null, null, inferredGraph)));
+    return {
+      delta: { added: reskolemizeAll(result.delta.added), removed: reskolemizeAll(result.delta.removed) } as InferenceDelta,
+    };
   }
 
   checkConsistency(store: N3.Store): Promise<boolean> {
-    return this._reasoner.checkConsistency(store);
+    return this._reasoner.checkConsistency(reasoningBase(store));
   }
 
-  validate(store: N3.Store): Promise<ValidationResult> {
-    return this._reasoner.validate(store) as Promise<ValidationResult>;
+  async validate(store: N3.Store): Promise<ValidationResult> {
+    const result = (await this._reasoner.validate(reasoningBase(store))) as ValidationResult;
+    return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
   }
 
-  explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
-    return this._reasoner.explainInconsistency(store, { maxJustifications, inferredGraph: INFERRED_GRAPH }) as Promise<N3.Quad[][]>;
+  async explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
+    const mips = (await this._reasoner.explainInconsistency(reasoningBase(store), {
+      maxJustifications, inferredGraph: INFERRED_GRAPH,
+    })) as N3.Quad[][];
+    return mips.map((j) => reskolemizeAll(j));
   }
 
   explainInconsistencyLaconic(
@@ -121,15 +186,15 @@ class DlReasoner {
     }>
   > {
     return (async () => {
-      const results = await this._reasoner.explainInconsistencyLaconic(store, { maxJustifications, inferredGraph: INFERRED_GRAPH });
+      const results = await this._reasoner.explainInconsistencyLaconic(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH });
       return (results as Array<{ justification: N3.Quad[]; laconic: LaconicJustification }>).map((r) => ({
-        justification: r.justification as N3.Quad[],
+        justification: reskolemizeAll(r.justification),
         laconic: serializeLaconicJustification(r.laconic),
       }));
     })();
   }
 
-  explainEntailment(
+  async explainEntailment(
     store: N3.Store,
     subjectIri: string,
     predicateIri: string,
@@ -142,19 +207,20 @@ class DlReasoner {
     vacuous?: boolean;
     reason?: string;
   }> {
-    return this._reasoner.explainEntailment(
-      store,
+    const result = (await this._reasoner.explainEntailment(
+      reasoningBase(store),
       subjectIri,
       predicateIri,
       objectIri,
       { inferredGraph: INFERRED_GRAPH, justificationMode: 'causal', ...opts },
-    ) as Promise<{
+    )) as {
       isEntailed: boolean | null;
       justifications: N3.Quad[][];
       ontologyInconsistent?: boolean;
       vacuous?: boolean;
       reason?: string;
-    }>;
+    };
+    return { ...result, justifications: (result.justifications ?? []).map((j) => reskolemizeAll(j)) };
   }
 
   terminate(): void {
