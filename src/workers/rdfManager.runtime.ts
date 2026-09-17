@@ -187,14 +187,41 @@ export async function explainEntailmentConfirmed(
   return ask("minimal");
 }
 
-class DlReasoner {
+/**
+ * Asymmetric self-loops `x p x`, each with the declaration of `p`, as justifications.
+ * Asymmetry at x = y gives not p(x, x), so such a graph has no model, and
+ * rdf-reasoner-konclude 0.7.1 reports it consistent. The irreflexive self-loop and the
+ * asymmetric two-cycle are detected by the reasoner itself.
+ */
+function asymmetricSelfLoops(store: N3.Store): N3.Quad[][] {
+  const found = new Map<string, N3.Quad[]>();
+  const declarations = store.getQuads(
+    null, N3.DataFactory.namedNode(RDF_TYPE), N3.DataFactory.namedNode("http://www.w3.org/2002/07/owl#AsymmetricProperty"), null,
+  ) as N3.Quad[];
+  for (const declaration of declarations) {
+    for (const q of store.getQuads(null, declaration.subject, null, null) as N3.Quad[]) {
+      const key = `${q.subject.value} ${q.predicate.value}`;
+      if (q.graph.value !== INFERRED_GRAPH && q.subject.equals(q.object) && !found.has(key)) {
+        found.set(key, [declaration, q]);
+      }
+    }
+  }
+  return [...found.values()];
+}
+
+export class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
 
-  constructor() {
-    const base = (import.meta as any).env?.BASE_URL ?? "/";
-    const workerUrl = new URL(`${base}rdf-reasoner-konclude/worker.js`, self.location.href);
-    this._reasoner = new RdfReasoner({ workerUrl });
+  /** `reasoner` is for tests; the app builds one on the bundled worker. */
+  constructor(reasoner?: RdfReasoner) {
+    if (reasoner) {
+      this._reasoner = reasoner;
+    } else {
+      const base = (import.meta as any).env?.BASE_URL ?? "/";
+      const workerUrl = new URL(`${base}rdf-reasoner-konclude/worker.js`, self.location.href);
+      this._reasoner = new RdfReasoner({ workerUrl });
+    }
     this.ready = this._reasoner.ready;
   }
 
@@ -224,16 +251,21 @@ class DlReasoner {
     };
   }
 
-  checkConsistency(store: N3.Store): Promise<boolean> {
+  async checkConsistency(store: N3.Store): Promise<boolean> {
+    if (asymmetricSelfLoops(store).length > 0) return false;
     return this._reasoner.checkConsistency(reasoningBase(store));
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
+    const loops = asymmetricSelfLoops(store);
+    if (loops.length > 0) return { consistent: false, errors: loops.slice(0, 1), warnings: [] };
     const result = (await this._reasoner.validate(reasoningBase(store))) as ValidationResult;
     return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
   }
 
   async explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
+    const loops = asymmetricSelfLoops(store);
+    if (loops.length > 0) return loops.slice(0, maxJustifications);
     const mips = (await this._reasoner.explainInconsistency(reasoningBase(store), {
       maxJustifications, inferredGraph: INFERRED_GRAPH,
     })) as N3.Quad[][];
@@ -250,6 +282,17 @@ class DlReasoner {
     }>
   > {
     return (async () => {
+      const loops = asymmetricSelfLoops(store);
+      if (loops.length > 0) {
+        return loops.slice(0, maxJustifications).map((justification) => ({
+          justification,
+          laconic: serializeLaconicJustification({
+            parts: justification.map((quad) => ({ quad, sourceQuad: quad, isPartOf: false })),
+            sharpened: false,
+            skipped: false,
+          } as unknown as LaconicJustification),
+        }));
+      }
       const results = await this._reasoner.explainInconsistencyLaconic(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH });
       return (results as Array<{ justification: N3.Quad[]; laconic: LaconicJustification }>).map((r) => ({
         justification: reskolemizeAll(r.justification),
