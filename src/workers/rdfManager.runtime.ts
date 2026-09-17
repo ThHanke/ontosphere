@@ -154,6 +154,39 @@ export function canonicalizeInferredHierarchyInStore(store: N3.Store): void {
   }
 }
 
+type EntailmentResult = {
+  isEntailed: boolean | null;
+  justifications: N3.Quad[][];
+  ontologyInconsistent?: boolean;
+  vacuous?: boolean;
+  reason?: string;
+};
+
+/**
+ * `causal` answers from the reasoner's dependency cache in milliseconds, but reports
+ * `isEntailed: false` whenever the cache does not hold the statement, entailed or not.
+ * On A ⊑ B ⊑ C it answers false for A ⊑ C in 11 ms, where `minimal` answers true with a
+ * justification in 2.4 s. Positives keep the fast answer; every negative is
+ * confirmed with `minimal`, which is exact. A mode chosen by the caller is used as given.
+ * Exported for tests.
+ */
+export async function explainEntailmentConfirmed(
+  reasoner: Pick<RdfReasoner, "explainEntailment">,
+  store: N3.Store,
+  subjectIri: string,
+  predicateIri: string,
+  objectIri: string,
+  opts?: ExplainEntailmentOptions,
+): Promise<EntailmentResult> {
+  const ask = async (justificationMode: ExplainEntailmentOptions["justificationMode"]) =>
+    (await reasoner.explainEntailment(store, subjectIri, predicateIri, objectIri, {
+      inferredGraph: INFERRED_GRAPH, justificationMode, ...opts,
+    })) as EntailmentResult;
+  const fast = await ask("causal");
+  if (fast.isEntailed !== false || opts?.justificationMode) return fast;
+  return ask("minimal");
+}
+
 class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
@@ -238,20 +271,8 @@ class DlReasoner {
     vacuous?: boolean;
     reason?: string;
   }> {
-    const result = (await this._reasoner.explainEntailment(
-      reasoningBase(store),
-      subjectIri,
-      predicateIri,
-      objectIri,
-      { inferredGraph: INFERRED_GRAPH, justificationMode: 'causal', ...opts },
-    )) as {
-      isEntailed: boolean | null;
-      justifications: N3.Quad[][];
-      ontologyInconsistent?: boolean;
-      vacuous?: boolean;
-      reason?: string;
-    };
-    return { ...result, justifications: (result.justifications ?? []).map((j) => reskolemizeAll(j)) };
+    const result = await explainEntailmentConfirmed(this._reasoner, reasoningBase(store), subjectIri, predicateIri, objectIri, opts);
+    return { ...result, justifications: result.justifications.map((j) => reskolemizeAll(j)) };
   }
 
   terminate(): void {
