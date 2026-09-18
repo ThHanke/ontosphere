@@ -97,21 +97,6 @@ function skolemize(store: N3.Store): N3.Store {
   return out;
 }
 
-/** De-skolemize urn:vg:bnode:* back to blank nodes, exactly as KoncludeReasoner.reason() does. */
-function deskolemize(store: N3.Store): N3.Store {
-  const BNODE_PREFIX = "urn:vg:bnode:";
-  const out = new N3.Store();
-  for (const q of store.getQuads(null, null, null, null)) {
-    const subj = q.subject.termType === "NamedNode" && q.subject.value.startsWith(BNODE_PREFIX)
-      ? N3.DataFactory.blankNode(q.subject.value.slice(BNODE_PREFIX.length))
-      : q.subject;
-    const obj = q.object.termType === "NamedNode" && q.object.value.startsWith(BNODE_PREFIX)
-      ? N3.DataFactory.blankNode(q.object.value.slice(BNODE_PREFIX.length))
-      : q.object;
-    out.addQuad(N3.DataFactory.quad(subj, q.predicate, obj, q.graph));
-  }
-  return out;
-}
 
 function logInferred(store: N3.Store, label: string): N3.Quad[] {
   const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH_IRI);
