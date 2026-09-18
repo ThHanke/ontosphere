@@ -3230,7 +3230,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         });
       }
 
-      const kAddedQuads = kUsedReasoner ? skolemizeQuads(kDelta.added, DataFactory) : [];
+      const kAddedQuads = kUsedReasoner ? kDelta.added : [];
       const kTouchedSubjects = new Set<string>();
       for (const q of kAddedQuads) {
         const sv = subjectTermToString(q.subject, q.subject.value);
