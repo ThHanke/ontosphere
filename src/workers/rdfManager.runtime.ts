@@ -1738,7 +1738,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   function normalizeExportFormat(format?: string) {
     const raw = typeof format === "string" ? format.toLowerCase().trim() : "";
     if (raw === "application/ld+json" || raw === "ld+json" || raw === "jsonld" || raw === "json-ld") {
-      return { writerFormat: "application/ld+json", mediaType: "application/ld+json", dropGraph: true, dataset: false };
+      // JSON-LD 1.1 represents named graphs as node objects with @graph, so it is exported as
+      // a dataset format like N-Quads and TriG and keeps the urn:vg:* partition.
+      return { writerFormat: "application/ld+json", mediaType: "application/ld+json", dropGraph: false, dataset: true };
     }
     if (raw === "application/rdf+xml" || raw === "rdfxml" || raw === "rdf+xml" || raw === "rdf-xml") {
       return { writerFormat: "application/rdf+xml", mediaType: "application/rdf+xml", dropGraph: true, dataset: false };
@@ -2331,13 +2333,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           // ----------------------------------------------------------------------------
           // Quad collection. Two strategies:
           //
-          //  (A) DATASET-FAITHFUL (N-Quads / TriG, formatInfo.dataset === true):
+          //  (A) DATASET-FAITHFUL (N-Quads / TriG / JSON-LD, formatInfo.dataset === true):
           //      Collect quads from EVERY urn:vg:* graph and keep their graph terms intact
           //      so the five-graph partition (data / inferred / shapes / ontologies /
           //      workflows) round-trips. No data-grounded filtering or graph-flattening is
           //      applied — a dataset export is a faithful snapshot of the store.
           //
-          //  (B) SINGLE-GRAPH (Turtle / JSON-LD / RDF-XML, the historical behaviour):
+          //  (B) SINGLE-GRAPH (Turtle / RDF-XML):
           //      Collect quads from the requested graph PLUS urn:vg:inferred, apply
           //      "data-grounded" filtering to the inferred quads (only keep inferred triples
           //      whose subject is a NamedNode present in the data graph — this strips
@@ -2437,8 +2439,17 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
           if (formatInfo.mediaType === "application/ld+json") {
             // N3.js Writer does not support JSON-LD — build expanded JSON-LD manually.
-            const nodeMap = new Map<string, Record<string, any[]>>();
+            // Default-graph nodes stay at the top level and each named graph becomes a
+            // { "@id": <graph>, "@graph": [...] } node object, as JSON-LD 1.1 expresses a dataset.
+            const byGraph = new Map<string, Map<string, Record<string, any[]>>>();
+            const nodeMapFor = (graphId: string) => {
+              let m = byGraph.get(graphId);
+              if (!m) byGraph.set(graphId, (m = new Map()));
+              return m;
+            };
             for (const q of toWrite) {
+              const graphId = q.graph.termType === "DefaultGraph" ? "" : q.graph.value;
+              const nodeMap = nodeMapFor(graphId);
               const subjId =
                 q.subject.termType === "BlankNode"
                   ? `_:${q.subject.value}`
@@ -2464,7 +2475,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                 node[predId].push(lit);
               }
             }
-            output = JSON.stringify(Array.from(nodeMap.values()), null, 2);
+            const jsonldOut: any[] = [];
+            for (const n of byGraph.get("")?.values() ?? []) jsonldOut.push(n);
+            for (const [graphId, nodeMap] of byGraph) {
+              if (graphId === "") continue;
+              jsonldOut.push({ "@id": graphId, "@graph": Array.from(nodeMap.values()) });
+            }
+            output = JSON.stringify(jsonldOut, null, 2);
           } else if (formatInfo.mediaType === "application/rdf+xml") {
             // N3.js Writer does not support RDF/XML — build it manually.
             const xe = (s: string) =>

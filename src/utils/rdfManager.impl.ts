@@ -1598,8 +1598,8 @@ export class RDFManagerImpl {
   }
 
   /**
-   * Dataset-faithful export as N-Quads. Unlike the single-graph Turtle/JSON-LD/RDF-XML
-   * exporters, this collects quads from ALL urn:vg:* graphs (data, inferred, shapes,
+   * Dataset-faithful export as N-Quads. Like TriG and JSON-LD, and unlike the single-graph
+   * Turtle and RDF/XML exporters, this collects quads from ALL urn:vg:* graphs (data, inferred, shapes,
    * ontologies, workflows) and preserves each quad's graph term so the multi-graph
    * partition round-trips. The `graphName` argument is ignored for dataset formats; it
    * is accepted only for signature symmetry with the other exporters.

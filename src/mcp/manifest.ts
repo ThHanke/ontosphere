@@ -105,10 +105,10 @@ export const mcpManifest: McpToolManifestEntry[] = [
   {
     name: 'exportGraph',
     description:
-      'Export the current RDF graph. turtle | jsonld | rdfxml flatten the store into a single ' +
-      'default graph (named-graph structure is lost). nquads | trig are dataset-faithful: they ' +
+      'Export the current RDF graph. turtle | rdfxml flatten the store into a single default ' +
+      'graph (named-graph structure is lost). nquads | trig | jsonld are dataset-faithful: they ' +
       'collect quads from every urn:vg:* graph (data, inferred, shapes, ontologies, workflows) ' +
-      'and preserve each graph IRI, so the multi-graph partition round-trips on re-import.',
+      'and preserve each graph IRI (JSON-LD as one @graph per named graph), so the partition round-trips on re-import.',
     inputSchema: {
       type: 'object',
       properties: {
