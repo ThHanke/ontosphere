@@ -99,7 +99,19 @@ const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
   (quads ?? []).map((q) => reskolemizeQuad(q as N3.Quad));
 
 /**
- * A copy of the store with blank nodes restored.
+ * Graphs that are not reasoning input: the reasoner's own output, SHACL shapes, the edit
+ * journal and workflow state. None of them are OWL axioms about the data.
+ */
+const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
+  INFERRED_GRAPH,
+  "urn:konclude:explanations",
+  "urn:vg:shapes",
+  "urn:vg:provenance",
+  "urn:vg:workflows",
+]);
+
+/**
+ * The reasoning input: a copy of the store without NON_AXIOM_GRAPHS, with blank nodes restored.
  *
  * The store keeps blank nodes skolemized as `urn:vg:bnode:*` IRIs. Konclude reads a class
  * expression built from blank nodes (intersectionOf, unionOf, oneOf and the RDF lists they
@@ -109,6 +121,7 @@ const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
 export function reasoningBase(store: N3.Store): N3.Store {
   const base = new N3.Store();
   for (const q of store.getQuads(null, null, null, null) as N3.Quad[]) {
+    if (NON_AXIOM_GRAPHS.has(q.graph.value)) continue;
     const s = deskolemize(q.subject);
     const o = deskolemize(q.object);
     base.addQuad(
@@ -140,7 +153,7 @@ class DlReasoner {
     this.ready = this._reasoner.ready;
   }
 
-  async reason(store: N3.Store): Promise<{ delta: InferenceDelta }> {
+  async reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }> {
     // Reason over the blank-node copy, then publish its inferred graph into the store.
     // On a cache hit the package leaves the copy's inferred graph as copied, so the
     // store keeps what it had.
@@ -152,6 +165,8 @@ class DlReasoner {
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
     })) as { delta: InferenceDelta };
+    // The store may have been edited while Konclude worked on the copy.
+    if (isCurrent && !isCurrent()) return { delta: { added: [], removed: [] } as InferenceDelta };
     const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
     store.removeQuads(store.getQuads(null, null, null, inferredGraph));
     store.addQuads(reskolemizeAll(base.getQuads(null, null, null, inferredGraph)));
@@ -241,7 +256,8 @@ let _cachedQueryEngine: QueryEngine | null = null;
 export interface DlReasonerLike {
   readonly ready: Promise<void>;
   checkConsistency(store: N3.Store): Promise<boolean>;
-  reason(store: N3.Store): Promise<{ delta: InferenceDelta }>;
+  /** Publishes into `store` only while `isCurrent()` holds, when given. */
+  reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }>;
   validate(store: N3.Store): Promise<ValidationResult>;
   explainInconsistency(store: N3.Store, maxJustifications?: number): Promise<N3.Quad[][]>;
   /**
@@ -429,6 +445,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   // re-installs the wrappers and recomputes, flipping this back to true. A false
   // value forces a one-time full recompute in getGraphCounts (the fallback).
   let graphCountsReady = false;
+  // Incremented on every change to the reasoning input (see NON_AXIOM_GRAPHS), so a reasoning
+  // run can tell whether the data it reasoned over is still the data in the store.
+  let reasoningInputGeneration = 0;
 
   const DEFAULT_GRAPH_KEY = "urn:vg:default";
 
@@ -465,6 +484,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
    */
   function installGraphCountTracking(store: any): void {
     if (!store || store.__vgCountTracked) return;
+    const noteChange = (graphTerm: any) => {
+      if (!NON_AXIOM_GRAPHS.has(graphTerm?.value ?? "")) reasoningInputGeneration += 1;
+    };
     const origAddQuad = store.addQuad.bind(store);
     const origRemoveQuad = store.removeQuad.bind(store);
     const origAddQuads = typeof store.addQuads === "function" ? store.addQuads.bind(store) : null;
@@ -476,6 +498,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         // addQuad(quad) or addQuad(s, p, o, g)
         const graphTerm = args.length >= 4 ? args[3] : q?.graph;
         incGraphCount(graphTerm, 1);
+        noteChange(graphTerm);
       }
       return changed;
     };
@@ -486,6 +509,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         const q = args[0];
         const graphTerm = args.length >= 4 ? args[3] : q?.graph;
         incGraphCount(graphTerm, -1);
+        noteChange(graphTerm);
       }
       return changed;
     };
@@ -582,6 +606,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const { StoreCls, DataFactory } = resolveN3();
     if (!StoreCls) throw new Error("n3-store-unavailable");
     sharedStore = new (StoreCls as any)();
+    reasoningInputGeneration += 1;
     workerChangeCounter = 0;
     graphCounts = new Map();
     graphCountsReady = true;
@@ -626,7 +651,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         return;
       case "runReasoning": {
         const hasExternalQuads = Array.isArray(incoming.quads) && incoming.quads.length > 0;
-        withReasoner(() => handleRunReasoning(incoming, {
+        withReasoner(() => runReasoningOnCurrentInput(incoming, {
           mutateSharedStore: !hasExternalQuads,
           includeAdded: hasExternalQuads,
           emitSubjects: !hasExternalQuads,
@@ -2994,7 +3019,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             reasonerBackend: payload.reasonerBackend,
             shaclEnabled: payload.shaclEnabled,
           };
-          const outcome = await handleRunReasoning(reasoningRequest, {
+          const outcome = await runReasoningOnCurrentInput(reasoningRequest, {
             mutateSharedStore: true,
             includeAdded: false,
             emitSubjects: payload.emitSubjects !== false,
@@ -3230,6 +3255,19 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   // the full justification axiom set (see reasoningDiagnostics.ts) rather than
   // truncating to three axioms.
 
+  // Graph edits are not queued behind reasoning. When the reasoning input changes during a run,
+  // that run publishes nothing (see kInputChanged), so it is repeated and the caller gets an
+  // answer for the current graph. After 3 attempts the input-changed warning is returned.
+  async function runReasoningOnCurrentInput(
+    ...args: Parameters<typeof handleRunReasoning>
+  ): ReturnType<typeof handleRunReasoning> {
+    for (let attempt = 1; ; attempt++) {
+      const outcome = await handleRunReasoning(...args);
+      const inputChanged = (outcome.warnings ?? []).some((w) => w.rule === "reasoning-input-changed");
+      if (!inputChanged || attempt >= 3) return outcome;
+    }
+  }
+
   async function handleRunReasoning(
     msg: RDFWorkerRunReasoningMessage,
     options: RunReasoningOptions = {},
@@ -3267,6 +3305,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       let kIsConsistent: boolean | null = null;
       let kMipsErrors: ReasoningError[] = [];
       let kDelta: InferenceDelta = { added: [], removed: [] };
+      let kInputGeneration = reasoningInputGeneration;
 
       try {
         const sabAvailable = typeof SharedArrayBuffer !== 'undefined';
@@ -3284,10 +3323,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         debugLog("[VG_REASONING_WORKER] Konclude input quads:", kQuadCount);
         reasoningStage({ type: "reasoningStage", id: msg.id, stage: "consistency-check", meta: { backend: 'konclude' } });
         const kStart = Date.now();
+        kInputGeneration = reasoningInputGeneration;
         const kConsistencyResult = await konclude.checkConsistency(kStore);
         if (kConsistencyResult) {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-start", meta: { backend: 'konclude' } });
-          const result = await konclude.reason(kStore);
+          const result = await konclude.reason(kStore, () => reasoningInputGeneration === kInputGeneration);
           kDelta = result.delta;
           kReasonerDuration = Date.now() - kStart;
           kUsedReasoner = true;
@@ -3312,6 +3352,16 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           severity: "error",
           message: `OWL DL reasoning could not complete: ${errMsg}`,
         });
+      }
+
+      // Graph edits are not queued behind reasoning. If the reasoning input changed while the
+      // reasoner worked, its answer describes the earlier data: publish nothing from it.
+      const kInputChanged = mutateSharedStore && reasoningInputGeneration !== kInputGeneration;
+      if (kInputChanged) {
+        kUsedReasoner = false;
+        kIsConsistent = null;
+        kMipsErrors = [];
+        kDelta = { added: [], removed: [] };
       }
 
       // Inferences are only current after a consistent run. Otherwise the previous run's
@@ -3352,6 +3402,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       }
 
       const { warnings: kWarnings, errors: kShaclErrors } = collectShaclResults(kAddedQuads);
+      if (kInputChanged) {
+        kWarnings.push({
+          rule: "reasoning-input-changed",
+          severity: "warning",
+          message: "The graph kept changing while reasoning ran. Run reasoning again once the edits are done.",
+        });
+      }
 
       // Run SHACL validation against urn:vg:shapes if shapes are loaded
       if (msg.shaclEnabled !== false) {
