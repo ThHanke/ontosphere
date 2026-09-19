@@ -1,3 +1,4 @@
+import { Parser } from 'n3';
 import { rdfManager } from './rdfManager';
 
 const SHACL_GRAPH = 'urn:vg:shapes';
@@ -82,6 +83,14 @@ async function writeShapeFile(turtle: string, url: string, name: string): Promis
   return { name, url, shapeCount };
 }
 
+/** Parse a shape file and count its sh:NodeShape declarations; throws on invalid Turtle. */
+function countNodeShapes(turtle: string, baseIRI: string): number {
+  const SH_NODESHAPE = 'http://www.w3.org/ns/shacl#NodeShape';
+  const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+  return new Parser({ baseIRI }).parse(turtle)
+    .filter(q => q.predicate.value === RDF_TYPE && q.object.value === SH_NODESHAPE).length;
+}
+
 /** Expand the comma-separated input, including GitHub folder URLs, into individual files. */
 async function resolveShapeFiles(
   urlInput: string,
@@ -114,26 +123,21 @@ export async function loadShaclShapes(
   const files = await resolveShapeFiles(urlInput, errors);
 
   if (options.onlyIfEmpty) {
-    // Fetch before touching the store, then decide as late as possible, so shapes loaded while
-    // the files were downloading are respected rather than cleared or merged.
-    const fetched: { url: string; name: string; turtle: string }[] = [];
+    // Fetch and parse every file first, then write them together in one worker step that
+    // writes only into an empty shapes graph, so shapes loaded meanwhile are never mixed in.
+    const fetched: { url: string; name: string; turtle: string; shapeCount: number }[] = [];
     for (const f of files) {
       try {
-        fetched.push({ ...f, turtle: await fetchShapeFile(f.url) });
+        const turtle = await fetchShapeFile(f.url);
+        fetched.push({ ...f, turtle, shapeCount: countNodeShapes(turtle, f.url) });
       } catch (e) {
         errors.push({ url: f.url, error: String(e) });
       }
     }
-    const { items } = await rdfManager.fetchQuadsPage({ graphName: SHACL_GRAPH, limit: 1 });
-    if ((items ?? []).length > 0) return { loaded, errors, skipped: true };
-    for (const f of fetched) {
-      try {
-        loaded.push(await writeShapeFile(f.turtle, f.url, f.name));
-      } catch (e) {
-        errors.push({ url: f.url, error: String(e) });
-      }
-    }
-    return { loaded, errors };
+    if (fetched.length === 0) return { loaded, errors };
+    const written = await rdfManager.loadRDFIntoGraphIfEmpty(fetched.map(f => f.turtle), SHACL_GRAPH, 'text/turtle');
+    if (!written) return { loaded, errors, skipped: true };
+    return { loaded: fetched.map(({ name, url, shapeCount }) => ({ name, url, shapeCount })), errors };
   }
 
   // Replace: clear existing shapes so the graph only contains triples from the new source

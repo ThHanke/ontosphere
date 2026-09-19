@@ -1942,9 +1942,6 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           }
           if (!parserImpl) throw new Error("rdf-parse-unavailable");
 
-          const readable = createReadableFromString(content);
-          if (!readable) throw new Error("importSerialized.readable-unavailable");
-
           const prefixes: Record<string, string> = {};
           const touchedSubjects = new Set<string>();
           const addedSerialized: WorkerQuad[] = [];
@@ -1954,53 +1951,65 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           // ends — this ensures content-hash consistency across the whole parse.
           const parsedBuffer: Quad[] = [];
 
-          await new Promise<void>((resolve, reject) => {
-            const opts: Record<string, unknown> = {};
-            if (contentType) opts.contentType = contentType;
-            if (filename) opts.path = filename;
-            if (baseIri) opts.baseIRI = baseIri;
-            const quadStream = parserImpl.parse(readable, opts);
+          const documents = [content, ...((payload as ImportSerializedPayload).additionalContents ?? [])];
+          for (const document of documents) {
+            const readable = createReadableFromString(document);
+            if (!readable) throw new Error("importSerialized.readable-unavailable");
+            await new Promise<void>((resolve, reject) => {
+              const opts: Record<string, unknown> = {};
+              if (contentType) opts.contentType = contentType;
+              if (filename) opts.path = filename;
+              if (baseIri) opts.baseIRI = baseIri;
+              const quadStream = parserImpl.parse(readable, opts);
 
-            quadStream.on("data", (incoming: Quad) => {
-              try {
-                const graphTerm =
-                  (payload as any).forceGraph ||
-                  !incoming.graph || !incoming.graph.termType || incoming.graph.termType === "DefaultGraph"
-                    ? targetGraph
-                    : incoming.graph;
-                parsedBuffer.push(DataFactory.quad(
-                  incoming.subject,
-                  incoming.predicate,
-                  incoming.object,
-                  graphTerm,
-                ));
-              } catch (err) {
-                debugLog("[rdfManager.worker] importSerialized.data failed", err);
-              }
-            });
+              quadStream.on("data", (incoming: Quad) => {
+                try {
+                  const graphTerm =
+                    (payload as any).forceGraph ||
+                    !incoming.graph || !incoming.graph.termType || incoming.graph.termType === "DefaultGraph"
+                      ? targetGraph
+                      : incoming.graph;
+                  parsedBuffer.push(DataFactory.quad(
+                    incoming.subject,
+                    incoming.predicate,
+                    incoming.object,
+                    graphTerm,
+                  ));
+                } catch (err) {
+                  debugLog("[rdfManager.worker] importSerialized.data failed", err);
+                }
+              });
 
-            quadStream.on("prefix", (pfx: string, iri: any) => {
-              const value =
-                iri && typeof iri.value === "string"
-                  ? iri.value
-                  : typeof iri === "string"
-                    ? iri
-                    : undefined;
-              if (typeof value === "string" && value.trim()) {
-                prefixes[pfx] = value.trim();
-              }
-            });
+              quadStream.on("prefix", (pfx: string, iri: any) => {
+                const value =
+                  iri && typeof iri.value === "string"
+                    ? iri.value
+                    : typeof iri === "string"
+                      ? iri
+                      : undefined;
+                if (typeof value === "string" && value.trim()) {
+                  prefixes[pfx] = value.trim();
+                }
+              });
 
-            quadStream.on("error", (err: any) => {
-              quadStream.removeAllListeners();
-              reject(err);
-            });
+              quadStream.on("error", (err: any) => {
+                quadStream.removeAllListeners();
+                reject(err);
+              });
 
-            quadStream.on("end", () => {
-              quadStream.removeAllListeners();
-              resolve();
+              quadStream.on("end", () => {
+                quadStream.removeAllListeners();
+                resolve();
+              });
             });
-          });
+          }
+
+          // Everything below runs without awaiting, so no other command can write to the
+          // target graph between this check and the last write.
+          if ((payload as ImportSerializedPayload).onlyIfEmpty && store.countQuads(null, null, null, targetGraph) > 0) {
+            result = { graphName, added: 0, prefixes, quads: [], skipped: true };
+            break;
+          }
 
           // Skolemize + insert in CHUNKS rather than buffering a second fully
           // materialised copy and then probing the store once per quad.

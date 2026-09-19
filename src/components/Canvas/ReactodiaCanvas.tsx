@@ -1238,7 +1238,7 @@ export default function ReactodiaCanvas() {
           for (const err of manifest.errors) {
             console.warn('[ReactodiaCanvas] SHACL shape load error:', err.url, err.error);
           }
-          if (manifest.loaded.length === 0 && manifest.errors.length > 0) {
+          if (!manifest.skipped && manifest.loaded.length === 0 && manifest.errors.length > 0) {
             useShaclResultStore.getState().setShaclShapesLoaded(false);
           }
         } catch (err) {
