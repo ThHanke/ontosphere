@@ -1152,7 +1152,122 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     conforms: boolean;
     violations: ShaclViolation[];
     shapeCount: number;
+    /**
+     * Focus nodes selected per shape. `conforms: true` covers both "every selected focus node
+     * satisfied the shape" and "the shape selected nothing"; the counts tell the two apart.
+     */
+    shapeTargets: ShaclShapeTargets[];
+    /** Shapes that selected no focus node, so they checked nothing. */
+    untargetedShapeCount: number;
   }
+
+  interface ShaclShapeTargets {
+    /** IRI of the node shape. */
+    shape: string;
+    /** How many focus nodes this shape selected from the validated data graph. */
+    targetCount: number;
+  }
+
+  /**
+   * Count focus nodes per node shape, per SHACL section 2.1.3 target declarations:
+   * sh:targetNode, sh:targetClass (including subclasses, as sh:targetClass matches
+   * rdf:type/rdfs:subClassOf*), sh:targetSubjectsOf, sh:targetObjectsOf, and the implicit
+   * class target for a shape that is itself an rdfs:Class.
+   *
+   * Counted over the same data graph the validator sees (urn:vg:data + urn:vg:inferred), so
+   * the counts move with the entailment state exactly as the targeting does.
+   */
+  function countShapeTargets(
+    shapesQuads: readonly N3.Quad[],
+    dataQuads: readonly N3.Quad[],
+  ): ShaclShapeTargets[] {
+    const RDF_TYPE_IRI_LOCAL = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+    const SUBCLASS_OF = "http://www.w3.org/2000/01/rdf-schema#subClassOf";
+    const SH = "http://www.w3.org/ns/shacl#";
+    const RDFS_CLASS = "http://www.w3.org/2000/01/rdf-schema#Class";
+
+    // data indexes
+    const typesOf = new Map<string, Set<string>>();      // instance -> asserted/inferred types
+    const subjectsOf = new Map<string, Set<string>>();   // predicate -> subjects
+    const objectsOf = new Map<string, Set<string>>();    // predicate -> object nodes
+    const subClassOf = new Map<string, Set<string>>();   // class -> direct superclasses
+    const add = (m: Map<string, Set<string>>, k: string, v: string) => {
+      let s = m.get(k);
+      if (!s) m.set(k, (s = new Set()));
+      s.add(v);
+    };
+    for (const q of dataQuads) {
+      const p = q.predicate.value;
+      add(subjectsOf, p, q.subject.value);
+      if (q.object.termType !== "Literal") add(objectsOf, p, q.object.value);
+      if (p === RDF_TYPE_IRI_LOCAL) add(typesOf, q.subject.value, q.object.value);
+      if (p === SUBCLASS_OF && q.object.termType === "NamedNode") add(subClassOf, q.subject.value, q.object.value);
+    }
+    // classes whose instances count as instances of `cls` (cls plus everything below it)
+    const descendantsOf = (cls: string): Set<string> => {
+      const out = new Set<string>([cls]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const [sub, supers] of subClassOf) {
+          if (out.has(sub)) continue;
+          for (const sup of supers) {
+            if (out.has(sup)) { out.add(sub); grew = true; break; }
+          }
+        }
+      }
+      return out;
+    };
+
+    // shape declarations
+    const shapeIris = new Set<string>();
+    const referenced = new Set<string>();
+    const SHAPE_REFERENCES = new Set([
+      `${SH}property`, `${SH}node`, `${SH}not`, `${SH}qualifiedValueShape`,
+      "http://www.w3.org/1999/02/22-rdf-syntax-ns#first",
+    ]);
+    const decl =new Map<string, { nodes: string[]; classes: string[]; subjOf: string[]; objOf: string[]; isClass: boolean }>();
+    const of = (iri: string) => {
+      let d = decl.get(iri);
+      if (!d) decl.set(iri, (d = { nodes: [], classes: [], subjOf: [], objOf: [], isClass: false }));
+      return d;
+    };
+    for (const q of shapesQuads) {
+      const s = q.subject.value, p = q.predicate.value, o = q.object.value;
+      if (p === RDF_TYPE_IRI_LOCAL && (o === `${SH}NodeShape` || o === `${SH}PropertyShape`)) shapeIris.add(s);
+      else if (p === `${SH}targetNode`) { shapeIris.add(s); of(s).nodes.push(o); }
+      else if (p === `${SH}targetClass`) { shapeIris.add(s); of(s).classes.push(o); }
+      else if (p === `${SH}targetSubjectsOf`) { shapeIris.add(s); of(s).subjOf.push(o); }
+      else if (p === `${SH}targetObjectsOf`) { shapeIris.add(s); of(s).objOf.push(o); }
+      else if (p === RDF_TYPE_IRI_LOCAL && o === RDFS_CLASS) of(s).isClass = true;
+      // ponytail: rdf:first over-approximates sh:and/sh:or/sh:xone membership; non-shape
+      // list items (sh:in values, ignored properties) never enter shapeIris, so it is harmless.
+      if (SHAPE_REFERENCES.has(p)) referenced.add(o);
+    }
+
+    const out: ShaclShapeTargets[] = [];
+    for (const shape of shapeIris) {
+      const d = decl.get(shape) ?? { nodes: [], classes: [], subjOf: [], objOf: [], isClass: false };
+      const hasOwnTarget = d.isClass || d.nodes.length + d.classes.length + d.subjOf.length + d.objOf.length > 0;
+      // A shape reached only through another shape (sh:property, sh:node, ...) is checked on
+      // its parent's focus nodes, so counting it as untargeted would report it as inert.
+      if (!hasOwnTarget && referenced.has(shape)) continue;
+      const focus = new Set<string>(d.nodes);
+      const classTargets = [...d.classes, ...(d.isClass ? [shape] : [])];
+      for (const cls of classTargets) {
+        const matching = descendantsOf(cls);
+        for (const [inst, types] of typesOf) {
+          for (const t of types) if (matching.has(t)) { focus.add(inst); break; }
+        }
+      }
+      for (const p of d.subjOf) for (const s of subjectsOf.get(p) ?? []) focus.add(s);
+      for (const p of d.objOf) for (const o of objectsOf.get(p) ?? []) focus.add(o);
+      out.push({ shape, targetCount: focus.size });
+    }
+    out.sort((a, b) => a.shape.localeCompare(b.shape));
+    return out;
+  }
+
 
   async function runShaclValidation(): Promise<ShaclValidationResult> {
     const { DataFactory } = resolveN3();
@@ -1162,7 +1277,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const shapesGraph = DataFactory.namedNode("urn:vg:shapes");
     const shapesQuads = store.getQuads(null, null, null, shapesGraph) || [];
     if (shapesQuads.length === 0) {
-      return { conforms: true, violations: [], shapeCount: 0 };
+      return { conforms: true, violations: [], shapeCount: 0, shapeTargets: [], untargetedShapeCount: 0 };
     }
 
     const dataGraph = DataFactory.namedNode("urn:vg:data");
@@ -1171,6 +1286,10 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       ...(store.getQuads(null, null, null, dataGraph) || []),
       ...(store.getQuads(null, null, null, inferredGraph) || []),
     ];
+
+    // Focus-node counts over the same data the validator reads.
+    const shapeTargets = countShapeTargets(shapesQuads as N3.Quad[], dataQuads as N3.Quad[]);
+    const untargetedShapeCount = shapeTargets.filter((t) => t.targetCount === 0).length;
 
     const [shaclMod, sparqlMod, dataModelMod, datasetMod] = await Promise.all([
       import("shacl-engine") as Promise<any>,
@@ -1220,6 +1339,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           sourceShape: null, constraint: null, source: "shacl" as const,
         }],
         shapeCount,
+        shapeTargets,
+        untargetedShapeCount,
       };
     }
 
@@ -1259,7 +1380,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       };
     }).filter((v: ShaclViolation) => !v.focusNode || dataSubjects.has(v.focusNode));
 
-    return { conforms: report.conforms, violations, shapeCount };
+    return { conforms: report.conforms, violations, shapeCount, shapeTargets, untargetedShapeCount };
   }
 
   function collectGraphCountsFromStore(store: any): Record<string, number> {

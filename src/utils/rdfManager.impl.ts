@@ -785,13 +785,22 @@ export class RDFManagerImpl {
     };
   }
 
-  async runShaclValidation(): Promise<{ conforms: boolean; violations: ShaclViolation[]; shapeCount: number }> {
+  async runShaclValidation(): Promise<{
+    conforms: boolean;
+    violations: ShaclViolation[];
+    shapeCount: number;
+    /** Focus nodes selected per shape; a shape with 0 checked nothing. */
+    shapeTargets: { shape: string; targetCount: number }[];
+    untargetedShapeCount: number;
+  }> {
     const response = await this.worker.call("runShaclValidation", undefined);
     const safe = isPlainObject(response) ? response : {};
     return {
       conforms: typeof safe.conforms === "boolean" ? safe.conforms : true,
       violations: Array.isArray(safe.violations) ? safe.violations : [],
       shapeCount: typeof safe.shapeCount === "number" ? safe.shapeCount : 0,
+      shapeTargets: Array.isArray(safe.shapeTargets) ? safe.shapeTargets : [],
+      untargetedShapeCount: typeof safe.untargetedShapeCount === "number" ? safe.untargetedShapeCount : 0,
     };
   }
 

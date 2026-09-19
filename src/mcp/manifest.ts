@@ -547,7 +547,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'validateGraph',
-    description: 'Validate the asserted graph (urn:vg:data) against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag and structured violation list.',
+    description: 'Validate the asserted graph (urn:vg:data) plus the inferred graph (urn:vg:inferred) against SHACL shapes loaded in urn:vg:shapes. Returns { conforms, violations, shapeCount, untargetedShapeCount, targetedShapes }. targetedShapes lists the shapes that selected at least one focus node; conforms:true with untargetedShapeCount equal to shapeCount means nothing was checked. Run runReasoning first when shape targets depend on inferred types.',
     inputSchema: {
       type: 'object',
       properties: {},
