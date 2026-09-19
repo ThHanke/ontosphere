@@ -423,6 +423,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
       type: 'object',
       properties: {
         maxJustifications: { type: 'number', default: 3, description: 'Max independent inconsistency justifications (MIPS) to return.' },
+        assessGuardCost: { type: 'boolean', default: false, description: "Also measure what each deletion repair costs in declared class-disjointness guards (one extra classification per repair). Each repair then carries guardImpact { verdict, classGuardsDestroyed, summary }; verdict 'restores-consistency-with-collateral' means the repair restores consistency by deleting a constraint the ontology used to reject modelling errors with." },
       },
     },
   },

@@ -166,6 +166,8 @@ export type RDFWorkerCommandPayloads = {
       objectLanguage?: string;
       graph?: string;
     }[];
+    /** Also report the repair's cost in class-disjointness guards. */
+    measureGuards?: boolean;
   };
   /**
    * Search existing ontology terms (classes / properties / individuals) by
@@ -705,6 +707,10 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
       assertOptionalString(r.objectDatatype, "verifyRepair.removals entry.objectDatatype must be a string when provided");
       assertOptionalString(r.objectLanguage, "verifyRepair.removals entry.objectLanguage must be a string when provided");
       assertOptionalString(r.graph, "verifyRepair.removals entry.graph must be a string when provided");
+    }
+    const { measureGuards } = payload as { measureGuards?: unknown };
+    if (measureGuards !== undefined && typeof measureGuards !== "boolean") {
+      throw new TypeError("verifyRepair.measureGuards must be a boolean when provided");
     }
   },
   searchTerms(payload) {

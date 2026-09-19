@@ -1034,13 +1034,19 @@ export class RDFManagerImpl {
    */
   async verifyRepairDetailed(
     removals: VerifyRepairRemoval[],
+    options: { measureGuards?: boolean } = {},
   ): Promise<{
     verifiedConsistent: boolean;
     removedCount: number;
     requestedCount: number;
     matchedCount: number;
+    /** Present when `measureGuards` was requested: the repair's cost in disjointness guards. */
+    guardImpact?: import("../workers/repairImpact.ts").RepairImpact;
   }> {
-    const response = await this.worker.call("verifyRepair", { removals });
+    const response = await this.worker.call("verifyRepair", {
+      removals,
+      ...(options.measureGuards ? { measureGuards: true } : {}),
+    });
     const safe = (isPlainObject(response) ? response : {}) as Record<string, unknown>;
     const num = (v: unknown): number => (typeof v === "number" ? v : 0);
     return {
@@ -1048,6 +1054,9 @@ export class RDFManagerImpl {
       removedCount: num(safe.removedCount),
       requestedCount: num(safe.requestedCount),
       matchedCount: num(safe.matchedCount),
+      ...(isPlainObject(safe.guardImpact)
+        ? { guardImpact: safe.guardImpact as unknown as import("../workers/repairImpact.ts").RepairImpact }
+        : {}),
     };
   }
 

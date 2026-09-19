@@ -20,6 +20,8 @@ import type { ReasoningResult } from "../utils/reasoningTypes.ts";
 import { deserializeQuad, deserializeTerm, serializeQuad } from "../utils/rdfSerialization.ts";
 import type { WorkerQuad } from "../utils/rdfSerialization.ts";
 import { quadMatchesRemoval, type MatchQuad } from "./verifyRepairMatch.ts";
+import { declaredDisjointPairs, buildProbeTriples, interpretProbeResults, type GuardVerdict } from "./guardSets.ts";
+import { assessRepairImpact, type RepairImpact } from "./repairImpact.ts";
 import { WELL_KNOWN } from "../utils/wellKnownOntologies.ts";
 import { ensureDefaultNamespaceMap } from "../constants/namespaces.ts";
 import { RDF_TYPE, RDFS_LABEL, SHACL } from "../constants/vocabularies.ts";
@@ -3286,6 +3288,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               objectLanguage?: string;
               graph?: string;
             }[];
+            measureGuards?: boolean;
           };
           const { StoreCls } = resolveN3();
           if (!StoreCls) throw new Error("n3-store-unavailable");
@@ -3325,12 +3328,46 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             copy.addQuad(q);
           }
           const removedCount = allQuads.length - copy.size;
-          const verifiedConsistent = await konclude.checkConsistency(copy);
+
+          // With measureGuards, also report what the repair costs in class-disjointness guards:
+          // declared disjoint class pairs that still reject a modelling error afterwards. The
+          // ontology under repair is inconsistent, so the baseline is the declared pool, which any
+          // consistent version of it enforces. The repaired copy is decided by one classification
+          // over probe classes for the whole pool (guardSets.ts).
+          let verifiedConsistent: boolean;
+          let guardImpact: RepairImpact | undefined;
+          if (p.measureGuards) {
+            const copyValidation = await konclude.validate(copy);
+            verifiedConsistent = copyValidation.consistent;
+            const pool = declaredDisjointPairs(reasoningBase(source).getQuads(null, null, null, null));
+            const before: GuardVerdict[] = pool.map((pair) => ({ pair, enforced: true, vacuous: false }));
+            let after: GuardVerdict[] = pool.map((pair) => ({ pair, enforced: false, vacuous: false }));
+            if (verifiedConsistent && pool.length > 0) {
+              const probeStore = reasoningBase(copy);
+              for (const [s, pr, o] of buildProbeTriples(pool)) {
+                probeStore.addQuad(N3.DataFactory.quad(
+                  N3.DataFactory.namedNode(s), N3.DataFactory.namedNode(pr), N3.DataFactory.namedNode(o),
+                ));
+              }
+              const unsatOf = (v: { warnings?: { classIRI: string }[] }) =>
+                new Set((v.warnings ?? []).map((w) => w.classIRI));
+              after = interpretProbeResults(pool, unsatOf(await konclude.validate(probeStore)), unsatOf(copyValidation));
+            }
+            guardImpact = assessRepairImpact({
+              wasInconsistent: true,
+              consistencyRestored: verifiedConsistent,
+              classGuardsBefore: before,
+              classGuardsAfter: after,
+            });
+          } else {
+            verifiedConsistent = await konclude.checkConsistency(copy);
+          }
           result = {
             verifiedConsistent,
             removedCount,
             requestedCount: removals.length,
             matchedCount: matchedIdx.size,
+            ...(guardImpact ? { guardImpact } : {}),
           };
           break;
         }
