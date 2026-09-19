@@ -126,12 +126,14 @@ function validateTurtleSnippet(turtle: string): string | null {
  * 2. Collapse whitespace inside angle brackets: `< http://... >` → `<http://...>`
  */
 function sanitizeTurtle(turtle: string): string {
-  const preloaded = new Set(Object.keys(BUILTIN_PREFIXES).map(k => k.replace(/:$/, '')));
-  const lines = turtle.split('\n').filter(line => {
-    const m = line.match(/^\s*@prefix\s+(\w*)\s*:/i);
-    return !(m && preloaded.has(m[1]));
-  });
-  return lines.join('\n').replace(/<\s+(https?:\/\/[^>]*?)\s*>/g, '<$1>');
+  const fixed = turtle.replace(/<\s+(https?:\/\/[^>]*?)\s*>/g, '<$1>');
+  const builtin = new Map(Object.entries(BUILTIN_PREFIXES).map(([k, v]) => [k.replace(/:$/, ''), v]));
+  // A pre-loaded prefix re-declared with the same IRI is redundant and dropped. Bound to a
+  // different IRI it is the document's own declaration and is kept, so its IRIs load as written.
+  return fixed.split('\n').filter(line => {
+    const m = line.match(/^\s*@prefix\s+(\w*)\s*:\s*<([^>]*)>/i);
+    return !(m && builtin.get(m[1]) === m[2]);
+  }).join('\n');
 }
 
 /** Prepend BUILTIN_PREFIXES for any prefix not already declared in the turtle. */
