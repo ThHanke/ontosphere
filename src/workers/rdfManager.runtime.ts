@@ -267,6 +267,11 @@ export class DlReasoner {
     return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
   }
 
+  unsatisfiableClasses(store: N3.Store): Promise<string[]> {
+    this._materializedKey = null;
+    return this._reasoner.getUnsatisfiableClasses(reasoningBase(store));
+  }
+
   async explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
     this._materializedKey = null;
     const mips = (await this._reasoner.explainInconsistency(reasoningBase(store), {
@@ -433,6 +438,11 @@ export interface DlReasonerLike {
   /** Publishes into `store` only while `isCurrent()` holds, when given. */
   reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }>;
   validate(store: N3.Store): Promise<ValidationResult>;
+  /**
+   * Named classes that are unsatisfiable (owl:Nothing excluded), without justifications.
+   * OPTIONAL: callers fall back to the warnings of validate().
+   */
+  unsatisfiableClasses?(store: N3.Store): Promise<string[]>;
   explainInconsistency(store: N3.Store, maxJustifications?: number): Promise<N3.Quad[][]>;
   /**
    * LACONIC inconsistency explanation (Horridge et al. ISWC 2008). OPTIONAL —
@@ -3530,11 +3540,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           // ontology under repair is inconsistent, so the baseline is the declared pool, which any
           // consistent version of it enforces. The repaired copy is decided by one classification
           // over probe classes for the whole pool (guardSets.ts).
-          let verifiedConsistent: boolean;
+          const verifiedConsistent = await konclude.checkConsistency(copy);
           let guardImpact: RepairImpact | undefined;
           if (p.measureGuards) {
-            const copyValidation = await konclude.validate(copy);
-            verifiedConsistent = copyValidation.consistent;
             const pool = declaredDisjointPairs(reasoningBase(source).getQuads(null, null, null, null));
             const before: GuardVerdict[] = pool.map((pair) => ({ pair, enforced: true, vacuous: false }));
             let after: GuardVerdict[] = pool.map((pair) => ({ pair, enforced: false, vacuous: false }));
@@ -3545,9 +3553,14 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                   N3.DataFactory.namedNode(s), N3.DataFactory.namedNode(pr), N3.DataFactory.namedNode(o),
                 ));
               }
-              const unsatOf = (v: { warnings?: { classIRI: string }[] }) =>
-                new Set((v.warnings ?? []).map((w) => w.classIRI));
-              after = interpretProbeResults(pool, unsatOf(await konclude.validate(probeStore)), unsatOf(copyValidation));
+              // Unsatisfiable-class lists only: justifications are not needed to read the probes.
+              const unsatisfiable = async (s: N3.Store): Promise<Set<string>> => new Set(
+                konclude.unsatisfiableClasses
+                  ? await konclude.unsatisfiableClasses(s)
+                  : ((await konclude.validate(s)).warnings ?? []).map((w) => w.classIRI),
+              );
+              const baseline = await unsatisfiable(copy);
+              after = interpretProbeResults(pool, await unsatisfiable(probeStore), baseline);
             }
             guardImpact = assessRepairImpact({
               wasInconsistent: true,
@@ -3555,8 +3568,6 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               classGuardsBefore: before,
               classGuardsAfter: after,
             });
-          } else {
-            verifiedConsistent = await konclude.checkConsistency(copy);
           }
           result = {
             verifiedConsistent,

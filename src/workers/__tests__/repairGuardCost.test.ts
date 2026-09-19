@@ -28,6 +28,7 @@ function adapter(r: RdfReasoner): DlReasonerLike {
   return {
     ready: r.ready,
     checkConsistency: (store) => r.checkConsistency(reasoningBase(store)),
+    unsatisfiableClasses: (store) => r.getUnsatisfiableClasses(reasoningBase(store)),
     async reason() { return { delta: { added: [], removed: [] } } as never; },
     validate: (store) => r.validate(reasoningBase(store)) as never,
     async explainInconsistency() { return []; },
