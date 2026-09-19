@@ -433,7 +433,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
       "Explain WHY a specific entailed axiom holds — Horridge-style justifications for an ARBITRARY entailed axiom (not just inconsistency). " +
       "Ask 'why is A rdfs:subClassOf B?' or 'why is x rdf:type C?' and get the minimal set(s) of asserted axioms whose conjunction logically entails it. " +
       "Returns { isEntailed, justifications, summary }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; justifications is a list of minimal axiom sets (each { subject, predicate, object }[]). " +
-      "Empty justifications with isEntailed=true ⇒ the axiom is directly asserted (nothing to derive) or its shape is unsupported. isEntailed=false ⇒ not entailed. summary is a plain-language 'Inferred because: …' explanation. " +
+      "A directly asserted axiom comes back as its own one-axiom justification; empty justifications with isEntailed=true ⇒ no justification could be verified in time (see reason). isEntailed=false ⇒ decided not entailed; verdict=undetermined (isEntailed=null) ⇒ the check could not decide. summary is a plain-language 'Inferred because: …' explanation. " +
       "Supported shapes: rdfs:subClassOf and rdf:type with an IRI object (e.g. transitive subclass, domain/range-driven type inference). Read-only: never mutates asserted data.",
     inputSchema: {
       type: 'object',

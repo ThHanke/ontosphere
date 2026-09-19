@@ -22,6 +22,7 @@ import type { WorkerQuad } from "../utils/rdfSerialization.ts";
 import { quadMatchesRemoval, type MatchQuad } from "./verifyRepairMatch.ts";
 import { declaredDisjointPairs, buildProbeTriples, interpretProbeResults, type GuardVerdict } from "./guardSets.ts";
 import { assessRepairImpact, type RepairImpact } from "./repairImpact.ts";
+import { classifyEntailment } from "./entailmentVerdict.ts";
 import { WELL_KNOWN } from "../utils/wellKnownOntologies.ts";
 import { ensureDefaultNamespaceMap } from "../constants/namespaces.ts";
 import { RDF_TYPE, RDFS_LABEL, SHACL } from "../constants/vocabularies.ts";
@@ -144,14 +145,86 @@ export function reasoningBase(store: N3.Store): N3.Store {
 // ---------------------------------------------------------------------------
 
 
-class DlReasoner {
+type EntailmentResult = {
+  isEntailed: boolean | null;
+  justifications: N3.Quad[][];
+  ontologyInconsistent?: boolean;
+  vacuous?: boolean;
+  reason?: string;
+};
+
+/** The app's reasoner, on the worker bundled with the page. */
+function createBrowserReasoner(): RdfReasoner {
+  const base = (import.meta as any).env?.BASE_URL ?? "/";
+  const workerUrl = new URL(`${base}rdf-reasoner-konclude/worker.js`, self.location.href);
+  return new RdfReasoner({ workerUrl });
+}
+
+/** Order-independent key of a store's quads, used to tell which input the kernel holds. */
+function axiomKey(store: N3.Store): string {
+  const term = (t: N3.Term) =>
+    t.termType === "Literal"
+      ? `L:${t.value}^${(t as N3.Literal).datatype.value}@${(t as N3.Literal).language}`
+      : `${t.termType}:${t.value}`;
+  const lines = (store.getQuads(null, null, null, null) as N3.Quad[])
+    .map((q) => `${term(q.subject)} ${q.predicate.value} ${term(q.object)}`)
+    .sort();
+  let h = 0x811c9dc5;
+  for (const line of lines) {
+    for (let i = 0; i < line.length; i++) h = Math.imul(h ^ line.charCodeAt(i), 0x01000193) >>> 0;
+    h = Math.imul(h ^ 10, 0x01000193) >>> 0;
+  }
+  return `${lines.length}:${h.toString(16)}`;
+}
+
+/**
+ * The axioms of a justification as a store of their own: its triples, the full structure of
+ * any blank node they reference (restrictions, lists), and the OWL declarations of every
+ * named term involved, including the terms of the statement being explained.
+ */
+function justificationStore(base: N3.Store, justification: N3.Quad[], statementTerms: string[]): N3.Store {
+  const out = new N3.Store();
+  const seen = new Set<string>();
+  const addBlankNode = (t: N3.Term) => {
+    if (t.termType !== "BlankNode" || seen.has(t.value)) return;
+    seen.add(t.value);
+    for (const q of base.getQuads(t, null, null, null) as N3.Quad[]) {
+      out.addQuad(q);
+      addBlankNode(q.object);
+    }
+  };
+  for (const q of justification) {
+    out.addQuad(q);
+    addBlankNode(q.subject);
+    addBlankNode(q.object);
+  }
+  const rdfType = N3.DataFactory.namedNode(RDF_TYPE);
+  const named = new Set<string>(statementTerms);
+  for (const q of out.getQuads(null, null, null, null) as N3.Quad[]) {
+    for (const t of [q.subject, q.predicate, q.object]) if (t.termType === "NamedNode") named.add(t.value);
+  }
+  for (const iri of named) {
+    for (const q of base.getQuads(N3.DataFactory.namedNode(iri), rdfType, null, null) as N3.Quad[]) {
+      if (q.object.value.startsWith("http://www.w3.org/2002/07/owl#")) out.addQuad(q);
+    }
+  }
+  return out;
+}
+
+export class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
+  private readonly _createReasoner: () => RdfReasoner;
+  private readonly _exactTimeoutMs: number;
+  // Key of the reasoning input last materialized in the kernel; null after any other load.
+  // The package's causal explanations read that loaded state.
+  private _materializedKey: string | null = null;
 
-  constructor() {
-    const base = (import.meta as any).env?.BASE_URL ?? "/";
-    const workerUrl = new URL(`${base}rdf-reasoner-konclude/worker.js`, self.location.href);
-    this._reasoner = new RdfReasoner({ workerUrl });
+  /** `createReasoner` and `exactTimeoutMs` are for tests; the app uses the bundled worker. */
+  constructor(options: { createReasoner?: () => RdfReasoner; exactTimeoutMs?: number } = {}) {
+    this._createReasoner = options.createReasoner ?? createBrowserReasoner;
+    this._exactTimeoutMs = options.exactTimeoutMs ?? 120_000;
+    this._reasoner = this._createReasoner();
     this.ready = this._reasoner.ready;
   }
 
@@ -167,6 +240,7 @@ class DlReasoner {
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
     })) as { delta: InferenceDelta };
+    this._materializedKey = axiomKey(reasoningBase(base));
     // The store may have been edited while Konclude worked on the copy.
     if (isCurrent && !isCurrent()) return { delta: { added: [], removed: [] } as InferenceDelta };
     const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
@@ -178,15 +252,18 @@ class DlReasoner {
   }
 
   checkConsistency(store: N3.Store): Promise<boolean> {
+    this._materializedKey = null;
     return this._reasoner.checkConsistency(reasoningBase(store));
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
+    this._materializedKey = null;
     const result = (await this._reasoner.validate(reasoningBase(store))) as ValidationResult;
     return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
   }
 
   async explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
+    this._materializedKey = null;
     const mips = (await this._reasoner.explainInconsistency(reasoningBase(store), {
       maxJustifications, inferredGraph: INFERRED_GRAPH,
     })) as N3.Quad[][];
@@ -203,6 +280,7 @@ class DlReasoner {
     }>
   > {
     return (async () => {
+      this._materializedKey = null;
       const results = await this._reasoner.explainInconsistencyLaconic(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH });
       return (results as Array<{ justification: N3.Quad[]; laconic: LaconicJustification }>).map((r) => ({
         justification: reskolemizeAll(r.justification),
@@ -217,27 +295,116 @@ class DlReasoner {
     predicateIri: string,
     objectIri: string,
     opts?: ExplainEntailmentOptions,
-  ): Promise<{
-    isEntailed: boolean | null;
-    justifications: N3.Quad[][];
-    ontologyInconsistent?: boolean;
-    vacuous?: boolean;
-    reason?: string;
-  }> {
-    const result = (await this._reasoner.explainEntailment(
-      reasoningBase(store),
-      subjectIri,
-      predicateIri,
-      objectIri,
-      { inferredGraph: INFERRED_GRAPH, justificationMode: 'causal', ...opts },
-    )) as {
-      isEntailed: boolean | null;
-      justifications: N3.Quad[][];
-      ontologyInconsistent?: boolean;
-      vacuous?: boolean;
-      reason?: string;
-    };
-    return { ...result, justifications: (result.justifications ?? []).map((j) => reskolemizeAll(j)) };
+  ): Promise<EntailmentResult> {
+    const options = { inferredGraph: INFERRED_GRAPH, ...opts };
+    const withStoredTerms = (r: EntailmentResult): EntailmentResult =>
+      ({ ...r, justifications: (r.justifications ?? []).map((j) => reskolemizeAll(j)) });
+
+    // A mode chosen by the caller runs as asked, on this reasoner.
+    if (opts?.justificationMode) {
+      if (opts.justificationMode !== "causal") this._materializedKey = null;
+      return withStoredTerms((await this._reasoner.explainEntailment(
+        reasoningBase(store), subjectIri, predicateIri, objectIri, options,
+      )) as EntailmentResult);
+    }
+
+    // The causal mode answers from the loaded knowledge base, so load this store's
+    // reasoning input first unless the kernel already holds it.
+    const base = reasoningBase(store);
+    const key = axiomKey(base);
+    if (this._materializedKey !== key) {
+      await this._reasoner.materialize(base, { includeClassHierarchy: true, inferredGraph: INFERRED_GRAPH });
+      this._materializedKey = key;
+    } else {
+      for (const q of store.getQuads(null, null, null, N3.DataFactory.namedNode(INFERRED_GRAPH)) as N3.Quad[]) {
+        base.addQuad(N3.DataFactory.quad(
+          deskolemize(q.subject) as N3.Quad_Subject, q.predicate, deskolemize(q.object) as N3.Quad_Object, q.graph,
+        ));
+      }
+    }
+    const fast = (await this._reasoner.explainEntailment(
+      base, subjectIri, predicateIri, objectIri, { ...options, justificationMode: "causal" },
+    )) as EntailmentResult;
+    if (fast.isEntailed === null) return withStoredTerms(fast);
+    const wantsJustification = opts?.maxJustifications !== 0;
+
+    // Keep only causal justifications whose axioms on their own entail the statement.
+    if (fast.isEntailed === true && wantsJustification && (fast.justifications ?? []).length > 0) {
+      const sufficient: N3.Quad[][] = [];
+      for (const j of fast.justifications) {
+        if (await this._isSufficient(base, j, subjectIri, predicateIri, objectIri, options)) sufficient.push(j);
+      }
+      if (sufficient.length > 0) return withStoredTerms({ ...fast, justifications: sufficient });
+    }
+    if (fast.isEntailed === true && !wantsJustification) return withStoredTerms(fast);
+
+    // The exact mode confirms "not entailed", and finds a justification the causal mode could
+    // not give for an entailed statement. It loads many axiom subsets, so it runs on a separate
+    // reasoner that is released afterwards, within a time limit.
+    const exact = await this._onSeparateReasoner(
+      (r) => r.explainEntailment(
+        reasoningBase(store), subjectIri, predicateIri, objectIri, { ...options, justificationMode: "minimal" },
+      ) as Promise<EntailmentResult>,
+      (reason) => ({ isEntailed: null, justifications: [], reason }),
+    );
+    if (fast.isEntailed === true && exact.isEntailed !== true) {
+      return {
+        ...fast,
+        justifications: [],
+        reason: `Entailed. No justification was verified${exact.reason ? `: ${exact.reason}` : "."}`,
+      };
+    }
+    return withStoredTerms(exact);
+  }
+
+  /** Whether the axioms of `justification` on their own entail the statement. */
+  private async _isSufficient(
+    base: N3.Store,
+    justification: N3.Quad[],
+    subjectIri: string,
+    predicateIri: string,
+    objectIri: string,
+    options: ExplainEntailmentOptions,
+  ): Promise<boolean> {
+    const axioms = justificationStore(base, justification, [subjectIri, predicateIri, objectIri]);
+    const answer = await this._onSeparateReasoner(
+      (r) => r.explainEntailment(
+        axioms, subjectIri, predicateIri, objectIri,
+        { ...options, justificationMode: "minimal", maxJustifications: 0 },
+      ) as Promise<EntailmentResult>,
+      (reason) => ({ isEntailed: null, justifications: [], reason }),
+    );
+    return answer.isEntailed === true;
+  }
+
+  /**
+   * Run `work` on a separate reasoner that is released afterwards. A call that does not finish
+   * within the time limit, or fails, resolves to `onUnfinished(reason)`.
+   */
+  private async _onSeparateReasoner<T>(
+    work: (reasoner: RdfReasoner) => Promise<T>,
+    onUnfinished: (reason: string) => T,
+  ): Promise<T> {
+    const reasoner = this._createReasoner();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<T>((resolve) => {
+      timer = setTimeout(
+        () => resolve(onUnfinished(`the exact entailment check did not finish within ${Math.round(this._exactTimeoutMs / 1000)} s`)),
+        this._exactTimeoutMs,
+      );
+    });
+    try {
+      const done = (async () => {
+        await reasoner.ready;
+        return work(reasoner);
+      })();
+      return await Promise.race([done, timedOut]);
+    } catch (err) {
+      return onUnfinished(`the exact entailment check failed: ${String((err as Error)?.message ?? err)}`);
+    } finally {
+      clearTimeout(timer);
+      reasoner.terminate();
+    }
   }
 
   terminate(): void {
@@ -3387,7 +3554,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             objectIri: "",
           }) as RDFWorkerCommandPayloads["explainEntailment"];
           const n = typeof p.maxJustifications === "number" ? p.maxJustifications : 1;
-          const cacheKey = `${p.subjectIri}\0${p.predicateIri}\0${p.objectIri}\0${p.objectIsLiteral}\0${n}`;
+          // The generation ties a cached answer to the reasoning input it was computed from.
+          const cacheKey = `${reasoningInputGeneration}\0${p.subjectIri}\0${p.predicateIri}\0${p.objectIri}\0${p.objectIsLiteral}\0${n}`;
           const cached = _entailmentCache.get(cacheKey);
           if (cached) {
             result = cached;
@@ -3406,16 +3574,22 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             );
           const termValue = (t: { value: string; termType?: string }) =>
             t.termType === "BlankNode" ? `_:${t.value}` : t.value;
+          // verdict tells a decided "not entailed" apart from a check that could not decide.
+          const answer = classifyEntailment({ isEntailed, ontologyInconsistent, vacuous, reason });
           result = {
             isEntailed,
+            verdict: answer.verdict,
+            ...(answer.undeterminedKind ? { undeterminedKind: answer.undeterminedKind } : {}),
             justifications: justifications.map((j) =>
               j.map((q) => ({ subject: termValue(q.subject), predicate: q.predicate.value, object: termValue(q.object) })),
             ),
             ...(ontologyInconsistent ? { ontologyInconsistent: true } : {}),
             ...(vacuous ? { vacuous: true } : {}),
-            ...(reason ? { reason } : {}),
+            ...(answer.reason ?? reason ? { reason: answer.reason ?? reason } : {}),
           };
-          _entailmentCache.set(cacheKey, result);
+          if (answer.verdict !== "undetermined" || ontologyInconsistent || vacuous) {
+            _entailmentCache.set(cacheKey, result);
+          }
           break;
         }
         default:

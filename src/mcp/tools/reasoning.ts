@@ -527,9 +527,10 @@ const explainEntailment: McpTool = {
     "Explain WHY a specific entailed axiom holds — Horridge-style justifications for an ARBITRARY entailed axiom (not just inconsistency). " +
     "Ask 'why is A rdfs:subClassOf B?' or 'why is x rdf:type C?' and get back the minimal set(s) of asserted axioms whose conjunction logically entails it. " +
     "Input: { subjectIri, predicateIri, objectIri, maxJustifications? }. " +
-    "Returns { isEntailed, justifications, summary, ontologyInconsistent?, vacuous?, reason? }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; " +
+    "Returns { isEntailed, verdict, justifications, summary, ontologyInconsistent?, vacuous?, reason? }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; " +
+    "verdict is entailed, not-entailed (a decided answer) or undetermined (the check could not decide; isEntailed=null, see reason). " +
     "justifications is a list of minimal axiom sets (each { subject, predicate, object }[]) — every axiom in a set is needed to derive the conclusion. " +
-    "An empty justifications list with isEntailed=true means the axiom is directly asserted (nothing to derive) or its shape is unsupported. " +
+    "A directly asserted axiom is returned as its own one-axiom justification. An empty justifications list with isEntailed=true means no justification could be verified in time; reason says why. " +
     "isEntailed=false with empty justifications means the axiom is NOT entailed. " +
     "ontologyInconsistent=true (isEntailed=null) means the ontology is ALREADY inconsistent so entailment is vacuous — run explainDiagnostics and fix consistency first; the result is NOT a real entailment. " +
     "vacuous=true (subClassOf only) means the axiom holds ONLY because the subject class is unsatisfiable (empty class ⊑ anything) — not a genuine derivation; fix the unsatisfiable class. " +
@@ -559,7 +560,7 @@ const explainEntailment: McpTool = {
       }
 
       // Ensure the reasoner has the current asserted graph (read-only).
-      const { isEntailed, justifications, ontologyInconsistent, vacuous, reason } =
+      const { isEntailed, verdict, justifications, ontologyInconsistent, vacuous, reason } =
         await rdfManager.explainEntailment(
           subjectIri,
           predicateIri,
@@ -592,10 +593,14 @@ const explainEntailment: McpTool = {
           data: { isEntailed: true, vacuous: true, justifications, reason, summary },
         };
       }
+      if (verdict === 'undetermined') {
+        summary = `Could not decide whether ${axiomText} is entailed${reason ? `: ${reason}` : '.'}`;
+        return { success: true, data: { isEntailed: null, verdict, justifications: [], reason, summary } };
+      }
       if (!isEntailed) {
         summary = `${axiomText} is NOT entailed by the current ontology.`;
       } else if (justifications.length === 0) {
-        summary = `${axiomText} holds — it is directly asserted (no derivation needed).`;
+        summary = `${axiomText} is entailed by the current ontology.${reason ? ` ${reason}` : ''}`;
       } else {
         const sets = justifications
           .map((j, i) => {
@@ -606,7 +611,7 @@ const explainEntailment: McpTool = {
         summary = `${axiomText} is inferred because: ${sets}.`;
       }
 
-      return { success: true, data: { isEntailed, justifications, summary } };
+      return { success: true, data: { isEntailed, verdict, justifications, summary, ...(reason ? { reason } : {}) } };
     } catch (e) {
       return { success: false, error: `explainEntailment: ${(e as Error)?.message ?? String(e)}` };
     }

@@ -943,6 +943,9 @@ export class RDFManagerImpl {
     opts?: { objectIsLiteral?: boolean; maxJustifications?: number },
   ): Promise<{
     isEntailed: boolean | null;
+    /** entailed, not-entailed (decided), or undetermined (the check could not decide). */
+    verdict: "entailed" | "not-entailed" | "undetermined";
+    undeterminedKind?: string;
     justifications: { subject: string; predicate: string; object: string }[][];
     ontologyInconsistent?: boolean;
     vacuous?: boolean;
@@ -961,8 +964,17 @@ export class RDFManagerImpl {
     // null (do NOT coerce to false) so the tool can distinguish "vacuous, fix
     // consistency first" from "not entailed".
     const ontologyInconsistent = safe.ontologyInconsistent === true;
+    const verdict =
+      safe.verdict === "entailed" || safe.verdict === "not-entailed" || safe.verdict === "undetermined"
+        ? safe.verdict
+        : ontologyInconsistent || safe.isEntailed === null
+          ? "undetermined"
+          : safe.isEntailed === true ? "entailed" : "not-entailed";
     return {
-      isEntailed: ontologyInconsistent ? null : safe.isEntailed === true,
+      // null whenever the check could not decide, so it is never read as "not entailed"
+      isEntailed: ontologyInconsistent || safe.isEntailed === null ? null : safe.isEntailed === true,
+      verdict,
+      ...(typeof safe.undeterminedKind === "string" ? { undeterminedKind: safe.undeterminedKind } : {}),
       justifications: Array.isArray(safe.justifications)
         ? (safe.justifications as { subject: string; predicate: string; object: string }[][])
         : [],
