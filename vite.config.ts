@@ -69,7 +69,23 @@ export default defineConfig({
   //      define → globalThis so promise-polyfill resolves its root object correctly.
   //      This also prevents a cascade failure where promise-polyfill's broken __commonJS
   //      wrapper caches an empty exports object, breaking downstream class inheritance.
+  //
+  // The dependencies below are imported lazily (the RDF worker and the layout code). Listing
+  // them pre-bundles them at dev-server start, so a cold server does not discover them mid-session
+  // and reload every open page.
   optimizeDeps: {
+    include: [
+      "readable-stream",
+      "buffer",
+      "rdf-parse",
+      "rdf-reasoner-konclude",
+      "@comunica/query-sparql-rdfjs",
+      "shacl-engine",
+      "shacl-engine/sparql.js",
+      "@rdfjs/data-model",
+      "@rdfjs/dataset",
+      "dagre",
+    ],
     esbuildOptions: {
       define: {
         global: "globalThis",

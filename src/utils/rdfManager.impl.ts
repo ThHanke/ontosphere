@@ -1128,6 +1128,30 @@ export class RDFManagerImpl {
     }
   }
 
+  /**
+   * Load `contents` into `graphName` only if that graph is empty. The emptiness check and all
+   * writes happen in one worker step. Returns false when the graph already held quads.
+   */
+  async loadRDFIntoGraphIfEmpty(contents: string[], graphName: string, mimeType?: string): Promise<boolean> {
+    const [content, ...additionalContents] = contents;
+    if (typeof content !== "string" || content.trim().length === 0) {
+      throw new Error("Empty RDF content provided to loadRDFIntoGraphIfEmpty");
+    }
+    const payload: ImportSerializedPayload = {
+      content,
+      additionalContents,
+      graphName,
+      contentType: mimeType,
+      onlyIfEmpty: true,
+    };
+    const result = await this.worker.call("importSerialized", payload);
+    if (isPlainObject(result) && (result as any).skipped === true) return false;
+    if (isPlainObject(result) && isStringRecord(result.prefixes)) {
+      this.mergePrefixes(result.prefixes as Record<string, string>, graphName);
+    }
+    return true;
+  }
+
   async unloadOntologySubjects(ontologyUrl: string): Promise<string[]> {
     if (!ontologyUrl) return [];
     const result = await this.worker.call("unloadOntologySubjects", { ontologyUrl });

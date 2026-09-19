@@ -1223,8 +1223,13 @@ export default function ReactodiaCanvas() {
       if (shaclUrl) {
         try {
           const { loadShaclShapes } = await import('../../utils/shaclShapeLoader');
-          const manifest = await loadShaclShapes(shaclUrl);
-          if (manifest.loaded.length > 0) {
+          // A startup default: fill an empty shapes graph only, never replace or mix with shapes
+          // a user or an agent has loaded since the app opened.
+          const manifest = await loadShaclShapes(shaclUrl, { onlyIfEmpty: true });
+          if (manifest.skipped) {
+            console.log('[ReactodiaCanvas] SHACL shapes already loaded; startup shapes not applied');
+            useShaclResultStore.getState().setShaclShapesLoaded(true);
+          } else if (manifest.loaded.length > 0) {
             console.log('[ReactodiaCanvas] SHACL shapes loaded:', manifest.loaded.map(s => s.name));
             useShaclResultStore.getState().setShaclShapesLoaded(true);
           } else {
@@ -1233,7 +1238,7 @@ export default function ReactodiaCanvas() {
           for (const err of manifest.errors) {
             console.warn('[ReactodiaCanvas] SHACL shape load error:', err.url, err.error);
           }
-          if (manifest.loaded.length === 0 && manifest.errors.length > 0) {
+          if (!manifest.skipped && manifest.loaded.length === 0 && manifest.errors.length > 0) {
             useShaclResultStore.getState().setShaclShapesLoaded(false);
           }
         } catch (err) {

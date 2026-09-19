@@ -56,6 +56,10 @@ export interface ImportSerializedPayload {
   forceGraph?: boolean;
   /** When set and graphName is urn:vg:ontologies, injects vg:loadedFrom annotations for each subject. */
   ontologyUrl?: string;
+  /** Further documents in the same format, loaded in the same worker step as `content`. */
+  additionalContents?: string[];
+  /** Write only into an empty target graph. The check and the writes happen in one worker step. */
+  onlyIfEmpty?: boolean;
 }
 
 export interface ExportGraphPayload {
@@ -601,8 +605,13 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
   },
   importSerialized(payload) {
     assertPlainObject(payload, "importSerialized payload must be an object");
-    const { content, graphName, contentType, filename, baseIri } = payload as unknown as ImportSerializedPayload;
+    const { content, graphName, contentType, filename, baseIri, additionalContents, onlyIfEmpty } =
+      payload as unknown as ImportSerializedPayload;
     assertString(content, "importSerialized.content must be a string");
+    assertOptionalStringArray(additionalContents, "importSerialized.additionalContents must be a string array when provided");
+    if (onlyIfEmpty !== undefined && typeof onlyIfEmpty !== "boolean") {
+      throw new TypeError("importSerialized.onlyIfEmpty must be a boolean when provided");
+    }
     assertOptionalString(graphName, "importSerialized.graphName must be a string when provided");
     assertOptionalString(contentType, "importSerialized.contentType must be a string when provided");
     assertOptionalString(filename, "importSerialized.filename must be a string when provided");
