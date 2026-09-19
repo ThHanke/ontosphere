@@ -49,12 +49,25 @@ async function seed(runtime: { handleEvent: (m: unknown) => void }, graphName: s
   await settle();
 }
 
-async function inferredCount(runtime: { handleEvent: (m: unknown) => void }, messages: unknown[]) {
+async function graphCounts(runtime: { handleEvent: (m: unknown) => void }, messages: unknown[]) {
   messages.length = 0;
   runtime.handleEvent({ type: 'command', id: 'counts', command: 'getGraphCounts' });
   await settle();
   const reply = messages.find((m: any) => m?.type === 'response' && m?.id === 'counts') as any;
-  return (reply?.result?.['urn:vg:inferred'] as number) ?? 0;
+  return (reply?.result ?? {}) as Record<string, number>;
+}
+
+async function inferredCount(runtime: { handleEvent: (m: unknown) => void }, messages: unknown[]) {
+  return (await graphCounts(runtime, messages))['urn:vg:inferred'] ?? 0;
+}
+
+/** Quads actually present in a graph, read back through SPARQL rather than the counters. */
+async function quadsIn(runtime: { handleEvent: (m: unknown) => void }, messages: unknown[], graph: string) {
+  messages.length = 0;
+  runtime.handleEvent({ type: 'command', id: 'q', command: 'fetchQuadsPage', payload: { graphName: graph, offset: 0, limit: 0 } });
+  await settle();
+  const reply = messages.find((m: any) => m?.type === 'response' && m?.id === 'q') as any;
+  return (reply?.result?.items ?? []).length as number;
 }
 
 async function runReasoning(runtime: { handleEvent: (m: unknown) => void }) {
@@ -80,6 +93,9 @@ describe('stale inference is not carried into validation', () => {
       await inferredCount(runtime, messages),
       'an inconsistent run leaves no inferred graph for SHACL to read',
     ).toBe(0);
+    expect(await quadsIn(runtime, messages, 'urn:vg:inferred')).toBe(0);
+    expect(await quadsIn(runtime, messages, 'urn:vg:data'), 'the asserted graph is untouched').toBe(1);
+    expect((await graphCounts(runtime, messages))['urn:vg:data']).toBe(1);
     runtime.terminate();
   });
 

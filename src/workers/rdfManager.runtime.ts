@@ -229,26 +229,31 @@ export class DlReasoner {
   }
 
   async reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }> {
-    // Reason over the blank-node copy, then publish its inferred graph into the store.
-    // On a cache hit the package leaves the copy's inferred graph as copied, so the
-    // store keeps what it had.
+    // Reason over the blank-node copy of the reasoning input, then publish its inferred graph
+    // into the store.
     const base = reasoningBase(store);
     // The explanation graph is not requested: nothing in the app reads
     // urn:konclude:explanations, and on LUBM-1 it held 162,638 quads per run.
-    const result = (await this._reasoner.materialize(base, {
-      includeClassHierarchy: true,
-      inferredGraph: INFERRED_GRAPH,
-      returnDelta: true,
-    })) as { delta: InferenceDelta };
+    await this._reasoner.materialize(base, { includeClassHierarchy: true, inferredGraph: INFERRED_GRAPH });
     this._materializedKey = axiomKey(reasoningBase(base));
     // The store may have been edited while Konclude worked on the copy.
     if (isCurrent && !isCurrent()) return { delta: { added: [], removed: [] } as InferenceDelta };
+
+    // Publish the change only: remove the inferences that no longer hold and add the new ones.
+    // A repeat run with the same result touches nothing, and the delta tells the canvas exactly
+    // what changed. (Removing a large graph quad by quad is slow in N3.Store: each removal
+    // enumerates the remaining subjects of its graph.)
     const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
-    store.removeQuads(store.getQuads(null, null, null, inferredGraph));
-    store.addQuads(reskolemizeAll(base.getQuads(null, null, null, inferredGraph)));
-    return {
-      delta: { added: reskolemizeAll(result.delta.added), removed: reskolemizeAll(result.delta.removed) } as InferenceDelta,
-    };
+    const key = (q: N3.Quad) => `${q.subject.value}\0${q.predicate.value}\0${q.object.termType}\0${q.object.value}`;
+    const before = store.getQuads(null, null, null, inferredGraph) as N3.Quad[];
+    const after = reskolemizeAll(base.getQuads(null, null, null, inferredGraph));
+    const beforeKeys = new Set(before.map(key));
+    const afterKeys = new Set(after.map(key));
+    const removed = before.filter((q) => !afterKeys.has(key(q)));
+    const added = after.filter((q) => !beforeKeys.has(key(q)));
+    store.removeQuads(removed);
+    store.addQuads(added);
+    return { delta: { added, removed } as InferenceDelta };
   }
 
   checkConsistency(store: N3.Store): Promise<boolean> {
@@ -630,6 +635,30 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const next = (graphCounts.get(key) || 0) + delta;
     if (next > 0) graphCounts.set(key, next);
     else graphCounts.delete(key);
+  }
+
+  /**
+   * Remove every quad of one graph and return them. N3.Store removes quad by quad, and each
+   * removal enumerates the remaining subjects of the graph, so clearing a large graph that way is
+   * quadratic (71,025 inferred LUBM-1 quads took about a minute). With the N3 store's graph index
+   * available the graph is dropped in one step; otherwise the quads are removed one by one.
+   */
+  function clearGraph(store: any, graphTerm: any): Quad[] {
+    const removed: Quad[] = store.getQuads(null, null, null, graphTerm);
+    if (removed.length === 0) return removed;
+    const id = typeof store._termToNumericId === "function" ? store._termToNumericId(graphTerm) : undefined;
+    if (id !== undefined && store._graphs && typeof store._graphs === "object" && store._graphs[id]) {
+      delete store._graphs[id];
+      store._size = null;
+      // the shared store's counters are kept by its wrapped add/remove, which this bypasses
+      if (store.__vgCountTracked) {
+        incGraphCount(graphTerm, -removed.length);
+        if (!NON_AXIOM_GRAPHS.has(graphTerm?.value ?? "")) reasoningInputGeneration += 1;
+      }
+    } else {
+      store.removeQuads(removed);
+    }
+    return removed;
   }
 
   /** Recompute the counter map from scratch by scanning the store once. */
@@ -3726,11 +3755,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       // inferred graph is dropped, so SHACL validation below reads the asserted graph and
       // the canvas is told the inferred quads are gone.
       if (!(kUsedReasoner && kIsConsistent === true)) {
-        const stale = kStore.getQuads(null, null, null, DataFactory.namedNode(INFERRED_GRAPH));
-        if (stale.length > 0) {
-          kStore.removeQuads(stale);
-          kDelta = { added: [], removed: stale };
-        }
+        const stale = clearGraph(kStore, DataFactory.namedNode(INFERRED_GRAPH));
+        if (stale.length > 0) kDelta = { added: [], removed: stale };
       }
 
       const kAddedQuads = kUsedReasoner ? kDelta.added : [];
