@@ -105,10 +105,10 @@ export const mcpManifest: McpToolManifestEntry[] = [
   {
     name: 'exportGraph',
     description:
-      'Export the current RDF graph. turtle | jsonld | rdfxml flatten the store into a single ' +
-      'default graph (named-graph structure is lost). nquads | trig are dataset-faithful: they ' +
+      'Export the current RDF graph. turtle | rdfxml flatten the store into a single default ' +
+      'graph (named-graph structure is lost). nquads | trig | jsonld are dataset-faithful: they ' +
       'collect quads from every urn:vg:* graph (data, inferred, shapes, ontologies, workflows) ' +
-      'and preserve each graph IRI, so the multi-graph partition round-trips on re-import.',
+      'and preserve each graph IRI (JSON-LD as one @graph per named graph), so the partition round-trips on re-import.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -423,6 +423,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
       type: 'object',
       properties: {
         maxJustifications: { type: 'number', default: 3, description: 'Max independent inconsistency justifications (MIPS) to return.' },
+        assessGuardCost: { type: 'boolean', default: false, description: "Also measure what each deletion repair costs in declared class-disjointness guards (one extra classification per repair). Each repair then carries guardImpact { verdict, classGuardsDestroyed, summary }; verdict 'restores-consistency-with-collateral' means the repair restores consistency by deleting a constraint the ontology used to reject modelling errors with." },
       },
     },
   },
@@ -432,7 +433,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
       "Explain WHY a specific entailed axiom holds — Horridge-style justifications for an ARBITRARY entailed axiom (not just inconsistency). " +
       "Ask 'why is A rdfs:subClassOf B?' or 'why is x rdf:type C?' and get the minimal set(s) of asserted axioms whose conjunction logically entails it. " +
       "Returns { isEntailed, justifications, summary }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; justifications is a list of minimal axiom sets (each { subject, predicate, object }[]). " +
-      "Empty justifications with isEntailed=true ⇒ the axiom is directly asserted (nothing to derive) or its shape is unsupported. isEntailed=false ⇒ not entailed. summary is a plain-language 'Inferred because: …' explanation. " +
+      "A directly asserted axiom comes back as its own one-axiom justification; empty justifications with isEntailed=true ⇒ no justification could be verified in time (see reason). isEntailed=false ⇒ decided not entailed; verdict=undetermined (isEntailed=null) ⇒ the check could not decide. summary is a plain-language 'Inferred because: …' explanation. " +
       "Supported shapes: rdfs:subClassOf and rdf:type with an IRI object (e.g. transitive subclass, domain/range-driven type inference). Read-only: never mutates asserted data.",
     inputSchema: {
       type: 'object',
@@ -547,7 +548,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'validateGraph',
-    description: 'Validate the asserted graph (urn:vg:data) against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag and structured violation list.',
+    description: 'Validate the asserted graph (urn:vg:data) plus the inferred graph (urn:vg:inferred) against SHACL shapes loaded in urn:vg:shapes. Returns { conforms, violations, shapeCount, untargetedShapeCount, targetedShapes }. targetedShapes lists the shapes that selected at least one focus node; conforms:true with untargetedShapeCount equal to shapeCount means nothing was checked. Run runReasoning first when shape targets depend on inferred types.',
     inputSchema: {
       type: 'object',
       properties: {},
