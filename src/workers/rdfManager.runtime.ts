@@ -1880,6 +1880,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           }
 
           if (removedSubjects > 0 || removedObjects > 0) {
+            // The deleted IRI ends up in touchedSubjects because it was the subject
+            // of its own quads (line above adds q.subject for every subject-quad).
+            // Exclude it so onSubjectsChange doesn't treat it as a new subject and
+            // re-add it to the canvas.
+            touchedSubjects.delete(iri);
             const emission = prepareSubjectEmissionFromSet(
               touchedSubjects,
               store,

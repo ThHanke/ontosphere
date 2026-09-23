@@ -77,6 +77,38 @@ const pendingPositions = new Map<string, Reactodia.Vector>();
 
 
 /**
+ * Replaces SelectionActionRemove: marks selected entities for deletion in the
+ * authoring state (entityDelete) instead of silently removing them from the
+ * canvas view. Requires a Save to commit to the RDF store.
+ */
+function DeleteEntityAction(props: { dock?: string; dockRow?: number }) {
+  const { model, editor } = Reactodia.useWorkspace();
+  const selection = Reactodia.useObservedProperty(
+    model.events,
+    'changeSelection',
+    () => model.selection,
+  );
+  const entities = selection.filter(
+    (item): item is Reactodia.EntityElement => item instanceof Reactodia.EntityElement,
+  );
+  const handleDelete = () => {
+    for (const el of entities) {
+      editor.deleteEntity(el.data.id);
+    }
+  };
+  return (
+    <Reactodia.SelectionAction
+      {...(props as any)}
+      className="reactodia-selection-action__remove"
+      title={entities.length === 1 ? 'Delete entity' : 'Delete entities'}
+      hotkey="None+Delete"
+      disabled={entities.length === 0}
+      onSelect={handleDelete}
+    />
+  );
+}
+
+/**
  * Flush all staged authoring state to the RDF store in one batch per subject.
  * This is the vanilla Reactodia pattern: stage many edits, then commit once.
  */
@@ -1932,7 +1964,7 @@ export default function ReactodiaCanvas() {
               halo={{
                 children: <>
                   <Reactodia.SelectionActionGroup dock='nw' dockColumn={1} />
-                  <Reactodia.SelectionActionRemove dock='nw' dockRow={1} />
+                  <DeleteEntityAction dock='nw' dockRow={1} />
                   <Reactodia.SelectionActionZoomToFit dock='nw' dockRow={3} />
                   <Reactodia.SelectionActionLayout dock='nw' dockRow={4} />
                   <Reactodia.SelectionActionExpand dock='se' dockColumn={0} />
