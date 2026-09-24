@@ -739,7 +739,7 @@
 
   function idlePoll() {
     if (window.__vgRelayInstanceId !== instanceId) return; // stale instance
-    if (!isProcessing && callQueue.length === 0 && !isAiStreaming()) {
+    if (!isProcessing && callQueue.length === 0 && !isAiStreaming() && !injectInProgress) {
       var text = document.body.innerText || document.body.textContent || '';
       var calls = extractAllToolCalls(text, dispatchedSigs);
       if (calls.length > 0) {
