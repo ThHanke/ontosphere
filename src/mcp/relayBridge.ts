@@ -321,6 +321,9 @@ export function startRelayBridge(): () => void {
         isConnected = true;
         notifyConnectionChanged(true);
       }
+      // Reply immediately so a freshly-opened relay popup discovers this tab
+      // without waiting up to 15 s for the next scheduled vg-hello.
+      announceSession(channel);
       return;
     }
 

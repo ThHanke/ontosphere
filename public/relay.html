@@ -35,6 +35,7 @@
     .dot.ok   { background: #3fb950; }
     .dot.warn { background: #d29922; }
     .dot.off  { background: #484f58; }
+    .dot.err  { background: #f85149; }
     .label { color: #8b949e; width: 130px; flex-shrink: 0; }
     .value { color: #c9d1d9; }
     .divider {
@@ -65,7 +66,6 @@
     .standalone-msg code {
       color: #79c0ff;
     }
-    #session-row { display: none; }
     #session-select {
       background: #161b22;
       color: #c9d1d9;
@@ -94,9 +94,10 @@
     <span class="value" id="val-bc">listening…</span>
   </div>
   <div class="status-row" id="session-row">
-    <div class="dot ok" id="dot-session"></div>
+    <div class="dot err" id="dot-session"></div>
     <span class="label">Target tab</span>
-    <select id="session-select"></select>
+    <span id="session-wait" style="color:#8b949e;font-size:12px">waiting for tabs…</span>
+    <select id="session-select" style="display:none"></select>
   </div>
 
   <hr class="divider" />
@@ -119,6 +120,8 @@
     const activity     = document.getElementById('activity');
     const standaloneMsg = document.getElementById('standalone-msg');
     const sessionRow   = document.getElementById('session-row');
+    const dotSession   = document.getElementById('dot-session');
+    const sessionWait  = document.getElementById('session-wait');
     const sessionSelect = document.getElementById('session-select');
 
     // ── Session registry ─────────────────────────────────────────────────────
@@ -128,8 +131,16 @@
 
     function updateSessionUI() {
       const ids = [...sessions.keys()];
-      if (ids.length === 0) { sessionRow.style.display = 'none'; return; }
-      sessionRow.style.display = 'flex';
+      if (ids.length === 0) {
+        // No tabs yet — red dot, hide dropdown
+        dotSession.className = 'dot err';
+        sessionWait.style.display = '';
+        sessionSelect.style.display = 'none';
+        lockedSessionId = null;
+        return;
+      }
+      sessionWait.style.display = 'none';
+      sessionSelect.style.display = '';
       const prev = sessionSelect.value;
       sessionSelect.innerHTML = '';
       for (const id of ids) {
@@ -145,10 +156,12 @@
       } else {
         lockedSessionId = sessionSelect.value || null;
       }
+      dotSession.className = lockedSessionId ? 'dot ok' : 'dot err';
     }
 
     sessionSelect.addEventListener('change', function () {
       lockedSessionId = sessionSelect.value || null;
+      dotSession.className = lockedSessionId ? 'dot ok' : 'dot err';
     });
 
     // Prune sessions not heard from in 45 s
@@ -334,15 +347,29 @@
       dotOpener.className = 'dot ok';
       valOpener.textContent = 'active';
 
+      // Block calls until a specific Ontosphere tab is locked
+      if (!lockedSessionId) {
+        dotBc.className = 'dot err';
+        valBc.textContent = 'blocked — no tab locked';
+        activity.textContent = '[' + ts() + '] vg-call blocked (no tab locked): ' + (data.tool || '?');
+        // Return an error so the bookmarklet doesn’t wait forever
+        if (window.opener && openerOrigin) {
+          try {
+            window.opener.postMessage({
+              type: 'vg-result',
+              requestId: data.requestId,
+              result: { success: false, error: 'Relay not locked to an Ontosphere tab — select one in the relay popup and retry' },
+            }, openerOrigin);
+          } catch (_) {}
+        }
+        return;
+      }
+
       dotBc.className = 'dot warn';
       valBc.textContent = 'forwarded, awaiting result…';
 
       try {
-        // Tag with target session so only the selected tab handles this call
-        const callMsg = lockedSessionId
-          ? Object.assign({}, data, { targetSessionId: lockedSessionId })
-          : data;
-        bc.postMessage(callMsg);
+        bc.postMessage(Object.assign({}, data, { targetSessionId: lockedSessionId }));
         const prefix = '[' + ts() + '] opener \u2192 BC: ';
         activity.textContent = '';
         activity.appendChild(document.createTextNode(prefix));
