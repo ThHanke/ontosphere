@@ -107,4 +107,43 @@ describe('installModelContextPolyfill', () => {
     const result = await mc.executeTool(greet, { name: 'world' });
     expect(JSON.parse(result)).toBe('hello world');
   });
+
+  it('registerTool fires toolchange event via addEventListener', async () => {
+    installModelContextPolyfill();
+    const mc = document.modelContext!;
+    let fired = 0;
+    mc.addEventListener('toolchange', () => { fired++; });
+    await mc.registerTool({ name: 'ev1', description: 'd', execute: async () => null });
+    expect(fired).toBe(1);
+    await mc.registerTool({ name: 'ev2', description: 'd', execute: async () => null });
+    expect(fired).toBe(2);
+  });
+
+  it('registerTool fires toolchange via ontoolchange handler', async () => {
+    installModelContextPolyfill();
+    const mc = document.modelContext!;
+    let fired = 0;
+    mc.ontoolchange = () => { fired++; };
+    await mc.registerTool({ name: 'oc1', description: 'd', execute: async () => null });
+    expect(fired).toBe(1);
+  });
+
+  it('registerTool signal unregisters tool and fires toolchange on abort', async () => {
+    installModelContextPolyfill();
+    const mc = document.modelContext!;
+    const ac = new AbortController();
+    let changeCount = 0;
+    mc.addEventListener('toolchange', () => { changeCount++; });
+
+    await mc.registerTool(
+      { name: 'temp', description: 'd', execute: async () => null },
+      { signal: ac.signal }
+    );
+    expect((await mc.getTools()).map(t => t.name)).toContain('temp');
+    expect(changeCount).toBe(1);
+
+    ac.abort();
+    expect((await mc.getTools()).map(t => t.name)).not.toContain('temp');
+    expect(changeCount).toBe(2);
+  });
 });

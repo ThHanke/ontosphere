@@ -5,14 +5,33 @@ type RegistryEntry = ToolDefinition & { origin: string };
 function createModelContextShim(): ModelContext {
   const toolRegistry = new Map<string, RegistryEntry>();
 
+  function dispatchToolChange(target: ModelContext): void {
+    const ev = new Event('toolchange');
+    target.dispatchEvent(ev);
+    if (typeof target.ontoolchange === 'function') {
+      target.ontoolchange.call(target, ev);
+    }
+  }
+
   const shim: ModelContext = Object.assign(new EventTarget(), {
     ontoolchange: null as ((this: ModelContext, ev: Event) => any) | null,
 
-    async registerTool(tool: ToolDefinition): Promise<void> {
+    async registerTool(
+      tool: ToolDefinition,
+      opts?: { signal?: AbortSignal; exposedTo?: string[] }
+    ): Promise<void> {
       if (!tool.name || !tool.description || typeof tool.execute !== 'function') {
         throw new TypeError('[WebMCP] registerTool: name, description, and execute are required');
       }
       toolRegistry.set(tool.name, { ...tool, origin: window.location.origin });
+      dispatchToolChange(shim);
+
+      if (opts?.signal) {
+        opts.signal.addEventListener('abort', () => {
+          toolRegistry.delete(tool.name);
+          dispatchToolChange(shim);
+        }, { once: true });
+      }
     },
 
     async getTools(opts?: { fromOrigins?: string[] }): Promise<RegisteredTool[]> {
