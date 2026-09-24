@@ -253,8 +253,9 @@
 
         if (!data || data.type !== 'vg-result') return;
 
-        // Session-lock: ignore results from tabs other than the selected one
-        if (lockedSessionId && data.sessionId && data.sessionId !== lockedSessionId) return;
+        // Session-lock: require sessionId to be present and match the locked tab.
+        // Results without sessionId (old code) or from other tabs are dropped.
+        if (!data.sessionId || data.sessionId !== lockedSessionId) return;
 
         dotBc.className = 'dot ok';
         valBc.textContent = 'received result';

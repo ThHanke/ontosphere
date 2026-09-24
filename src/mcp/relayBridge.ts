@@ -330,9 +330,11 @@ export function startRelayBridge(): () => void {
     if (!msg || msg.type !== 'vg-call') { console.warn('[RelayBridge] Ignored (wrong type):', msg?.type); return; }
     if (typeof msg.tool !== 'string' || typeof msg.requestId !== 'string') { console.warn('[RelayBridge] Ignored (bad shape):', msg); return; }
 
-    // Session-lock: ignore calls targeted at a different tab
+    // Session-lock: only handle calls explicitly addressed to this tab.
+    // Calls without targetSessionId (e.g. from old relay code) are ignored —
+    // untagged broadcasts must not reach any tab.
     const targetSessionId = (msg as { targetSessionId?: string }).targetSessionId;
-    if (targetSessionId && targetSessionId !== SESSION_ID) return;
+    if (!targetSessionId || targetSessionId !== SESSION_ID) return;
 
     const { tool, params, requestId } = msg as { tool: string; params: unknown; requestId: string };
     const isLast = (msg as { isLast?: boolean }).isLast === true;
