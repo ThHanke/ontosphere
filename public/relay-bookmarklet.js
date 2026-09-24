@@ -568,6 +568,9 @@
   function findSendButton(inp) {
     var direct = document.getElementById('send-message-button');
     if (direct) return direct;
+    // ChatGPT: button[data-composer-submit] anywhere in the document
+    var chatgptBtn = document.querySelector('button[data-composer-submit]');
+    if (chatgptBtn) return chatgptBtn;
     var cur = inp && inp.parentElement;
     while (cur && cur !== document.body) {
       var found = null;
@@ -588,10 +591,21 @@
   }
 
   function isAiStreaming() {
+    // ChatGPT: send button gets data-stop-generating during generation
+    var stopBtn = document.querySelector('button[data-stop-generating]');
+    if (stopBtn) return true;
+
+    // FhGenie (Fluent UI): dismiss-square stop button appears during generation;
+    // identified by its SVG path (DismissSquare24Regular icon, not disabled)
+    var fhgenieStop = document.querySelector('button:not([disabled]) svg path[d^="M8.22 8.22"]');
+    if (fhgenieStop) return true;
+
     var inp = findInput();
     var sendBtn = findSendButton(inp);
 
     if (sendBtn) {
+      // ChatGPT: aria-busy="true" on the submit button = generation in progress
+      if (sendBtn.getAttribute('aria-busy') === 'true') return true;
       // Enabled = idle; disabled + has content = generating (OWUI pattern).
       // OWUI during generation: send button is replaced by a stop button, so
       // findSendButton() returns null and the fallback signals below handle it.

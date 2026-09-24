@@ -178,7 +178,7 @@
       <p><br></p>
     </div>
   </div>
-  <button id="send-btn" type="submit" aria-label="send">Send</button>
+  <button id="send-btn" type="submit" aria-label="send" data-composer-submit>Send</button>
 </div>
 
 <div id="status-bar">Ready. Load the bookmarklet, then click a scenario above.</div>
@@ -214,7 +214,13 @@ var statusBar = document.getElementById('status-bar');
 // ── Chat flow simulation ───────────────────────────────────────────────────
 // Disable the active input + send button so isAiStreaming() returns true.
 function lockInput() {
-  document.getElementById('send-btn').disabled = true;
+  var btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  // ChatGPT mode: simulate data-stop-generating (stop button) + aria-busy during generation
+  if (currentMode === 'chatgpt') {
+    btn.setAttribute('data-stop-generating', '');
+    btn.setAttribute('aria-busy', 'true');
+  }
   var ta = document.getElementById('user-input');
   if (ta.style.display !== 'none') ta.disabled = true;
   var ce = document.getElementById('owui-input');
@@ -223,7 +229,10 @@ function lockInput() {
   if (gpt.closest('#gpt-input-wrap').style.display !== 'none') gpt.setAttribute('aria-disabled', 'true');
 }
 function unlockInput() {
-  document.getElementById('send-btn').disabled = false;
+  var btn = document.getElementById('send-btn');
+  btn.disabled = false;
+  btn.removeAttribute('data-stop-generating');
+  btn.removeAttribute('aria-busy');
   var ta = document.getElementById('user-input');
   ta.disabled = false;
   document.getElementById('owui-input').removeAttribute('aria-disabled');
