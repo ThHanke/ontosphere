@@ -152,8 +152,8 @@ async function handleCall(
 
   if (!tools) {
     const error = 'Ontosphere workspace not yet initialised';
-    channel.postMessage({ type: 'vg-result', requestId, result: { success: false, error } });
-    channel.postMessage({ type: 'vg-ready' });
+    channel.postMessage({ type: 'vg-result', requestId, result: { success: false, error }, sessionId: SESSION_ID });
+    channel.postMessage({ type: 'vg-ready', sessionId: SESSION_ID });
     toast.error(`✗ ${tool}: ${error}`);
     notifyCallLog({ tool, success: false, timestamp: Date.now() });
     onDone();
@@ -174,8 +174,8 @@ async function handleCall(
   if (!handler) {
     const error = `Unknown tool: ${tool}`;
     console.error('[RelayBridge] Unknown tool:', tool);
-    channel.postMessage({ type: 'vg-result', requestId, result: { success: false, error } });
-    channel.postMessage({ type: 'vg-ready' });
+    channel.postMessage({ type: 'vg-result', requestId, result: { success: false, error }, sessionId: SESSION_ID });
+    channel.postMessage({ type: 'vg-ready', sessionId: SESSION_ID });
     toast.error(`✗ ${tool}: ${error}`);
     notifyCallLog({ tool, success: false, timestamp: Date.now() });
     onDone();
@@ -196,8 +196,8 @@ async function handleCall(
     const error = err instanceof Error ? err.message : String(err);
     console.error('[RelayBridge] Tool error:', tool, JSON.stringify(params).slice(0, 200), error);
     result = { success: false, error };
-    channel.postMessage({ type: 'vg-result', requestId, result });
-    channel.postMessage({ type: 'vg-ready' });
+    channel.postMessage({ type: 'vg-result', requestId, result, sessionId: SESSION_ID });
+    channel.postMessage({ type: 'vg-ready', sessionId: SESSION_ID });
     toast.error(`✗ ${toastLabel(tool, { success: false, error })}: ${error}`);
     notifyCallLog({ tool, success: false, timestamp: Date.now() });
     onDone();
@@ -226,12 +226,13 @@ async function handleCall(
     type: 'vg-result',
     requestId,
     result,
+    sessionId: SESSION_ID,
     ...(summary !== undefined ? { summary } : {}),
     ...(svg !== undefined ? { svg } : {}),
   });
 
   // Signal the relay popup that the app is idle
-  channel.postMessage({ type: 'vg-ready' });
+  channel.postMessage({ type: 'vg-ready', sessionId: SESSION_ID });
 
   if (result.success) {
     toast.success(`✓ ${toastLabel(tool, result)}`);
@@ -248,12 +249,24 @@ async function handleCall(
 const PING_STALE_MS = 15000;
 const PING_CHECK_INTERVAL_MS = 5000;
 
+function announceSession(channel: BroadcastChannel): void {
+  channel.postMessage({
+    type: 'vg-hello',
+    sessionId: SESSION_ID,
+    title: document.title || location.hostname,
+  });
+}
+
 export function startRelayBridge(): () => void {
   const channel = new BroadcastChannel(CHANNEL_NAME);
   let lastPingAt = 0;
   let isConnected = false;
   let appReady = false;
   const pendingCalls: Array<{ tool: string; params: unknown; requestId: string; isLast: boolean }> = [];
+
+  // Announce this tab so relay.html can populate its session selector
+  announceSession(channel);
+  const helloInterval = setInterval(() => announceSession(channel), 15_000);
 
   // Ask the app if it's ready — workspaceContext responds with vg-ready if initialised
   channel.postMessage({ type: 'vg-ping' });
@@ -286,7 +299,11 @@ export function startRelayBridge(): () => void {
     console.info('[VG_RELAY] BC message received:', JSON.stringify(msg));
 
     if (msg?.type === 'vg-ready') {
-      // Initial vg-ready from workspaceContext signals the app is ready for first call
+      // Accept vg-ready from workspaceContext (no sessionId) or from ourselves.
+      // Ignore vg-ready from other Ontosphere tabs — their idle signal is not ours.
+      const readySession = (msg as { sessionId?: string }).sessionId;
+      if (readySession && readySession !== SESSION_ID) return;
+
       if (!appReady) {
         appReady = true;
         if (pendingCalls.length > 0) {
@@ -310,6 +327,10 @@ export function startRelayBridge(): () => void {
     if (!msg || msg.type !== 'vg-call') { console.warn('[RelayBridge] Ignored (wrong type):', msg?.type); return; }
     if (typeof msg.tool !== 'string' || typeof msg.requestId !== 'string') { console.warn('[RelayBridge] Ignored (bad shape):', msg); return; }
 
+    // Session-lock: ignore calls targeted at a different tab
+    const targetSessionId = (msg as { targetSessionId?: string }).targetSessionId;
+    if (targetSessionId && targetSessionId !== SESSION_ID) return;
+
     const { tool, params, requestId } = msg as { tool: string; params: unknown; requestId: string };
     const isLast = (msg as { isLast?: boolean }).isLast === true;
 
@@ -326,6 +347,7 @@ export function startRelayBridge(): () => void {
 
   return () => {
     clearInterval(staleCheck);
+    clearInterval(helloInterval);
     channel.close();
     console.info('[VG_RELAY] Channel closed.');
   };

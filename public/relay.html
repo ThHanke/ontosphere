@@ -65,6 +65,19 @@
     .standalone-msg code {
       color: #79c0ff;
     }
+    #session-row { display: none; }
+    #session-select {
+      background: #161b22;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 2px 4px;
+      flex: 1;
+      min-width: 0;
+    }
+    #session-select:focus { outline: 1px solid #58a6ff; }
   </style>
 </head>
 <body>
@@ -80,6 +93,11 @@
     <span class="label">Ontosphere app (BC)</span>
     <span class="value" id="val-bc">listening…</span>
   </div>
+  <div class="status-row" id="session-row">
+    <div class="dot ok" id="dot-session"></div>
+    <span class="label">Target tab</span>
+    <select id="session-select"></select>
+  </div>
 
   <hr class="divider" />
 
@@ -94,12 +112,53 @@
 
   <script>
     // ── DOM refs ────────────────────────────────────────────────────────────
-    const dotOpener = document.getElementById('dot-opener');
-    const valOpener = document.getElementById('val-opener');
-    const dotBc     = document.getElementById('dot-bc');
-    const valBc     = document.getElementById('val-bc');
-    const activity  = document.getElementById('activity');
+    const dotOpener    = document.getElementById('dot-opener');
+    const valOpener    = document.getElementById('val-opener');
+    const dotBc        = document.getElementById('dot-bc');
+    const valBc        = document.getElementById('val-bc');
+    const activity     = document.getElementById('activity');
     const standaloneMsg = document.getElementById('standalone-msg');
+    const sessionRow   = document.getElementById('session-row');
+    const sessionSelect = document.getElementById('session-select');
+
+    // ── Session registry ─────────────────────────────────────────────────────
+    // Map of sessionId → { title, seenAt }. Auto-pruned after 45s of silence.
+    const sessions = new Map();
+    let lockedSessionId = null;
+
+    function updateSessionUI() {
+      const ids = [...sessions.keys()];
+      if (ids.length === 0) { sessionRow.style.display = 'none'; return; }
+      sessionRow.style.display = 'flex';
+      const prev = sessionSelect.value;
+      sessionSelect.innerHTML = '';
+      for (const id of ids) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = sessions.get(id).title + ' [' + id + ']';
+        sessionSelect.appendChild(opt);
+      }
+      // Restore previous selection if still present, else keep first
+      if (prev && sessions.has(prev)) {
+        sessionSelect.value = prev;
+        lockedSessionId = prev;
+      } else {
+        lockedSessionId = sessionSelect.value || null;
+      }
+    }
+
+    sessionSelect.addEventListener('change', function () {
+      lockedSessionId = sessionSelect.value || null;
+    });
+
+    // Prune sessions not heard from in 45 s
+    setInterval(function () {
+      const now = Date.now();
+      for (const [id, s] of sessions) {
+        if (now - s.seenAt > 45000) sessions.delete(id);
+      }
+      updateSessionUI();
+    }, 15000);
 
     const CHANNEL_NAME = 'ontosphere-relay-v1';
 
@@ -157,9 +216,20 @@
       bc.onmessage = function (evt) {
         const data = evt.data;
 
+        // Discover Ontosphere tabs announcing themselves
+        if (data && data.type === 'vg-hello' && data.sessionId) {
+          sessions.set(data.sessionId, { title: data.title || data.sessionId, seenAt: Date.now() });
+          updateSessionUI();
+          return;
+        }
+
         // Forward tool-execution heartbeats so bookmarklet can detect app reloads
         if (data && data.type === 'vg-ping' && data.sessionId) {
           lastSessionId = data.sessionId;
+          // Keep session alive
+          if (sessions.has(data.sessionId)) {
+            sessions.get(data.sessionId).seenAt = Date.now();
+          }
           // SECURITY: only reply to a validated opener origin. Never broadcast
           // to '*'. If no trusted opener has been seen yet, drop the message.
           if (window.opener && openerOrigin) {
@@ -169,6 +239,9 @@
         }
 
         if (!data || data.type !== 'vg-result') return;
+
+        // Session-lock: ignore results from tabs other than the selected one
+        if (lockedSessionId && data.sessionId && data.sessionId !== lockedSessionId) return;
 
         dotBc.className = 'dot ok';
         valBc.textContent = 'received result';
@@ -265,7 +338,11 @@
       valBc.textContent = 'forwarded, awaiting result…';
 
       try {
-        bc.postMessage(data);
+        // Tag with target session so only the selected tab handles this call
+        const callMsg = lockedSessionId
+          ? Object.assign({}, data, { targetSessionId: lockedSessionId })
+          : data;
+        bc.postMessage(callMsg);
         const prefix = '[' + ts() + '] opener \u2192 BC: ';
         activity.textContent = '';
         activity.appendChild(document.createTextNode(prefix));
