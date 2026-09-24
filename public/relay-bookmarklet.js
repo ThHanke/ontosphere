@@ -152,6 +152,12 @@
       var r0 = byId.getBoundingClientRect();
       if (r0.width > 0 && r0.height > 0) return byId;
     }
+    // Gemini: rich-textarea contains a contenteditable div
+    var richTextarea = document.querySelector('rich-textarea [contenteditable="true"], rich-textarea [contenteditable=""]');
+    if (richTextarea) {
+      var rr = richTextarea.getBoundingClientRect();
+      if (rr.width > 0 && rr.height > 0) return richTextarea;
+    }
     var candidates = Array.from(document.querySelectorAll(
       'textarea, [contenteditable="true"], [contenteditable=""]'
     )).filter(function (el) {
@@ -624,6 +630,14 @@
     // ChatGPT: button[data-composer-submit] anywhere in the document
     var chatgptBtn = document.querySelector('button[data-composer-submit]');
     if (chatgptBtn) return chatgptBtn;
+    // Gemini: send button has aria-label="Send message".
+    // During generation Gemini adds a CSS 'hidden' class instead of disabled,
+    // so we must exclude hidden buttons to avoid false "idle" readings.
+    var geminiSend = document.querySelector('button[aria-label="Send message"]:not([disabled]):not(.hidden)');
+    if (geminiSend) {
+      var gsRect = geminiSend.getBoundingClientRect();
+      if (gsRect.width > 0 && gsRect.height > 0) return geminiSend;
+    }
     var cur = inp && inp.parentElement;
     while (cur && cur !== document.body) {
       var found = null;
@@ -652,6 +666,21 @@
     // identified by its SVG path (DismissSquare24Regular icon, not disabled)
     var fhgenieStop = document.querySelector('button:not([disabled]) svg path[d^="M8.22 8.22"]');
     if (fhgenieStop) return true;
+
+    // Gemini: stop button replaces send button during generation.
+    // Label varies by version ("Stop generating" / "Stop response") — match both.
+    var geminiStop = document.querySelector(
+      'button[aria-label="Stop generating"], button[aria-label="Stop response"]'
+    );
+    if (geminiStop) return true;
+
+    // Claude.ai: html[data-theme="claude"] — during streaming the send button is
+    // replaced by a stop button. Detect by presence of a non-disabled button whose
+    // aria-label contains "Stop" (case-insensitive; covers "Stop generation", "Stopp", etc.).
+    if (document.documentElement.getAttribute('data-theme') === 'claude') {
+      var claudeStop = document.querySelector('button[aria-label*="Stop" i]:not([disabled])');
+      if (claudeStop) return true;
+    }
 
     var inp = findInput();
     var sendBtn = findSendButton(inp);
