@@ -106,6 +106,17 @@ test.describe('relay.html — opener-origin trust model (security)', () => {
         if (d && d.type === 'vg-call') seen.push({ type: d.type, tool: d.tool });
       };
 
+      // Seed a locked session so the "no tab locked" guard does not block forwarding.
+      // lockedSessionId is a closure variable; the only write path is the sessionSelect
+      // change listener. Add a synthetic option, select it, and dispatch 'change'.
+      const sel = document.getElementById('session-select') as HTMLSelectElement;
+      const opt = document.createElement('option');
+      opt.value = 'test-session-id';
+      opt.textContent = 'Test tab [test-session-id]';
+      sel.appendChild(opt);
+      sel.value = 'test-session-id';
+      sel.dispatchEvent(new Event('change'));
+
       function fire(originStr: string, tool: string) {
         window.dispatchEvent(new MessageEvent('message', {
           data: { type: 'vg-call', tool, requestId: 'rq-test', params: {} },

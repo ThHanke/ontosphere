@@ -24,7 +24,7 @@ export const mcpServerDescription =
   'loadOntology(query=…) → loadOntology(url="<prefix>") × N → setNamespace × N\n' +
   '→ setViewMode("tbox") → addNode × N (owl:Class) → addTriple × N → runLayout\n' +
   '→ setViewMode("abox") → loadRdf(turtle=...) OR addNode × N → addTriple × N → runLayout\n' +
-  '→ runReasoning (includes SHACL validation by default) → getGraphState (check shacl.conforms) → fitCanvas + exportImage(svg)  [last three safe to batch]\n\n' +
+  '→ runReasoning (includes SHACL validation by default) → getGraphState({graphs:["urn:vg:shapes"]}) (check shacl.conforms) → fitCanvas + exportImage(svg)  [last three safe to batch]\n\n' +
   'Agent integration: (1) Claude Code / Playwright — window.__mcpTools[name](params) via browser_evaluate. ' +
   '(2) AI Relay Bridge — any AI chat controls Ontosphere via bookmarklet relay; see docs/relay-bridge.md and AGENTS.md.';
 
@@ -452,8 +452,18 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'getGraphState',
-    description: 'Return a summary of the current canvas: node count, link count, per-node IRI/label/types, and SHACL validation status (shapesLoaded, conforms, errorCount, warningCount). Use to verify canvas state and check SHACL compliance.',
-    inputSchema: { type: 'object' },
+    description: 'Return a summary of the current graph state scoped to the requested graphs. Default (graphs omitted): data + inferred — canvas node/link counts. Include "urn:vg:shapes" to also get SHACL validation status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        graphs: {
+          type: 'array',
+          items: { type: 'string', enum: ['urn:vg:data', 'urn:vg:inferred', 'urn:vg:shapes'] },
+          default: ['urn:vg:data', 'urn:vg:inferred'],
+          description: 'Graphs to summarise. Defaults to [urn:vg:data, urn:vg:inferred]. Add urn:vg:shapes to include SHACL validation state.',
+        },
+      },
+    },
   },
   {
     name: 'setNamespace',

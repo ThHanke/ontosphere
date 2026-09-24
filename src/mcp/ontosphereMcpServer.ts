@@ -63,9 +63,9 @@ export async function registerMcpTools(): Promise<void> {
   }
   window.__mcpTools = toolMap;
 
-  const mc = (navigator as any).modelContext;
+  const mc = document.modelContext;
   if (!mc) {
-    console.warn('[MCP] navigator.modelContext not available; skipping tool registration');
+    console.warn('[MCP] document.modelContext not available; skipping tool registration');
     return;
   }
   for (const entry of mcpManifest) {
@@ -74,12 +74,13 @@ export async function registerMcpTools(): Promise<void> {
       console.warn(`[MCP] No handler found for tool: ${entry.name}`);
       continue;
     }
-    await mc.registerTool(
-      entry.name,
-      entry.description,
-      entry.inputSchema,
-      withSchemaValidation(tool)
-    );
+    const wrappedHandler = withSchemaValidation(tool);
+    await mc.registerTool({
+      name: entry.name,
+      description: entry.description,
+      inputSchema: entry.inputSchema as object,
+      execute: (inputs, _opts) => wrappedHandler(inputs),
+    });
   }
-  console.log(`[MCP] Registered ${mcpManifest.length} tools via navigator.modelContext`);
+  console.log(`[MCP] Registered ${mcpManifest.length} tools via document.modelContext`);
 }

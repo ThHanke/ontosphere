@@ -1,6 +1,13 @@
+import 'webmcp-types'; // augments Document with modelContext
+
 declare const fallback: any;
 
 declare global {
+  // Backward-compat alias: navigator.modelContext mirrors document.modelContext
+  interface Navigator {
+    modelContext?: WebMCP.ModelContext;
+  }
+
   interface Window {
     fallback?: any;
     __VG_DEBUG__?: boolean;

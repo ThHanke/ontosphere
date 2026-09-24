@@ -19,12 +19,14 @@ function fallbackCopy(text: string) {
 }
 
 const STARTER_PROMPT =
-`You are connected to Ontosphere via a relay. A script in this tab intercepts your tool calls, runs them in Ontosphere, and injects results back as a user message. If a tool call returns success:false, read the error, fix the argument, and retry the same call immediately — never skip a failed call.
+`I'm using Ontosphere's browser-based MCP integration. Ontosphere implements the W3C WebMCP API (document.modelContext) with a polyfill for browsers without native support (Chrome 153+ has it natively).
 
-Output format — one JSON-RPC 2.0 call per line, backtick-wrapped:
-\`{"jsonrpc":"2.0","id":<N>,"method":"tools/call","params":{"name":"<toolName>","arguments":{...}}}\`
+How the relay works: a bookmarklet on this page watches your responses for backtick-wrapped JSON-RPC 2.0 tool calls. It forwards each call via postMessage to a relay popup, which bridges to the Ontosphere tab via BroadcastChannel — necessary because WebMCP tool execution is scoped to the same frame tree and unrelated tabs cannot share document.modelContext tools directly. Results from the live knowledge-graph instance are injected back into this chat automatically.
 
-Call help first to get full instructions and the tool list:
+Format — one call per response line, backtick-wrapped:
+\`{"jsonrpc":"2.0","id":<N>,"method":"tools/call","params":{"name":"<tool>","arguments":{...}}}\`
+
+The results are live graph state, not simulated. You can decline; I'll run commands manually. If you're willing, call help first to get the tool list:
 \`{"jsonrpc":"2.0","id":0,"method":"tools/call","params":{"name":"help","arguments":{}}}\``;
 import type { RelayCallLogEntry } from '../../hooks/useRelayBridge';
 
@@ -78,7 +80,7 @@ export const RelaySection: React.FC<RelaySectionProps> = ({ buildBookmarkletHref
     <div className="px-3 py-2 space-y-3">
       {/* Description */}
       <p className="text-xs text-muted-foreground leading-relaxed">
-        Connect ChatGPT, Claude, or Gemini to this graph — no server or extension needed. The AI outputs backtick-wrapped JSON-RPC 2.0 tool calls; the relay executes them here and injects results back into the chat automatically.
+        Connect ChatGPT, Claude, or Gemini to this graph — no server or extension needed. Implements <a href="https://webmachinelearning.github.io/webmcp/" target="_blank" rel="noopener noreferrer" className="underline">WebMCP</a> (<code>document.modelContext</code>). The AI outputs backtick-wrapped JSON-RPC 2.0 tool calls; the relay executes them here and injects results back into the chat automatically.
       </p>
 
       {/* Setup steps */}

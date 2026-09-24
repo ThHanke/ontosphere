@@ -152,6 +152,12 @@
       var r0 = byId.getBoundingClientRect();
       if (r0.width > 0 && r0.height > 0) return byId;
     }
+    // Gemini: rich-textarea contains a contenteditable div
+    var richTextarea = document.querySelector('rich-textarea [contenteditable="true"], rich-textarea [contenteditable=""]');
+    if (richTextarea) {
+      var rr = richTextarea.getBoundingClientRect();
+      if (rr.width > 0 && rr.height > 0) return richTextarea;
+    }
     var candidates = Array.from(document.querySelectorAll(
       'textarea, [contenteditable="true"], [contenteditable=""]'
     )).filter(function (el) {
@@ -343,8 +349,19 @@
     return JSON.stringify(data);
   }
 
+  /* ── Format and inject a single partial result with a "more pending" hint ── */
+  function injectPartialResult(result, remaining) {
+    var ok = result.ok;
+    var header = '[Ontosphere — ' + result.tool + (ok ? ' ✓' : ' ✗') + ']';
+    var line = ok
+      ? '`' + JSON.stringify({ jsonrpc: '2.0', id: result.mcpId != null ? result.mcpId : null, result: { content: [{ type: 'text', text: briefData(result.result && result.result.data) }] } }) + '`'
+      : '`' + JSON.stringify({ jsonrpc: '2.0', id: result.mcpId != null ? result.mcpId : null, error: { code: -32000, message: String((result.result && result.result.error) || 'failed'), data: { tool: result.tool } } }) + '`';
+    var hint = '\n⏳ ' + remaining + ' more tool result' + (remaining !== 1 ? 's' : '') + ' pending — do not respond yet, await them.';
+    injectResult([header, line, hint].join('\n'));
+  }
+
   /* ── Format and inject combined batch result ───────────────────────────── */
-  function injectCombinedResult(results) {
+  function injectCombinedResult(results, pendingCount) {
     var allOk = results.every(function (r) { return r.ok; });
     var lines = ['[Ontosphere — ' + results.length + ' tool' + (results.length !== 1 ? 's' : '') + (allOk ? ' ✓' : ' (some failed)') + ']'];
     results.forEach(function (r) {
@@ -363,21 +380,59 @@
     });
     var lastSummary = results[results.length - 1] && results[results.length - 1].summary;
     if (lastSummary) { lines.push(''); lines.push(lastSummary); }
+    if (pendingCount > 0) {
+      lines.push('\n⏳ ' + pendingCount + ' more tool result' + (pendingCount !== 1 ? 's' : '') + ' pending — do not respond yet, await them.');
+    }
     injectResult(lines.join('\n'));
     showToast('Done: ' + results.length + ' tool' + (results.length !== 1 ? 's' : ''), allOk);
   }
 
   /* ── Batch queue state ─────────────────────────────────────────────────── */
-  var callQueue        = [];
-  var batchResults     = [];
-  var isProcessing     = false;
-  var pendingTool      = null;
-  var pendingMcpId     = null;
-  var pendingRequestId = null;
-  var callTimeoutTimer = null;
-  var knownSessionId   = null;
-  var lateResult       = null;
-  var CALL_TIMEOUT_MS  = 30000;
+  var callQueue          = [];
+  var batchResults       = [];
+  var batchTotal         = 0;
+  var isProcessing       = false;
+  var pendingTool        = null;
+  var pendingMcpId       = null;
+  var pendingRequestId   = null;
+  var callTimeoutTimer   = null;
+  var batchTimeoutTimer  = null;
+  var knownSessionId     = null;
+  var lateResult         = null;
+  var CALL_TIMEOUT_MS    = 30000;
+  var BATCH_TIMEOUT_MS   = 180000; // 3 min — reasoning / tests can be slow
+
+  function startBatchTimeout() {
+    clearTimeout(batchTimeoutTimer);
+    batchTimeoutTimer = setTimeout(function () {
+      if (batchResults.length === 0 && !isProcessing) return; // nothing to flush
+      // Flush whatever results arrived before the timeout
+      clearTimeout(callTimeoutTimer);
+      callQueue = []; isProcessing = false;
+      pendingTool = null; pendingMcpId = null; pendingRequestId = null;
+      var results = batchResults.slice(); batchResults = [];
+      var missing = batchTotal - results.length;
+      batchTotal = 0;
+      var header = '[Ontosphere — ⏱ batch timeout' + (missing > 0 ? ' (' + missing + ' result' + (missing !== 1 ? 's' : '') + ' missing)' : '') + ']';
+      var lines = [header];
+      results.forEach(function (r) {
+        lines.push(r.ok
+          ? '`' + JSON.stringify({ jsonrpc: '2.0', id: r.mcpId != null ? r.mcpId : null, result: { content: [{ type: 'text', text: briefData(r.result && r.result.data) }] } }) + '`'
+          : '`' + JSON.stringify({ jsonrpc: '2.0', id: r.mcpId != null ? r.mcpId : null, error: { code: -32000, message: String((r.result && r.result.error) || 'failed'), data: { tool: r.tool } } }) + '`');
+      });
+      if (results.length > 0) {
+        var lastSummary = results[results.length - 1].summary;
+        if (lastSummary) { lines.push(''); lines.push(lastSummary); }
+      }
+      injectResult(lines.join('\n'));
+      showToast('⏱ Batch timed out — ' + results.length + ' result' + (results.length !== 1 ? 's' : '') + ' flushed', false);
+    }, BATCH_TIMEOUT_MS);
+  }
+
+  function stopBatchTimeout() {
+    clearTimeout(batchTimeoutTimer);
+    batchTimeoutTimer = null;
+  }
 
   function resetCallTimeout() {
     clearTimeout(callTimeoutTimer);
@@ -391,8 +446,9 @@
       pendingMcpId     = null;
       pendingRequestId = null;
       lateResult = { requestId: timedOutRequestId, tool: timedOutTool, mcpId: timedOutId };
+      stopBatchTimeout();
       var results = batchResults.slice(); batchResults = [];
-      
+      batchTotal = 0;
       callQueue = [];
       var resp = JSON.stringify({
         jsonrpc: '2.0', id: timedOutId != null ? timedOutId : null,
@@ -462,9 +518,12 @@
     if (callQueue.length > 0) {
       processNextInQueue();
     } else {
+      stopBatchTimeout();
       var results = batchResults.slice();
       batchResults = [];
-      injectCombinedResult(results);
+      var pending = batchTotal - results.length;
+      batchTotal = 0;
+      injectCombinedResult(results, pending > 0 ? pending : 0);
     }
   });
 
@@ -568,6 +627,17 @@
   function findSendButton(inp) {
     var direct = document.getElementById('send-message-button');
     if (direct) return direct;
+    // ChatGPT: button[data-composer-submit] anywhere in the document
+    var chatgptBtn = document.querySelector('button[data-composer-submit]');
+    if (chatgptBtn) return chatgptBtn;
+    // Gemini: send button has aria-label="Send message".
+    // During generation Gemini adds a CSS 'hidden' class instead of disabled,
+    // so we must exclude hidden buttons to avoid false "idle" readings.
+    var geminiSend = document.querySelector('button[aria-label="Send message"]:not([disabled]):not(.hidden)');
+    if (geminiSend) {
+      var gsRect = geminiSend.getBoundingClientRect();
+      if (gsRect.width > 0 && gsRect.height > 0) return geminiSend;
+    }
     var cur = inp && inp.parentElement;
     while (cur && cur !== document.body) {
       var found = null;
@@ -588,10 +658,36 @@
   }
 
   function isAiStreaming() {
+    // ChatGPT: send button gets data-stop-generating during generation
+    var stopBtn = document.querySelector('button[data-stop-generating]');
+    if (stopBtn) return true;
+
+    // FhGenie (Fluent UI): dismiss-square stop button appears during generation;
+    // identified by its SVG path (DismissSquare24Regular icon, not disabled)
+    var fhgenieStop = document.querySelector('button:not([disabled]) svg path[d^="M8.22 8.22"]');
+    if (fhgenieStop) return true;
+
+    // Gemini: stop button replaces send button during generation.
+    // Label varies by version ("Stop generating" / "Stop response") — match both.
+    var geminiStop = document.querySelector(
+      'button[aria-label="Stop generating"], button[aria-label="Stop response"]'
+    );
+    if (geminiStop) return true;
+
+    // Claude.ai: html[data-theme="claude"] — during streaming the send button is
+    // replaced by a stop button. Detect by presence of a non-disabled button whose
+    // aria-label contains "Stop" (case-insensitive; covers "Stop generation", "Stopp", etc.).
+    if (document.documentElement.getAttribute('data-theme') === 'claude') {
+      var claudeStop = document.querySelector('button[aria-label*="Stop" i]:not([disabled])');
+      if (claudeStop) return true;
+    }
+
     var inp = findInput();
     var sendBtn = findSendButton(inp);
 
     if (sendBtn) {
+      // ChatGPT: aria-busy="true" on the submit button = generation in progress
+      if (sendBtn.getAttribute('aria-busy') === 'true') return true;
       // Enabled = idle; disabled + has content = generating (OWUI pattern).
       // OWUI during generation: send button is replaced by a stop button, so
       // findSendButton() returns null and the fallback signals below handle it.
@@ -665,19 +761,20 @@
   }
 
   /* ── Dispatch poll ─────────────────────────────────────────────────────── */
-  // Scans full page text every 500 ms. Dispatches immediately on any new
-  // complete, valid MCP call. JSON structural completeness (validateMcpRequest)
-  // is the signal — partial JSON fails JSON.parse and is ignored. No stability
-  // window needed. dispatchedSigs deduplication handles repeats.
+  // Scans full page text every 500 ms. Only fires when the LLM is not streaming
+  // (isAiStreaming() = false), so all tool calls from one message are visible
+  // before we extract any of them — prevents splitting a batch mid-stream.
   var idlePollTimer = null;
 
   function idlePoll() {
     if (window.__vgRelayInstanceId !== instanceId) return; // stale instance
-    if (!isProcessing && callQueue.length === 0) {
+    if (!isProcessing && callQueue.length === 0 && !isAiStreaming() && !injectInProgress) {
       var text = document.body.innerText || document.body.textContent || '';
       var calls = extractAllToolCalls(text, dispatchedSigs);
       if (calls.length > 0) {
         callQueue = callQueue.concat(calls);
+        batchTotal = callQueue.length;
+        startBatchTimeout();
         processNextInQueue();
       }
     }

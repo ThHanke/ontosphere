@@ -1,6 +1,7 @@
 // src/mcp/tools/graph.ts
 import * as Reactodia from '@reactodia/workspace';
 import type { McpTool, McpResult } from '@/mcp/types';
+import { useShaclResultStore } from '@/stores/shaclResultStore';
 import { rdfManager } from '@/utils/rdfManager';
 import { getWorkspaceRefs, applyViewMode } from '@/mcp/workspaceContext';
 import { mcpManifest, mcpServerDescription } from '@/mcp/manifest';
@@ -9,7 +10,6 @@ import { resolveOntologyLoadUrl, searchWellKnownOntologies, searchOntologyPacks 
 import { useOntologyStore } from '@/stores/ontologyStore';
 import { LOAD_RDF_PROPAGATION_DELAY_MS } from '@/utils/canvasConstants';
 import { BUILTIN_PREFIXES } from '@/mcp/tools/iriUtils';
-import { useShaclResultStore } from '@/stores/shaclResultStore';
 import { getProvenanceRecorder, type ProvQuad } from '@/mcp/provenance';
 
 const LOADRDF_PROV_CAPTURE_CAP = 2000;
@@ -577,44 +577,64 @@ const setViewMode: McpTool = {
 // ---------------------------------------------------------------------------
 // getGraphState
 // ---------------------------------------------------------------------------
+const DATA_GRAPHS = new Set(['urn:vg:data', 'urn:vg:inferred']);
+
 const getGraphState: McpTool = {
   name: 'getGraphState',
-  description: 'Return a summary of what is currently on the canvas: node count, link count, and node details.',
-  inputSchema: { type: 'object' },
-  async handler(): Promise<McpResult> {
+  description:
+    'Return a summary of the current graph state scoped to the requested graphs. ' +
+    'Default (graphs omitted): data + inferred — canvas node/link counts. ' +
+    'Include "urn:vg:shapes" to also get SHACL validation status.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      graphs: {
+        type: 'array',
+        items: { type: 'string', enum: ['urn:vg:data', 'urn:vg:inferred', 'urn:vg:shapes'] },
+        default: ['urn:vg:data', 'urn:vg:inferred'],
+        description: 'Graphs to summarise. Defaults to [urn:vg:data, urn:vg:inferred]. Add urn:vg:shapes to include SHACL validation state.',
+      },
+    },
+  },
+  async handler(params): Promise<McpResult> {
     try {
-      const { ctx } = getWorkspaceRefs();
-      const model = ctx.model;
-      const nodes = model.elements
-        .filter(e => e instanceof Reactodia.EntityElement)
-        .map(e => {
-          const entity = e as Reactodia.EntityElement;
-          const data = entity.data;
-          return {
-            iri: entity.iri,
-            label: getElementLabel(data),
-            types: data?.types ?? [],
-          };
-        });
-      const shaclState = useShaclResultStore.getState();
-      const shaclErrorCount = shaclState.errors.length;
-      const shaclWarningCount = shaclState.warnings.length;
-      const shaclConforms = shaclErrorCount === 0 && shaclWarningCount === 0;
+      const { graphs = ['urn:vg:data', 'urn:vg:inferred'] } = (params ?? {}) as { graphs?: string[] };
+      const graphSet = new Set(graphs);
 
-      return {
-        success: true,
-        data: {
-          nodeCount: nodes.length,
-          linkCount: model.links.length,
-          nodes,
-          shacl: {
-            shapesLoaded: shaclState.shaclShapesLoaded,
-            conforms: shaclConforms,
-            errorCount: shaclErrorCount,
-            warningCount: shaclWarningCount,
-          },
-        },
-      };
+      const result: Record<string, unknown> = { graphs };
+
+      if (graphs.some(g => DATA_GRAPHS.has(g))) {
+        const { ctx } = getWorkspaceRefs();
+        const model = ctx.model;
+        const nodes = model.elements
+          .filter(e => e instanceof Reactodia.EntityElement)
+          .map(e => {
+            const entity = e as Reactodia.EntityElement;
+            const data = entity.data;
+            return {
+              iri: entity.iri,
+              label: getElementLabel(data),
+              types: data?.types ?? [],
+            };
+          });
+        result.nodeCount = nodes.length;
+        result.linkCount = model.links.length;
+        result.nodes = nodes;
+      }
+
+      if (graphSet.has('urn:vg:shapes')) {
+        const shaclState = useShaclResultStore.getState();
+        const shaclErrorCount = shaclState.errors.length;
+        const shaclWarningCount = shaclState.warnings.length;
+        result.shacl = {
+          shapesLoaded: shaclState.shaclShapesLoaded,
+          conforms: shaclErrorCount === 0 && shaclWarningCount === 0,
+          errorCount: shaclErrorCount,
+          warningCount: shaclWarningCount,
+        };
+      }
+
+      return { success: true, data: result };
     } catch (e) {
       return { success: false, error: String(e) };
     }

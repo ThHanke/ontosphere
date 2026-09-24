@@ -35,6 +35,7 @@
     .dot.ok   { background: #3fb950; }
     .dot.warn { background: #d29922; }
     .dot.off  { background: #484f58; }
+    .dot.err  { background: #f85149; }
     .label { color: #8b949e; width: 130px; flex-shrink: 0; }
     .value { color: #c9d1d9; }
     .divider {
@@ -65,6 +66,18 @@
     .standalone-msg code {
       color: #79c0ff;
     }
+    #session-select {
+      background: #161b22;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      border-radius: 3px;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 2px 4px;
+      flex: 1;
+      min-width: 0;
+    }
+    #session-select:focus { outline: 1px solid #58a6ff; }
   </style>
 </head>
 <body>
@@ -80,6 +93,12 @@
     <span class="label">Ontosphere app (BC)</span>
     <span class="value" id="val-bc">listening…</span>
   </div>
+  <div class="status-row" id="session-row">
+    <div class="dot err" id="dot-session"></div>
+    <span class="label">Target tab</span>
+    <span id="session-wait" style="color:#8b949e;font-size:12px">waiting for tabs…</span>
+    <select id="session-select" style="display:none"></select>
+  </div>
 
   <hr class="divider" />
 
@@ -94,12 +113,65 @@
 
   <script>
     // ── DOM refs ────────────────────────────────────────────────────────────
-    const dotOpener = document.getElementById('dot-opener');
-    const valOpener = document.getElementById('val-opener');
-    const dotBc     = document.getElementById('dot-bc');
-    const valBc     = document.getElementById('val-bc');
-    const activity  = document.getElementById('activity');
+    const dotOpener    = document.getElementById('dot-opener');
+    const valOpener    = document.getElementById('val-opener');
+    const dotBc        = document.getElementById('dot-bc');
+    const valBc        = document.getElementById('val-bc');
+    const activity     = document.getElementById('activity');
     const standaloneMsg = document.getElementById('standalone-msg');
+    const sessionRow   = document.getElementById('session-row');
+    const dotSession   = document.getElementById('dot-session');
+    const sessionWait  = document.getElementById('session-wait');
+    const sessionSelect = document.getElementById('session-select');
+
+    // ── Session registry ─────────────────────────────────────────────────────
+    // Map of sessionId → { title, seenAt }. Auto-pruned after 45s of silence.
+    const sessions = new Map();
+    let lockedSessionId = null;
+
+    function updateSessionUI() {
+      const ids = [...sessions.keys()];
+      if (ids.length === 0) {
+        // No tabs yet — red dot, hide dropdown
+        dotSession.className = 'dot err';
+        sessionWait.style.display = '';
+        sessionSelect.style.display = 'none';
+        lockedSessionId = null;
+        return;
+      }
+      sessionWait.style.display = 'none';
+      sessionSelect.style.display = '';
+      const prev = sessionSelect.value;
+      sessionSelect.innerHTML = '';
+      for (const id of ids) {
+        const opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = sessions.get(id).title + ' [' + id + ']';
+        sessionSelect.appendChild(opt);
+      }
+      // Restore previous selection if still present, else keep first
+      if (prev && sessions.has(prev)) {
+        sessionSelect.value = prev;
+        lockedSessionId = prev;
+      } else {
+        lockedSessionId = sessionSelect.value || null;
+      }
+      dotSession.className = lockedSessionId ? 'dot ok' : 'dot err';
+    }
+
+    sessionSelect.addEventListener('change', function () {
+      lockedSessionId = sessionSelect.value || null;
+      dotSession.className = lockedSessionId ? 'dot ok' : 'dot err';
+    });
+
+    // Prune sessions not heard from in 45 s
+    setInterval(function () {
+      const now = Date.now();
+      for (const [id, s] of sessions) {
+        if (now - s.seenAt > 45000) sessions.delete(id);
+      }
+      updateSessionUI();
+    }, 15000);
 
     const CHANNEL_NAME = 'ontosphere-relay-v1';
 
@@ -157,9 +229,20 @@
       bc.onmessage = function (evt) {
         const data = evt.data;
 
+        // Discover Ontosphere tabs announcing themselves
+        if (data && data.type === 'vg-hello' && data.sessionId) {
+          sessions.set(data.sessionId, { title: data.title || data.sessionId, seenAt: Date.now() });
+          updateSessionUI();
+          return;
+        }
+
         // Forward tool-execution heartbeats so bookmarklet can detect app reloads
         if (data && data.type === 'vg-ping' && data.sessionId) {
           lastSessionId = data.sessionId;
+          // Keep session alive
+          if (sessions.has(data.sessionId)) {
+            sessions.get(data.sessionId).seenAt = Date.now();
+          }
           // SECURITY: only reply to a validated opener origin. Never broadcast
           // to '*'. If no trusted opener has been seen yet, drop the message.
           if (window.opener && openerOrigin) {
@@ -169,6 +252,10 @@
         }
 
         if (!data || data.type !== 'vg-result') return;
+
+        // Session-lock: require sessionId to be present and match the locked tab.
+        // Results without sessionId (old code) or from other tabs are dropped.
+        if (!data.sessionId || data.sessionId !== lockedSessionId) return;
 
         dotBc.className = 'dot ok';
         valBc.textContent = 'received result';
@@ -261,11 +348,29 @@
       dotOpener.className = 'dot ok';
       valOpener.textContent = 'active';
 
+      // Block calls until a specific Ontosphere tab is locked
+      if (!lockedSessionId) {
+        dotBc.className = 'dot err';
+        valBc.textContent = 'blocked — no tab locked';
+        activity.textContent = '[' + ts() + '] vg-call blocked (no tab locked): ' + (data.tool || '?');
+        // Return an error so the bookmarklet doesn’t wait forever
+        if (window.opener && openerOrigin) {
+          try {
+            window.opener.postMessage({
+              type: 'vg-result',
+              requestId: data.requestId,
+              result: { success: false, error: 'Relay not locked to an Ontosphere tab — select one in the relay popup and retry' },
+            }, openerOrigin);
+          } catch (_) {}
+        }
+        return;
+      }
+
       dotBc.className = 'dot warn';
       valBc.textContent = 'forwarded, awaiting result…';
 
       try {
-        bc.postMessage(data);
+        bc.postMessage(Object.assign({}, data, { targetSessionId: lockedSessionId }));
         const prefix = '[' + ts() + '] opener \u2192 BC: ';
         activity.textContent = '';
         activity.appendChild(document.createTextNode(prefix));
