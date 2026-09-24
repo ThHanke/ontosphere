@@ -480,6 +480,7 @@
       var results = batchResults.slice();
       batchResults = [];
       var pending = batchTotal - results.length;
+      batchTotal = 0;
       injectCombinedResult(results, pending > 0 ? pending : 0);
     }
   });
@@ -695,25 +696,54 @@
   }
 
   /* ── Dispatch poll ─────────────────────────────────────────────────────── */
-  // Scans full page text every 500 ms. Dispatches immediately on any new
-  // complete, valid MCP call. JSON structural completeness (validateMcpRequest)
-  // is the signal — partial JSON fails JSON.parse and is ignored. No stability
-  // window needed. dispatchedSigs deduplication handles repeats.
+  // Scans full page text every 500 ms. Uses a stability window (2 consecutive
+  // polls with identical unseen calls) before dispatching. This prevents partial
+  // batch extraction when the LLM is still streaming: a new call appearing mid-
+  // stream resets the window, so we wait until the LLM's output has stabilised.
+  // peekToolCalls is non-destructive (does not mutate dispatchedSigs) so it can
+  // be called repeatedly without marking calls as dispatched prematurely.
   var idlePollTimer = null;
+  var stableCallSig  = '';
+
+  function peekToolCalls(text, seen) {
+    var found = [];
+    var objects = extractJsonObjects(text);
+    for (var pi = 0; pi < objects.length; pi++) {
+      var req; try { req = JSON.parse(objects[pi]); } catch (e) { continue; }
+      if (!validateMcpRequest(req)) continue;
+      var tool = req.params.name;
+      var mcpId = req.id != null ? req.id : null;
+      var sig = tool + ':' + JSON.stringify(req.params.arguments || {}) + ':' + mcpId;
+      if (!seen.has(sig)) found.push(sig);
+    }
+    return found;
+  }
 
   function idlePoll() {
     if (window.__vgRelayInstanceId !== instanceId) return; // stale instance
-    // Only extract calls when idle AND the LLM has finished streaming — avoids
-    // grabbing call 1 before calls 2/3 are rendered mid-stream, which would split
-    // a batch and force the LLM to respond before all results are available.
-    if (!isProcessing && callQueue.length === 0 && !isAiStreaming()) {
+    if (!isProcessing && callQueue.length === 0) {
       var text = document.body.innerText || document.body.textContent || '';
-      var calls = extractAllToolCalls(text, dispatchedSigs);
-      if (calls.length > 0) {
-        callQueue = callQueue.concat(calls);
-        batchTotal = callQueue.length;
-        processNextInQueue();
+      var peek = peekToolCalls(text, dispatchedSigs);
+      if (peek.length > 0) {
+        var sig = peek.join('|');
+        if (sig === stableCallSig) {
+          // Same unseen calls present in two consecutive polls — stable, dispatch
+          stableCallSig = '';
+          var calls = extractAllToolCalls(text, dispatchedSigs);
+          if (calls.length > 0) {
+            callQueue = callQueue.concat(calls);
+            batchTotal = callQueue.length;
+            processNextInQueue();
+          }
+        } else {
+          // New or changed calls — wait one more tick before dispatching
+          stableCallSig = sig;
+        }
+      } else {
+        stableCallSig = '';
       }
+    } else {
+      stableCallSig = '';
     }
     idlePollTimer = setTimeout(idlePoll, 500);
   }
