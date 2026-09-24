@@ -355,7 +355,7 @@
   }
 
   /* ── Format and inject combined batch result ───────────────────────────── */
-  function injectCombinedResult(results) {
+  function injectCombinedResult(results, pendingCount) {
     var allOk = results.every(function (r) { return r.ok; });
     var lines = ['[Ontosphere — ' + results.length + ' tool' + (results.length !== 1 ? 's' : '') + (allOk ? ' ✓' : ' (some failed)') + ']'];
     results.forEach(function (r) {
@@ -374,6 +374,9 @@
     });
     var lastSummary = results[results.length - 1] && results[results.length - 1].summary;
     if (lastSummary) { lines.push(''); lines.push(lastSummary); }
+    if (pendingCount > 0) {
+      lines.push('\n⏳ ' + pendingCount + ' more tool result' + (pendingCount !== 1 ? 's' : '') + ' pending — do not respond yet, await them.');
+    }
     injectResult(lines.join('\n'));
     showToast('Done: ' + results.length + ' tool' + (results.length !== 1 ? 's' : ''), allOk);
   }
@@ -472,15 +475,12 @@
     isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null;
 
     if (callQueue.length > 0) {
-      // More calls pending — inject this result immediately with a wait hint
-      var partial = batchResults[batchResults.length - 1];
-      batchResults = batchResults.slice(0, -1); // remove from accumulator (injected now)
-      injectPartialResult(partial, callQueue.length);
       processNextInQueue();
     } else {
       var results = batchResults.slice();
       batchResults = [];
-      injectCombinedResult(results);
+      var pending = batchTotal - results.length;
+      injectCombinedResult(results, pending > 0 ? pending : 0);
     }
   });
 
