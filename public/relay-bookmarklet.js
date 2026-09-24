@@ -343,6 +343,17 @@
     return JSON.stringify(data);
   }
 
+  /* ── Format and inject a single partial result with a "more pending" hint ── */
+  function injectPartialResult(result, remaining) {
+    var ok = result.ok;
+    var header = '[Ontosphere — ' + result.tool + (ok ? ' ✓' : ' ✗') + ']';
+    var line = ok
+      ? '`' + JSON.stringify({ jsonrpc: '2.0', id: result.mcpId != null ? result.mcpId : null, result: { content: [{ type: 'text', text: briefData(result.result && result.result.data) }] } }) + '`'
+      : '`' + JSON.stringify({ jsonrpc: '2.0', id: result.mcpId != null ? result.mcpId : null, error: { code: -32000, message: String((result.result && result.result.error) || 'failed'), data: { tool: result.tool } } }) + '`';
+    var hint = '\n⏳ ' + remaining + ' more tool result' + (remaining !== 1 ? 's' : '') + ' pending — do not respond yet, await them.';
+    injectResult([header, line, hint].join('\n'));
+  }
+
   /* ── Format and inject combined batch result ───────────────────────────── */
   function injectCombinedResult(results) {
     var allOk = results.every(function (r) { return r.ok; });
@@ -370,6 +381,7 @@
   /* ── Batch queue state ─────────────────────────────────────────────────── */
   var callQueue        = [];
   var batchResults     = [];
+  var batchTotal       = 0;
   var isProcessing     = false;
   var pendingTool      = null;
   var pendingMcpId     = null;
@@ -460,6 +472,10 @@
     isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null;
 
     if (callQueue.length > 0) {
+      // More calls pending — inject this result immediately with a wait hint
+      var partial = batchResults[batchResults.length - 1];
+      batchResults = batchResults.slice(0, -1); // remove from accumulator (injected now)
+      injectPartialResult(partial, callQueue.length);
       processNextInQueue();
     } else {
       var results = batchResults.slice();
@@ -687,11 +703,15 @@
 
   function idlePoll() {
     if (window.__vgRelayInstanceId !== instanceId) return; // stale instance
-    if (!isProcessing && callQueue.length === 0) {
+    // Only extract calls when idle AND the LLM has finished streaming — avoids
+    // grabbing call 1 before calls 2/3 are rendered mid-stream, which would split
+    // a batch and force the LLM to respond before all results are available.
+    if (!isProcessing && callQueue.length === 0 && !isAiStreaming()) {
       var text = document.body.innerText || document.body.textContent || '';
       var calls = extractAllToolCalls(text, dispatchedSigs);
       if (calls.length > 0) {
         callQueue = callQueue.concat(calls);
+        batchTotal = callQueue.length;
         processNextInQueue();
       }
     }
