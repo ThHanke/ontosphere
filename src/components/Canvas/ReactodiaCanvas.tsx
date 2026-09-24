@@ -1520,35 +1520,99 @@ export default function ReactodiaCanvas() {
       setCurrentReasoning(result);
       setReasoningHistory(h => [...h, result]);
       await handleApplyInferred();
-      // Highlight nodes with reasoning errors/warnings via the validation provider.
-      const errorMap = new Map<string, string[]>();
-      for (const err of result.errors ?? []) {
-        if (err.nodeId) {
-          const list = errorMap.get(err.nodeId) ?? [];
-          list.push(err.message);
-          errorMap.set(err.nodeId, list);
+
+      // Build raw error/warning maps and set them immediately so canvas badges appear
+      // without waiting for the async label resolution that follows.
+      const buildMaps = (errors: typeof result.errors, warnings: typeof result.warnings, msgFn: (e: typeof result.errors[0]) => string) => {
+        const errMap = new Map<string, string[]>();
+        for (const err of errors ?? []) {
+          if (err.nodeId) {
+            const list = errMap.get(err.nodeId) ?? [];
+            list.push(msgFn(err));
+            errMap.set(err.nodeId, list);
+          }
         }
-      }
-      const warningMap = new Map<string, string[]>();
-      for (const warn of result.warnings ?? []) {
-        if (warn.nodeId) {
-          const list = warningMap.get(warn.nodeId) ?? [];
-          list.push(warn.message);
-          warningMap.set(warn.nodeId, list);
+        const warnMap = new Map<string, string[]>();
+        for (const warn of warnings ?? []) {
+          if (warn.nodeId) {
+            const list = warnMap.get(warn.nodeId) ?? [];
+            list.push(msgFn(warn));
+            warnMap.set(warn.nodeId, list);
+          }
         }
-      }
-      validationProvider.setErrors(errorMap);
-      validationProvider.setWarnings(warningMap);
-      const affectedIris = new Set([...errorMap.keys(), ...warningMap.keys()]);
-      const ctx = contextRef.current;
-      if (ctx && affectedIris.size > 0) {
-        ctx.editor.revalidateEntities(affectedIris as ReadonlySet<Reactodia.ElementIri>);
-      }
+        return { errMap, warnMap };
+      };
+
+      const applyMaps = (errMap: Map<string, string[]>, warnMap: Map<string, string[]>) => {
+        validationProvider.setErrors(errMap);
+        validationProvider.setWarnings(warnMap);
+        const affected = new Set([...errMap.keys(), ...warnMap.keys()]);
+        const ctx = contextRef.current;
+        if (ctx && affected.size > 0) {
+          ctx.editor.revalidateEntities(affected as ReadonlySet<Reactodia.ElementIri>);
+        }
+      };
+
+      // Phase 1: set raw messages immediately so badges appear.
+      const { errMap: rawErrMap, warnMap: rawWarnMap } = buildMaps(result.errors, result.warnings, e => e.message);
+      applyMaps(rawErrMap, rawWarnMap);
+
       const isShaclRule = (rule: string) => rule.startsWith('shacl:') || rule === 'sh:ValidationResult';
-      useShaclResultStore.getState().setShaclResults(
-        result.errors.filter(e => isShaclRule(e.rule)),
-        result.warnings.filter(w => isShaclRule(w.rule)),
-      );
+
+      // Phase 2: resolve rdfs:labels for SHACL path/shape IRIs, then update with readable messages.
+      void (async () => {
+        const shaclIrisToResolve = new Set<string>();
+        for (const entry of [...(result.errors ?? []), ...(result.warnings ?? [])]) {
+          if (entry.path) shaclIrisToResolve.add(entry.path);
+          if (entry.sourceShape) shaclIrisToResolve.add(entry.sourceShape);
+        }
+        if (shaclIrisToResolve.size === 0) {
+          useShaclResultStore.getState().setShaclResults(
+            result.errors.filter(e => isShaclRule(e.rule)),
+            result.warnings.filter(w => isShaclRule(w.rule)),
+          );
+          return;
+        }
+
+        const RDFS_LABEL = 'http://www.w3.org/2000/01/rdf-schema#label';
+        const labelMap = new Map<string, string>();
+        for (const graphName of ['urn:vg:ontologies', 'urn:vg:data']) {
+          try {
+            const { items } = await rdfManager.fetchQuadsPage({ graphName, limit: 0, filter: { predicate: RDFS_LABEL } });
+            for (const q of items ?? []) {
+              if (shaclIrisToResolve.has(q.subject) && !labelMap.has(q.subject)) {
+                labelMap.set(q.subject, q.object);
+              }
+            }
+          } catch { /* graph not yet loaded */ }
+        }
+
+        const localName = (iri: string) => iri.split(/[#/]/).pop() ?? iri;
+        const resolveLabel = (iri: string) => labelMap.get(iri) ?? localName(iri);
+        const enrichMessage = (msg: string, path: string | undefined, shape: string | undefined): string => {
+          let out = msg;
+          if (path) out = out.replaceAll(`path: ${localName(path)}`, `path: ${resolveLabel(path)}`);
+          if (shape) out = out.replaceAll(`shape: ${localName(shape)}`, `shape: ${resolveLabel(shape)}`);
+          return out;
+        };
+
+        const enrichEntry = <T extends { message: string; path?: string; sourceShape?: string }>(e: T): T =>
+          ({ ...e, message: enrichMessage(e.message, e.path, e.sourceShape) });
+
+        const { errMap: richErrMap, warnMap: richWarnMap } = buildMaps(
+          result.errors, result.warnings, e => enrichMessage(e.message, e.path, e.sourceShape),
+        );
+        applyMaps(richErrMap, richWarnMap);
+
+        const enrichedErrors = result.errors.map(enrichEntry);
+        const enrichedWarnings = result.warnings.map(enrichEntry);
+        setCurrentReasoning({ ...result, errors: enrichedErrors, warnings: enrichedWarnings });
+        useShaclResultStore.getState().setShaclResults(
+          enrichedErrors.filter(e => isShaclRule(e.rule)),
+          enrichedWarnings.filter(w => isShaclRule(w.rule)),
+        );
+      })();
+
       return result;
     } finally {
       setIsReasoning(false);

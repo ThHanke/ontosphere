@@ -125,6 +125,7 @@ export interface ShaclEntry {
   rule: string;
   severity: "error" | "warning";
   sourceShape?: string;
+  path?: string;
 }
 
 /** Single source of truth for SHACL severity → reasoning severity (was duplicated and inconsistent). */
@@ -134,22 +135,40 @@ export function mapShaclSeverity(severity: string | null | undefined): "error" |
 
 /**
  * Convert a SHACL violation into a reasoning entry with an explainable message.
- * When the shape provides no `sh:message`, synthesise one that names the focus
- * node and the violated constraint instead of the opaque "SHACL validation issue".
+ * Always includes shape and path context so the canvas badge tooltip identifies
+ * which shape fired and which property was checked — not just the raw engine message.
  */
 export function shaclViolationToEntry(v: ShaclViolationInput): ShaclEntry {
-  const constraintLocal = v.constraint ? v.constraint.split(/[#/]/).pop() ?? "constraint" : "constraint";
+  const constraintLocal = v.constraint ? v.constraint.split(/[#/]/).pop() ?? "constraint" : null;
   const focusLocal = v.focusNode ? abbreviateIri(v.focusNode) : "node";
-  const message =
-    v.message && v.message.trim().length > 0
-      ? v.message
-      : `SHACL constraint ${constraintLocal} violated on ${focusLocal}` +
-        (v.path ? ` (path ${abbreviateIri(v.path)})` : "");
+  const pathLabel = v.path ? abbreviateIri(v.path) : null;
+  const shapeLabel = v.sourceShape ? abbreviateIri(v.sourceShape) : null;
+
+  let message: string;
+  if (v.message && v.message.trim().length > 0) {
+    // Engine-provided message; append structural context for identification
+    const context = [
+      pathLabel && `path: ${pathLabel}`,
+      shapeLabel && `shape: ${shapeLabel}`,
+      constraintLocal && `(${constraintLocal})`,
+    ].filter(Boolean).join("\n  ");
+    message = context ? `${v.message.trim()}\n  ${context}` : v.message.trim();
+  } else {
+    const contextParts = [
+      pathLabel && `path: ${pathLabel}`,
+      shapeLabel && `shape: ${shapeLabel}`,
+    ].filter(Boolean).join("\n  ");
+    message =
+      `${constraintLocal ?? "SHACL"} violated on ${focusLocal}` +
+      (contextParts ? `\n  ${contextParts}` : "");
+  }
+
   return {
     nodeId: v.focusNode ?? undefined,
     message,
-    rule: `shacl:${constraintLocal}`,
+    rule: `shacl:${constraintLocal ?? "constraint"}`,
     severity: mapShaclSeverity(v.severity),
     sourceShape: v.sourceShape ?? undefined,
+    path: v.path ?? undefined,
   };
 }

@@ -5,6 +5,8 @@ export interface ReasoningError {
   rule: string;
   severity: "critical" | "error";
   sourceShape?: string;
+  /** Raw sh:resultPath IRI — used for label resolution in the UI. */
+  path?: string;
   /**
    * Complete justification axiom set for an inconsistency clash (the MIPS):
    * every axiom whose conjunction causes the contradiction. Present on OWL DL
@@ -21,6 +23,8 @@ export interface ReasoningWarning {
   rule: string;
   severity?: "critical" | "warning" | "info";
   sourceShape?: string;
+  /** Raw sh:resultPath IRI — used for label resolution in the UI. */
+  path?: string;
 }
 
 export interface ReasoningInference {

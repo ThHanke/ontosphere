@@ -5,6 +5,7 @@ import { Shield, ChevronDown, ChevronRight, AlertTriangle, XCircle } from 'lucid
 import { useShaclResultStore, makeShaclMessageKey } from '../../stores/shaclResultStore';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
 import { cn } from '../../lib/utils';
+import { prefixShorten } from '../../providers/prefixShorten';
 
 interface ConstraintInfo {
   path: string | null;
@@ -30,6 +31,12 @@ export function ShaclShapesPanel() {
   const [groups, setGroups] = useState<ShapeGroup[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [shapeCount, setShapeCount] = useState(0);
+  const [labelMap, setLabelMap] = useState<Map<string, string>>(new Map());
+  // Cache keyed on sorted IRI set — skips label fetches when shapes haven't changed.
+  const labelCacheRef = useRef<{ key: string; map: Map<string, string> } | null>(null);
+  const [prefixes, setPrefixes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(rdfManager.getNamespaces().map(e => [e.prefix, e.uri]))
+  );
 
   const shaclErrors = useShaclResultStore(s => s.errors);
   const shaclWarnings = useShaclResultStore(s => s.warnings);
@@ -101,6 +108,40 @@ export function ShaclShapesPanel() {
         return { iri, label, targetClass: targetQ?.object ?? null, constraints };
       });
 
+      // Resolve rdfs:labels for domain IRIs (shape IRIs, targetClass, sh:path values) from ontology/data graphs
+      const irisToResolve = new Set<string>();
+      for (const s of shapes) {
+        irisToResolve.add(s.iri);
+        if (s.targetClass) irisToResolve.add(s.targetClass);
+        for (const c of s.constraints) {
+          if (c.path) irisToResolve.add(c.path);
+        }
+      }
+      const cacheKey = [...irisToResolve].sort().join('\n');
+      let newLabelMap: Map<string, string>;
+      if (labelCacheRef.current?.key === cacheKey) {
+        // Shape IRIs unchanged — reuse cached labels, no extra worker calls.
+        newLabelMap = labelCacheRef.current.map;
+      } else {
+        newLabelMap = new Map<string, string>();
+        for (const graphName of ['urn:vg:ontologies', 'urn:vg:data']) {
+          try {
+            const { items: labelItems } = await rdfManager.fetchQuadsPage({
+              graphName,
+              limit: 0,
+              filter: { predicate: RDFS_LABEL },
+            });
+            for (const q of labelItems ?? []) {
+              if (irisToResolve.has(q.subject) && !newLabelMap.has(q.subject)) {
+                newLabelMap.set(q.subject, q.object);
+              }
+            }
+          } catch { /* graph may not exist yet */ }
+        }
+        labelCacheRef.current = { key: cacheKey, map: newLabelMap };
+      }
+      setLabelMap(newLabelMap);
+
       setShapeCount(shapes.length);
       const group: ShapeGroup = { source: 'urn:vg:shapes', shapes };
       setGroups(shapes.length > 0 ? [group] : []);
@@ -120,6 +161,12 @@ export function ShaclShapesPanel() {
     rdfManager.onChange(handler);
     return () => { rdfManager.offChange(handler); };
   }, [loadShapeInfo]);
+
+  useEffect(() => {
+    return rdfManager.onNamespacesChange(entries => {
+      setPrefixes(Object.fromEntries(entries.map(e => [e.prefix, e.uri])));
+    });
+  }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const toggleGroup = (source: string) => {
@@ -131,11 +178,11 @@ export function ShaclShapesPanel() {
     });
   };
 
-  const shortenIri = (iri: string) => {
-    const hash = iri.lastIndexOf('#');
-    const slash = iri.lastIndexOf('/');
-    return iri.slice(Math.max(hash, slash) + 1) || iri;
-  };
+  // Prefix-shorten an IRI using the registered namespace map.
+  const shortenIri = (iri: string) => prefixShorten(iri, prefixes);
+
+  // Use rdfs:label from labelMap when available, fall back to prefixed IRI.
+  const resolveLabel = (iri: string) => labelMap.get(iri) ?? shortenIri(iri);
 
   const severityIcon = (sev: ConstraintInfo['severity'] | 'error') => {
     if (sev === 'violation' || sev === 'error') return <XCircle className="w-3 h-3 text-destructive shrink-0" />;
@@ -191,14 +238,14 @@ export function ShaclShapesPanel() {
           if (m.nodeId) navigateToNode(m.nodeId);
         }}
         disabled={!m.nodeId}
-        title={m.nodeId ? `Navigate to ${shortenIri(m.nodeId)}` : undefined}
+        title={m.nodeId ? `Navigate to ${m.nodeId}` : undefined}
       >
         {severityIcon(m.type)}
         <div className="flex-1 min-w-0">
-          <span className="break-words text-muted-foreground">{m.message}</span>
+          <span className="break-words text-muted-foreground whitespace-pre-line">{m.message}</span>
           {m.nodeId && (
             <span className="block text-[11px] text-primary mt-0.5">
-              → {shortenIri(m.nodeId)}
+              → {resolveLabel(m.nodeId)}
             </span>
           )}
         </div>
@@ -242,12 +289,12 @@ export function ShaclShapesPanel() {
                 return (
                   <div key={shape.iri} className="px-2 py-1.5 text-xs space-y-1">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-medium truncate" title={shape.iri}>
-                        {shape.label}
+                      <span className="font-medium truncate" title={`${shape.iri}\n${shortenIri(shape.iri)}`}>
+                        {labelMap.get(shape.iri) ?? shape.label}
                       </span>
                       {shape.targetClass && (
-                        <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0">
-                          {shortenIri(shape.targetClass)}
+                        <Badge variant="outline" className="text-[9px] h-3.5 px-1 shrink-0" title={`${shape.targetClass}\n${shortenIri(shape.targetClass)}`}>
+                          {resolveLabel(shape.targetClass)}
                         </Badge>
                       )}
                       {shapeMessages.length > 0 && (
@@ -262,8 +309,11 @@ export function ShaclShapesPanel() {
                     {shape.constraints.map((c, i) => (
                       <div key={i} className="flex items-start gap-1 text-muted-foreground pl-1">
                         {severityIcon(c.severity)}
-                        <span className="break-words">
-                          {c.message || (c.path ? `requires ${shortenIri(c.path)}` : 'constraint')}
+                        <span
+                          className="break-words"
+                          title={c.path ? `${c.path}\n${shortenIri(c.path)}` : undefined}
+                        >
+                          {c.message || (c.path ? `requires ${resolveLabel(c.path)}` : 'constraint')}
                         </span>
                       </div>
                     ))}
