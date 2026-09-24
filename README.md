@@ -45,8 +45,10 @@
   - [Agent edit provenance](#agent-edit-provenance)
   - [Recommended workflow](#recommended-workflow)
   - [Using Ontosphere with any AI](#using-ontosphere-with-any-ai)
+    - [Browser console](#browser-console)
     - [Claude Code / Playwright](#claude-code--playwright-full-automation)
     - [AI Relay Bridge (ChatGPT, Gemini, Claude.ai)](#chatgpt-gemini-claudeai--ai-relay-bridge)
+    - [WebMCP native (Chrome 153+)](#webmcp-native-chrome-153)
 - **Developer**
   - [Quick start (development)](#quick-start-development)
   - [Reasoning demo (OWL 2 DL patterns)](#reasoning-demo-owl-2-dl-patterns)
@@ -121,7 +123,7 @@ Everything below runs in the browser tab, against an in-memory RDF store backed 
 - **PROV-O provenance** of every agent edit, with diff and one-click **reversal** of a batch (faithful to typed and language-tagged literals), and a warning when retention truncates reversible history.
 
 #### 🤖 AI / MCP integration — 43 tools
-Exposes a [Model Context Protocol](https://modelcontextprotocol.io) server via the browser's `navigator.modelContext` API, across nine categories (manifest at `/.well-known/mcp.json`):
+Exposes a [Model Context Protocol](https://modelcontextprotocol.io) tool surface via the browser's [`document.modelContext` WebMCP API](https://webmachinelearning.github.io/webmcp/) (W3C CG, native in Chrome 153+; polyfill included for all other browsers), across nine categories (manifest at `/.well-known/mcp.json`):
 
 | Category | Tools |
 |---|---|
@@ -497,22 +499,71 @@ loadOntology (TBox)
 
 ### Using Ontosphere with any AI
 
-The demo scripts work against the **live deployment** — no local server needed. Any AI that can drive a browser (Claude Code, headless Playwright, computer-use agents) can use Ontosphere directly via its MCP tools.
+Ontosphere exposes its full tool surface through several transport paths. Choose based on your AI's execution environment:
+
+| Transport | AI environment | Backend needed? | Setup effort |
+|-----------|---------------|-----------------|--------------|
+| [Browser console](#browser-console) | Human operator / devtools | None | None |
+| [Claude Code + Playwright](#claude-code--playwright-full-automation) | Claude Code CLI, headless scripts | None | Low |
+| [AI Relay Bridge](#chatgpt-gemini-claudeai--ai-relay-bridge) | ChatGPT, Claude.ai, Gemini chat | None | One bookmarklet drag |
+| [WebMCP native](#webmcp-native-chrome-153) | Chrome 153+ AI-aware browser | None | None (built-in) |
+
+All paths share the same 43 tools and the same `McpResult` return shape — the transport is the only difference.
+
+---
+
+#### Browser console
+
+Ontosphere registers every tool on `window.__mcpTools` at startup. Open DevTools on any Ontosphere tab and call tools directly:
+
+```js
+// Discover tools
+await window.__mcpTools['help']({})
+
+// Add a node
+await window.__mcpTools['addNode']({ iri: 'ex:Alice', label: 'Alice', typeIri: 'foaf:Person' })
+
+// Run reasoning
+await window.__mcpTools['runReasoning']({})
+```
+
+Results are returned as `{ success: true, data: ... }` or `{ success: false, error: "..." }`.
+
+This is the simplest path — useful for one-off commands, debugging, or when scripting from the DevTools console.
+
+---
 
 #### Claude Code / Playwright (full automation)
 
-Point the demo scripts at the deployed app:
+Any AI that can run JavaScript in a browser page — Claude Code with the [Playwright MCP server](https://github.com/microsoft/playwright-mcp), headless Playwright scripts, or computer-use agents — can call tools directly via `window.__mcpTools` without a relay.
+
+**Claude Code example** (using `mcp__playwright__browser_evaluate`):
+
+```js
+// Navigate to Ontosphere first, then call any tool:
+await window.__mcpTools['addNode']({ iri: 'ex:Alice', label: 'Alice', typeIri: 'foaf:Person' })
+await window.__mcpTools['runReasoning']({})
+await window.__mcpTools['exportImage']({ format: 'svg' })
+```
+
+**Run the built-in demo scripts** against the live deployment:
 
 ```sh
 node scripts/mcp-demo-reasoning.mjs --url https://thhanke.github.io/ontosphere
 node scripts/mcp-demo-foaf.mjs       --url https://thhanke.github.io/ontosphere
 ```
 
-The script opens a headless browser, navigates to the URL, registers the MCP tools, then drives the full workflow — building TBox + ABox, running reasoning, taking snapshots, exporting Turtle — exactly as shown in the demo documents.
+These scripts open a headless browser, navigate to Ontosphere, and drive the full workflow — building TBox + ABox, running reasoning, taking snapshots, and exporting Turtle — exactly as shown in the [demo documents](#demo).
+
+Full tool declarations with input schemas: [public/.well-known/mcp.json](public/.well-known/mcp.json)
+
+---
 
 #### ChatGPT, Gemini, Claude.ai — AI Relay Bridge
 
-The **AI Relay Bridge** connects any AI chat tab to Ontosphere with no server, extension, or copy-paste. A bookmarklet watches the AI's output for backtick-wrapped JSON-RPC 2.0 tool calls, executes them in Ontosphere via a BroadcastChannel popup, and injects JSON-RPC responses back into the chat input automatically.
+When the AI lives inside a chat UI and cannot execute JavaScript directly, the **AI Relay Bridge** closes the gap. A bookmarklet watches the AI's output for backtick-wrapped JSON-RPC 2.0 tool calls, executes them in Ontosphere via a BroadcastChannel popup, and injects the results back into the chat input — all in the browser, no server required.
+
+> **Why BroadcastChannel instead of WebMCP?** The [WebMCP spec](https://webmachinelearning.github.io/webmcp/) limits `document.modelContext` tool execution to the same frame tree. A chat tab (claude.ai, chatgpt.com) and the Ontosphere tab are unrelated browsing contexts and cannot share tools natively. The relay popup bridges them via BroadcastChannel as a conformant complement to the spec.
 
 ➡️ **[Full setup guide: docs/relay-bridge.md](docs/relay-bridge.md)**
 
@@ -521,21 +572,47 @@ The **AI Relay Bridge** connects any AI chat tab to Ontosphere with no server, e
 2. Drag the **Ontosphere Relay** button to your browser bookmark bar
 3. Go to your AI chat tab and click the bookmark — a small relay popup opens
 
-**Starter prompt** (paste into your AI chat after clicking the bookmarklet):
+**Starter prompt** (copy from the relay panel, or paste manually):
 
 ```text
-You are connected to Ontosphere via a relay. A script in this tab intercepts your tool calls, runs them in Ontosphere, and injects results back as a user message. If a tool call returns success:false, read the error, fix the argument, and retry the same call immediately — never skip a failed call. Ask the user what they would like to build.
+I'm using Ontosphere's browser-based MCP integration. Ontosphere implements the W3C WebMCP API
+(document.modelContext) with a polyfill for browsers without native support (Chrome 153+ has it natively).
 
-Output format — one JSON-RPC 2.0 call per line, backtick-wrapped:
-`{"jsonrpc":"2.0","id":<N>,"method":"tools/call","params":{"name":"<toolName>","arguments":{...}}}`
+How the relay works: a bookmarklet on this page watches your responses for backtick-wrapped JSON-RPC 2.0
+tool calls. It forwards each call via postMessage to a relay popup, which bridges to the Ontosphere tab
+via BroadcastChannel — necessary because WebMCP tool execution is scoped to the same frame tree and
+unrelated tabs cannot share document.modelContext tools directly. Results from the live knowledge-graph
+instance are injected back into this chat automatically.
 
-Call help first to get full instructions and the tool list:
+Format — one call per response line, backtick-wrapped:
+`{"jsonrpc":"2.0","id":<N>,"method":"tools/call","params":{"name":"<tool>","arguments":{...}}}`
+
+The results are live graph state, not simulated. You can decline; I'll run commands manually. If you're
+willing, call help first to get the tool list:
 `{"jsonrpc":"2.0","id":0,"method":"tools/call","params":{"name":"help","arguments":{}}}`
 ```
 
-The relay handles execution and result feedback automatically — no manual copy-paste needed.
+The relay handles execution and result injection automatically — no manual copy-paste needed.
 
-Full tool declarations with input schemas: [public/.well-known/mcp.json](public/.well-known/mcp.json)
+---
+
+#### WebMCP native (Chrome 153+)
+
+Ontosphere registers all tools via [`document.modelContext.registerTool()`](https://webmachinelearning.github.io/webmcp/) at startup. In Chrome 153+ (with the WebMCP origin trial enabled), an AI agent running in the same browsing context can discover and execute tools natively:
+
+```js
+// Discover tools
+const tools = await document.modelContext.getTools()
+
+// Execute a tool
+const result = await document.modelContext.executeTool(
+  tools.find(t => t.name === 'addNode'),
+  { iri: 'ex:Alice', label: 'Alice', typeIri: 'foaf:Person' }
+)
+// result is a JSON string: '{"success":true,"data":{...}}'
+```
+
+In browsers without native support, a conformant polyfill (`src/webmcp/polyfill.ts`) provides the same API. The `window.__mcpTools` path (above) remains available as a fallback regardless of browser.
 
 ---
 
@@ -570,30 +647,25 @@ Developer
 
 ### Setup (Playwright / headless)
 
-`navigator.modelContext` does not exist in headless Chromium. Inject the polyfill **before** the page loads using `page.addInitScript`:
+`document.modelContext` does not exist in headless Chromium. Ontosphere ships a conformant polyfill (`src/webmcp/polyfill.ts`) that installs automatically on app load — but for headless use you can also inject a minimal shim via `page.addInitScript` **before** the page loads:
 
 ```js
 await page.addInitScript(() => {
   const tools = {};
-  Object.defineProperty(navigator, 'modelContext', {
-    value: { registerTool: async (n, _d, _s, h) => { tools[n] = h; } },
-    configurable: true,
-  });
+  const shim = { registerTool: async (tool) => { tools[tool.name] = tool.execute; } };
+  Object.defineProperty(document, 'modelContext', { value: shim, configurable: true });
+  // alias for any legacy callers that use navigator.modelContext
+  Object.defineProperty(navigator, 'modelContext', { get: () => document.modelContext });
   window.__mcpTools = tools;
 });
 
-// After page load:
-await page.evaluate(async () => {
-  const mod = await import('/src/mcp/ontosphereMcpServer.ts');
-  await mod.registerMcpTools();
-});
-
-// Call a tool:
+// After page load — tools register automatically via the shim.
+// You can also call them directly:
 await page.evaluate(async ([name, params]) => window.__mcpTools[name](params),
   ['addNode', { iri: 'ex:alice', typeIri: 'foaf:Person', label: 'Alice' }]);
 ```
 
-In a browser with native `navigator.modelContext`, tools register automatically on app load.
+In a browser with native `document.modelContext` (Chrome 153+), tools register automatically on app load without any shim.
 
 ### URL parameters (MCP)
 
