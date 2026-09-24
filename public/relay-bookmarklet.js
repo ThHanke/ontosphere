@@ -382,17 +382,51 @@
   }
 
   /* ── Batch queue state ─────────────────────────────────────────────────── */
-  var callQueue        = [];
-  var batchResults     = [];
-  var batchTotal       = 0;
-  var isProcessing     = false;
-  var pendingTool      = null;
-  var pendingMcpId     = null;
-  var pendingRequestId = null;
-  var callTimeoutTimer = null;
-  var knownSessionId   = null;
-  var lateResult       = null;
-  var CALL_TIMEOUT_MS  = 30000;
+  var callQueue          = [];
+  var batchResults       = [];
+  var batchTotal         = 0;
+  var isProcessing       = false;
+  var pendingTool        = null;
+  var pendingMcpId       = null;
+  var pendingRequestId   = null;
+  var callTimeoutTimer   = null;
+  var batchTimeoutTimer  = null;
+  var knownSessionId     = null;
+  var lateResult         = null;
+  var CALL_TIMEOUT_MS    = 30000;
+  var BATCH_TIMEOUT_MS   = 180000; // 3 min — reasoning / tests can be slow
+
+  function startBatchTimeout() {
+    clearTimeout(batchTimeoutTimer);
+    batchTimeoutTimer = setTimeout(function () {
+      if (batchResults.length === 0 && !isProcessing) return; // nothing to flush
+      // Flush whatever results arrived before the timeout
+      clearTimeout(callTimeoutTimer);
+      callQueue = []; isProcessing = false;
+      pendingTool = null; pendingMcpId = null; pendingRequestId = null;
+      var results = batchResults.slice(); batchResults = [];
+      var missing = batchTotal - results.length;
+      batchTotal = 0;
+      var header = '[Ontosphere — ⏱ batch timeout' + (missing > 0 ? ' (' + missing + ' result' + (missing !== 1 ? 's' : '') + ' missing)' : '') + ']';
+      var lines = [header];
+      results.forEach(function (r) {
+        lines.push(r.ok
+          ? '`' + JSON.stringify({ jsonrpc: '2.0', id: r.mcpId != null ? r.mcpId : null, result: { content: [{ type: 'text', text: briefData(r.result && r.result.data) }] } }) + '`'
+          : '`' + JSON.stringify({ jsonrpc: '2.0', id: r.mcpId != null ? r.mcpId : null, error: { code: -32000, message: String((r.result && r.result.error) || 'failed'), data: { tool: r.tool } } }) + '`');
+      });
+      if (results.length > 0) {
+        var lastSummary = results[results.length - 1].summary;
+        if (lastSummary) { lines.push(''); lines.push(lastSummary); }
+      }
+      injectResult(lines.join('\n'));
+      showToast('⏱ Batch timed out — ' + results.length + ' result' + (results.length !== 1 ? 's' : '') + ' flushed', false);
+    }, BATCH_TIMEOUT_MS);
+  }
+
+  function stopBatchTimeout() {
+    clearTimeout(batchTimeoutTimer);
+    batchTimeoutTimer = null;
+  }
 
   function resetCallTimeout() {
     clearTimeout(callTimeoutTimer);
@@ -406,8 +440,9 @@
       pendingMcpId     = null;
       pendingRequestId = null;
       lateResult = { requestId: timedOutRequestId, tool: timedOutTool, mcpId: timedOutId };
+      stopBatchTimeout();
       var results = batchResults.slice(); batchResults = [];
-      
+      batchTotal = 0;
       callQueue = [];
       var resp = JSON.stringify({
         jsonrpc: '2.0', id: timedOutId != null ? timedOutId : null,
@@ -477,6 +512,7 @@
     if (callQueue.length > 0) {
       processNextInQueue();
     } else {
+      stopBatchTimeout();
       var results = batchResults.slice();
       batchResults = [];
       var pending = batchTotal - results.length;
@@ -696,54 +732,22 @@
   }
 
   /* ── Dispatch poll ─────────────────────────────────────────────────────── */
-  // Scans full page text every 500 ms. Uses a stability window (2 consecutive
-  // polls with identical unseen calls) before dispatching. This prevents partial
-  // batch extraction when the LLM is still streaming: a new call appearing mid-
-  // stream resets the window, so we wait until the LLM's output has stabilised.
-  // peekToolCalls is non-destructive (does not mutate dispatchedSigs) so it can
-  // be called repeatedly without marking calls as dispatched prematurely.
+  // Scans full page text every 500 ms. Only fires when the LLM is not streaming
+  // (isAiStreaming() = false), so all tool calls from one message are visible
+  // before we extract any of them — prevents splitting a batch mid-stream.
   var idlePollTimer = null;
-  var stableCallSig  = '';
-
-  function peekToolCalls(text, seen) {
-    var found = [];
-    var objects = extractJsonObjects(text);
-    for (var pi = 0; pi < objects.length; pi++) {
-      var req; try { req = JSON.parse(objects[pi]); } catch (e) { continue; }
-      if (!validateMcpRequest(req)) continue;
-      var tool = req.params.name;
-      var mcpId = req.id != null ? req.id : null;
-      var sig = tool + ':' + JSON.stringify(req.params.arguments || {}) + ':' + mcpId;
-      if (!seen.has(sig)) found.push(sig);
-    }
-    return found;
-  }
 
   function idlePoll() {
     if (window.__vgRelayInstanceId !== instanceId) return; // stale instance
-    if (!isProcessing && callQueue.length === 0) {
+    if (!isProcessing && callQueue.length === 0 && !isAiStreaming()) {
       var text = document.body.innerText || document.body.textContent || '';
-      var peek = peekToolCalls(text, dispatchedSigs);
-      if (peek.length > 0) {
-        var sig = peek.join('|');
-        if (sig === stableCallSig) {
-          // Same unseen calls present in two consecutive polls — stable, dispatch
-          stableCallSig = '';
-          var calls = extractAllToolCalls(text, dispatchedSigs);
-          if (calls.length > 0) {
-            callQueue = callQueue.concat(calls);
-            batchTotal = callQueue.length;
-            processNextInQueue();
-          }
-        } else {
-          // New or changed calls — wait one more tick before dispatching
-          stableCallSig = sig;
-        }
-      } else {
-        stableCallSig = '';
+      var calls = extractAllToolCalls(text, dispatchedSigs);
+      if (calls.length > 0) {
+        callQueue = callQueue.concat(calls);
+        batchTotal = callQueue.length;
+        startBatchTimeout();
+        processNextInQueue();
       }
-    } else {
-      stableCallSig = '';
     }
     idlePollTimer = setTimeout(idlePoll, 500);
   }
