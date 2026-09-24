@@ -115,31 +115,17 @@ async function buildCanvasSummary(
   tools: Record<string, (params: unknown) => Promise<McpResult>>
 ): Promise<string | undefined> {
   try {
-    // Use getNodes (full RDF store) so count reflects all addNode calls,
-    // not just nodes placed on the visual canvas.
-    const nodesHandler = tools['getNodes'];
-    const linksHandler = tools['getLinks'];
-    if (!nodesHandler) return undefined;
+    const graphStateHandler = tools['getGraphState'];
+    if (!graphStateHandler) return undefined;
 
-    const nodesResult = await nodesHandler({});
-    if (!nodesResult.success || !nodesResult.data) return undefined;
-    const rawNodes = nodesResult.data as { content: string } | Array<unknown>;
-    const nodes: Array<{ iri: string; label?: string }> =
-      typeof (rawNodes as { content: string }).content === 'string'
-        ? (JSON.parse((rawNodes as { content: string }).content) as Array<{ iri: string; label?: string }>)
-        : (rawNodes as Array<{ iri: string; label?: string }>);
+    const stateResult = await graphStateHandler({ graphs: ['urn:vg:data', 'urn:vg:inferred'] });
+    if (!stateResult.success || !stateResult.data) return undefined;
+    const d = stateResult.data as { nodeCount?: number; linkCount?: number; nodes?: Array<{ iri: string; label?: string }> };
 
-    let linkCount = 0;
-    if (linksHandler) {
-      const linksResult = await linksHandler({});
-      if (linksResult.success && linksResult.data) {
-        const d = linksResult.data as { links?: Array<unknown>; content?: string };
-        if (Array.isArray(d.links)) linkCount = d.links.length;
-        else if (typeof d.content === 'string') linkCount = (JSON.parse(d.content) as Array<unknown>).length;
-      }
-    }
+    const nodeCount = d.nodeCount ?? 0;
+    const linkCount = d.linkCount ?? 0;
+    const nodes = d.nodes ?? [];
 
-    const nodeCount = nodes.length;
     const MAX_LABELS = 8;
     const labels = nodes
       .slice(0, MAX_LABELS)
@@ -148,7 +134,7 @@ async function buildCanvasSummary(
     const more = nodeCount > MAX_LABELS ? ` +${nodeCount - MAX_LABELS} more` : '';
     const viewMode = useAppConfigStore.getState().config.viewMode;
     const viewLabel = viewMode === 'tbox' ? 'TBox' : 'ABox';
-    return `Store: ${nodeCount} node${nodeCount !== 1 ? 's' : ''} (${labels}${more}), ${linkCount} link${linkCount !== 1 ? 's' : ''} · view: ${viewLabel}`;
+    return `Canvas: ${nodeCount} node${nodeCount !== 1 ? 's' : ''} (${labels}${more}), ${linkCount} link${linkCount !== 1 ? 's' : ''} · view: ${viewLabel}`;
   } catch {
     return undefined;
   }
