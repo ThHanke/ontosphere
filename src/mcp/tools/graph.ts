@@ -314,7 +314,7 @@ const loadOntology: McpTool = {
 // ---------------------------------------------------------------------------
 const queryGraph: McpTool = {
   name: 'queryGraph',
-  description: 'Run a SPARQL query or update against asserted data (urn:vg:data). Namespace prefixes are injected automatically. Supported: SELECT (return bindings), CONSTRUCT (return triples, read-only), ASK (return boolean), INSERT DATA, DELETE DATA, DELETE WHERE, DELETE...INSERT...WHERE. Inferred triples are in GRAPH urn:vg:inferred.',
+  description: 'Run a SPARQL query or update against asserted data (urn:vg:data). Namespace prefixes are injected automatically. Unscoped UPDATE patterns (without an explicit GRAPH clause) are automatically scoped to urn:vg:data. Supported: SELECT (return bindings), CONSTRUCT (return triples), ASK (return boolean), INSERT DATA, DELETE DATA, DELETE WHERE, DELETE...INSERT...WHERE. Inferred triples are in GRAPH urn:vg:inferred.',
   inputSchema: {
     type: 'object',
     required: ['sparql'],
@@ -346,6 +346,26 @@ const queryGraph: McpTool = {
       let sparql = sparqlWithPrefixes;
       if (parsed.type === 'query' && parsed.queryType !== 'ASK' && parsed.limit == null) {
         parsed.limit = effectiveLimit;
+        try { sparql = new SparqlGenerator().stringify(parsed); } catch (_) { /* keep original */ }
+      }
+
+      // Scope update operations to urn:vg:data when no GRAPH clause is present.
+      // Comunica follows the SPARQL spec strictly: bare DELETE/INSERT targets the
+      // default graph (empty in our N3 store), not the named graph where data lives.
+      if (parsed.type === 'update') {
+        const DATA_GRAPH = 'urn:vg:data';
+        const wrapBgps = (patterns: any[]) => patterns.map((p: any) => {
+          if (p.type === 'graph') return p; // already scoped — respect explicit GRAPH
+          if (p.type === 'bgp') return { type: 'graph', name: { termType: 'NamedNode', value: DATA_GRAPH }, patterns: [p] };
+          return p; // FILTER, OPTIONAL, UNION, VALUES, etc. — leave as-is
+        });
+        parsed.updates = (parsed.updates as any[]).map((u: any) => {
+          const out = { ...u };
+          if (Array.isArray(u.delete) && u.delete.length > 0) out.delete = wrapBgps(u.delete);
+          if (Array.isArray(u.insert) && u.insert.length > 0) out.insert = wrapBgps(u.insert);
+          if (Array.isArray(u.where)  && u.where.length  > 0) out.where  = wrapBgps(u.where);
+          return out;
+        });
         try { sparql = new SparqlGenerator().stringify(parsed); } catch (_) { /* keep original */ }
       }
 
