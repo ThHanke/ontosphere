@@ -1629,6 +1629,10 @@ export default function ReactodiaCanvas() {
     });
   }, []);
 
+  const handleStopReasoning = React.useCallback(() => {
+    void rdfManager.stopReasoning();
+  }, []);
+
   React.useEffect(() => {
     registerReasoningCallback(handleRunReasoning);
   }, [handleRunReasoning]);
@@ -2118,6 +2122,7 @@ export default function ReactodiaCanvas() {
                       onOpenReasoningReport={() => actions.toggleReasoningReport(true)}
                       onToggleOntologyList={() => { setOntologyListOpen(v => !v); setLayoutPanelOpen(false); }}
                       onRunReason={handleRunReasoning}
+                      onStopReason={handleStopReasoning}
                       onClearInferred={handleClearInferred}
                       currentReasoning={currentReasoning}
                       isReasoning={isReasoning}

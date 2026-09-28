@@ -10,6 +10,7 @@ interface TopBarProps {
   ontologyCount: number;
   onOpenReasoningReport?: () => void;
   onRunReason?: () => void;
+  onStopReason?: () => void;
   onClearInferred?: () => void;
   onToggleOntologyList?: () => void;
   currentReasoning?: ReasoningResult | null;
@@ -29,6 +30,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   ontologyCount,
   onOpenReasoningReport,
   onRunReason,
+  onStopReason,
   onClearInferred,
   onToggleOntologyList,
   currentReasoning = null,
@@ -219,14 +221,25 @@ export const TopBar: React.FC<TopBarProps> = ({
             />
             SHACL
           </button>
-          <button
-            type="button"
-            className="reactodia-btn reactodia-btn-default"
-            onClick={onRunReason}
-            title="Run reasoning"
-          >
-            ▶
-          </button>
+          {isReasoning ? (
+            <button
+              type="button"
+              className="reactodia-btn reactodia-btn-default"
+              onClick={onStopReason}
+              title="Stop reasoning"
+            >
+              ■
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="reactodia-btn reactodia-btn-default"
+              onClick={onRunReason}
+              title="Run reasoning"
+            >
+              ▶
+            </button>
+          )}
         </div>
       )}
     </div>

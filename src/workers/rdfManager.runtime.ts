@@ -2997,7 +2997,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             result = { type: "construct", triples };
           } else if (queryResult.resultType === "void") {
             await queryResult.execute();
-            // Trigger the normal subject-emission pipeline so the canvas refreshes
+            // Trigger the normal subject-emission pipeline so the canvas refreshes.
+            // Always emit — even with an empty subjects list so a complete DELETE
+            // causes the canvas to remove all nodes (no length > 0 guard here).
             const { DataFactory } = resolveN3();
             if (DataFactory) {
               const graphTerm = createGraphTerm("urn:vg:data", DataFactory);
@@ -3007,9 +3009,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                 try { const s = subjectTermToString(q.subject); if (s && !isBlacklistedIri(s)) subjectSet.add(s); } catch (_) { /* ignore */ }
               }
               const emission = prepareSubjectEmissionFromSet(subjectSet, store, DataFactory);
-              if (emission.subjects.length > 0) {
-                emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "sparqlUpdate" });
-              }
+              emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "sparqlUpdate" });
             }
             result = { type: "update" };
           } else if (queryResult.resultType === "boolean") {
@@ -3053,6 +3053,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             ruleQuadCount: outcome.ruleQuadCount,
             isConsistent: outcome.isConsistent,
           };
+          break;
+        }
+        case "stopReasoning": {
+          resetDlReasoner();
+          result = true;
           break;
         }
         case "runShaclValidation": {
