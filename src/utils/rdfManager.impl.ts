@@ -785,13 +785,22 @@ export class RDFManagerImpl {
     };
   }
 
-  async runShaclValidation(): Promise<{ conforms: boolean; violations: ShaclViolation[]; shapeCount: number }> {
+  async runShaclValidation(): Promise<{
+    conforms: boolean;
+    violations: ShaclViolation[];
+    shapeCount: number;
+    /** Focus nodes selected per shape; a shape with 0 checked nothing. */
+    shapeTargets: { shape: string; targetCount: number }[];
+    untargetedShapeCount: number;
+  }> {
     const response = await this.worker.call("runShaclValidation", undefined);
     const safe = isPlainObject(response) ? response : {};
     return {
       conforms: typeof safe.conforms === "boolean" ? safe.conforms : true,
       violations: Array.isArray(safe.violations) ? safe.violations : [],
       shapeCount: typeof safe.shapeCount === "number" ? safe.shapeCount : 0,
+      shapeTargets: Array.isArray(safe.shapeTargets) ? safe.shapeTargets : [],
+      untargetedShapeCount: typeof safe.untargetedShapeCount === "number" ? safe.untargetedShapeCount : 0,
     };
   }
 
@@ -934,6 +943,9 @@ export class RDFManagerImpl {
     opts?: { objectIsLiteral?: boolean; maxJustifications?: number },
   ): Promise<{
     isEntailed: boolean | null;
+    /** entailed, not-entailed (decided), or undetermined (the check could not decide). */
+    verdict: "entailed" | "not-entailed" | "undetermined";
+    undeterminedKind?: string;
     justifications: { subject: string; predicate: string; object: string }[][];
     ontologyInconsistent?: boolean;
     vacuous?: boolean;
@@ -952,8 +964,17 @@ export class RDFManagerImpl {
     // null (do NOT coerce to false) so the tool can distinguish "vacuous, fix
     // consistency first" from "not entailed".
     const ontologyInconsistent = safe.ontologyInconsistent === true;
+    const verdict =
+      safe.verdict === "entailed" || safe.verdict === "not-entailed" || safe.verdict === "undetermined"
+        ? safe.verdict
+        : ontologyInconsistent || safe.isEntailed === null
+          ? "undetermined"
+          : safe.isEntailed === true ? "entailed" : "not-entailed";
     return {
-      isEntailed: ontologyInconsistent ? null : safe.isEntailed === true,
+      // null whenever the check could not decide, so it is never read as "not entailed"
+      isEntailed: ontologyInconsistent || safe.isEntailed === null ? null : safe.isEntailed === true,
+      verdict,
+      ...(typeof safe.undeterminedKind === "string" ? { undeterminedKind: safe.undeterminedKind } : {}),
       justifications: Array.isArray(safe.justifications)
         ? (safe.justifications as { subject: string; predicate: string; object: string }[][])
         : [],
@@ -1025,13 +1046,19 @@ export class RDFManagerImpl {
    */
   async verifyRepairDetailed(
     removals: VerifyRepairRemoval[],
+    options: { measureGuards?: boolean } = {},
   ): Promise<{
     verifiedConsistent: boolean;
     removedCount: number;
     requestedCount: number;
     matchedCount: number;
+    /** Present when `measureGuards` was requested: the repair's cost in disjointness guards. */
+    guardImpact?: import("../workers/repairImpact.ts").RepairImpact;
   }> {
-    const response = await this.worker.call("verifyRepair", { removals });
+    const response = await this.worker.call("verifyRepair", {
+      removals,
+      ...(options.measureGuards ? { measureGuards: true } : {}),
+    });
     const safe = (isPlainObject(response) ? response : {}) as Record<string, unknown>;
     const num = (v: unknown): number => (typeof v === "number" ? v : 0);
     return {
@@ -1039,6 +1066,9 @@ export class RDFManagerImpl {
       removedCount: num(safe.removedCount),
       requestedCount: num(safe.requestedCount),
       matchedCount: num(safe.matchedCount),
+      ...(isPlainObject(safe.guardImpact)
+        ? { guardImpact: safe.guardImpact as unknown as import("../workers/repairImpact.ts").RepairImpact }
+        : {}),
     };
   }
 
@@ -1589,8 +1619,8 @@ export class RDFManagerImpl {
   }
 
   /**
-   * Dataset-faithful export as N-Quads. Unlike the single-graph Turtle/JSON-LD/RDF-XML
-   * exporters, this collects quads from ALL urn:vg:* graphs (data, inferred, shapes,
+   * Dataset-faithful export as N-Quads. Like TriG and JSON-LD, and unlike the single-graph
+   * Turtle and RDF/XML exporters, this collects quads from ALL urn:vg:* graphs (data, inferred, shapes,
    * ontologies, workflows) and preserves each quad's graph term so the multi-graph
    * partition round-trips. The `graphName` argument is ignored for dataset formats; it
    * is accepted only for signature symmetry with the other exporters.

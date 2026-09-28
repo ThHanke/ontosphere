@@ -44,7 +44,7 @@ const loadShacl: McpTool = {
 // ---------------------------------------------------------------------------
 const validateGraph: McpTool = {
   name: 'validateGraph',
-  description: 'Validate the asserted graph (urn:vg:data) plus inferred graph against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag and structured violation list.',
+  description: 'Validate the asserted graph (urn:vg:data) plus inferred graph against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag, structured violation list, and how many shapes selected at least one focus node: conforms:true with untargetedShapeCount equal to shapeCount means nothing was checked.',
   inputSchema: {
     type: 'object',
     properties: {},
@@ -52,7 +52,19 @@ const validateGraph: McpTool = {
   async handler(): Promise<McpResult> {
     try {
       const result = await rdfManager.runShaclValidation();
-      return { success: true, data: { conforms: result.conforms, violations: result.violations } };
+      const shapeTargets = result.shapeTargets ?? [];
+      const targeted = shapeTargets.filter((t) => t.targetCount > 0);
+      return {
+        success: true,
+        data: {
+          conforms: result.conforms,
+          violations: result.violations,
+          shapeCount: shapeTargets.length,
+          untargetedShapeCount: result.untargetedShapeCount ?? 0,
+          // only shapes that checked something; the full list can run to hundreds of entries
+          targetedShapes: targeted,
+        },
+      };
     } catch (e) {
       return { success: false, error: String(e) };
     }

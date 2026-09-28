@@ -266,17 +266,19 @@ describe('explainEntailment', () => {
     expect((result as any).data.summary).toContain('NOT entailed');
   });
 
-  it('returns directly asserted when entailed with no justifications', async () => {
+  it('reports an entailment without a verified justification, with the reason', async () => {
     mockExplainEntailment.mockResolvedValueOnce({
       isEntailed: true,
       justifications: [],
+      reason: 'Entailed. No justification was verified: the exact entailment check did not finish within 120 s',
     });
     const result = await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
     expect(result).toMatchObject({
       success: true,
       data: { isEntailed: true, justifications: [] },
     });
-    expect((result as any).data.summary).toContain('directly asserted');
+    expect((result as any).data.summary).toContain('is entailed');
+    expect((result as any).data.summary).toContain('No justification was verified');
   });
 
   it('formats justification axioms in the summary', async () => {

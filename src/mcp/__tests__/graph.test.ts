@@ -95,6 +95,22 @@ describe('loadRdf', () => {
     });
   });
 
+  it("keeps a document's own binding for a pre-loaded prefix", async () => {
+    const turtle = '@prefix ex: <http://www.example.org/#> .\nex:a ex:p ex:b .';
+    await tool('loadRdf').handler({ turtle });
+    const [loaded] = (rdfManager.loadRDFIntoGraph as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(loaded).toContain('@prefix ex: <http://www.example.org/#> .');
+    expect(loaded).not.toContain('@prefix ex: <http://example.org/> .');
+  });
+
+  it('drops a redundant pre-loaded prefix line, including one with spaces in the IRI', async () => {
+    const turtle = '@prefix owl: < http://www.w3.org/2002/07/owl# > .\nex:A a owl:Class .';
+    await tool('loadRdf').handler({ turtle });
+    const [loaded] = (rdfManager.loadRDFIntoGraph as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(loaded.match(/@prefix owl:/g)).toHaveLength(1);
+    expect(loaded).toContain('@prefix owl: <http://www.w3.org/2002/07/owl#> .');
+  });
+
   it('returns error when neither url nor turtle is provided', async () => {
     const result = await tool('loadRdf').handler({});
     expect(result).toEqual({ success: false, error: 'Provide either url or turtle' });

@@ -126,12 +126,14 @@ function validateTurtleSnippet(turtle: string): string | null {
  * 2. Collapse whitespace inside angle brackets: `< http://... >` → `<http://...>`
  */
 function sanitizeTurtle(turtle: string): string {
-  const preloaded = new Set(Object.keys(BUILTIN_PREFIXES).map(k => k.replace(/:$/, '')));
-  const lines = turtle.split('\n').filter(line => {
-    const m = line.match(/^\s*@prefix\s+(\w*)\s*:/i);
-    return !(m && preloaded.has(m[1]));
-  });
-  return lines.join('\n').replace(/<\s+(https?:\/\/[^>]*?)\s*>/g, '<$1>');
+  const fixed = turtle.replace(/<\s+(https?:\/\/[^>]*?)\s*>/g, '<$1>');
+  const builtin = new Map(Object.entries(BUILTIN_PREFIXES).map(([k, v]) => [k.replace(/:$/, ''), v]));
+  // A pre-loaded prefix re-declared with the same IRI is redundant and dropped. Bound to a
+  // different IRI it is the document's own declaration and is kept, so its IRIs load as written.
+  return fixed.split('\n').filter(line => {
+    const m = line.match(/^\s*@prefix\s+(\w*)\s*:\s*<([^>]*)>/i);
+    return !(m && builtin.get(m[1]) === m[2]);
+  }).join('\n');
 }
 
 /** Prepend BUILTIN_PREFIXES for any prefix not already declared in the turtle. */
@@ -396,10 +398,10 @@ const exportGraph: McpTool = {
   name: 'exportGraph',
   description:
     'Export the current RDF graph in the requested serialisation format. ' +
-    'turtle | jsonld | rdfxml flatten the store into a single default graph (named-graph ' +
-    'structure is lost). nquads | trig are DATASET-FAITHFUL: they collect quads from every ' +
+    'turtle | rdfxml flatten the store into a single default graph (named-graph structure is ' +
+    'lost). nquads | trig | jsonld are DATASET-FAITHFUL: they collect quads from every ' +
     'urn:vg:* graph (data, inferred, shapes, ontologies, workflows) and preserve each graph ' +
-    'IRI, so the multi-graph partition round-trips on re-import.',
+    'IRI (JSON-LD as one @graph per named graph), so the partition round-trips on re-import.',
   inputSchema: {
     type: 'object',
     required: ['format'],
@@ -408,8 +410,8 @@ const exportGraph: McpTool = {
         type: 'string',
         enum: ['turtle', 'jsonld', 'rdfxml', 'nquads', 'trig'],
         description:
-          'Serialisation format: turtle | jsonld | rdfxml (single-graph) | ' +
-          'nquads | trig (dataset-faithful, preserve named graphs)',
+          'Serialisation format: turtle | rdfxml (single-graph) | ' +
+          'nquads | trig | jsonld (dataset-faithful, preserve named graphs)',
       },
     },
   },

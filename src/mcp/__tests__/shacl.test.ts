@@ -109,4 +109,22 @@ describe('validateGraph', () => {
     expect(result.data.conforms).toBe(true);
     expect(result.data.violations).toHaveLength(0);
   });
+
+  it('reports how many shapes selected a focus node', async () => {
+    mockRunShaclValidation.mockResolvedValue({
+      conforms: true,
+      violations: [],
+      shapeCount: 2,
+      shapeTargets: [
+        { shape: EX + 'PersonShape', targetCount: 3 },
+        { shape: EX + 'SemiconductorShape', targetCount: 0 },
+      ],
+      untargetedShapeCount: 1,
+    });
+
+    const result = await validateGraph.handler({}) as any;
+    expect(result.data.shapeCount).toBe(2);
+    expect(result.data.untargetedShapeCount).toBe(1);
+    expect(result.data.targetedShapes).toEqual([{ shape: EX + 'PersonShape', targetCount: 3 }]);
+  });
 });

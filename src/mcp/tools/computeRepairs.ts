@@ -159,6 +159,13 @@ export interface RepairSuggestion {
    */
   verifiedConsistent?: boolean;
   /**
+   * Set when explainDiagnostics runs with `assessGuardCost`: what removing this axiom costs
+   * in declared class-disjointness guards. `restores-consistency-with-collateral` marks a
+   * repair that restores consistency by deleting a constraint the ontology used to reject
+   * modelling errors with.
+   */
+  guardImpact?: import('../../workers/repairImpact.ts').RepairImpact;
+  /**
    * Set by the caller after symbolic verification of the FULL hitting set
    * (all inconsistency repairs removed together): true when removing every
    * inconsistency repair's axiom at once restores global consistency. This is
