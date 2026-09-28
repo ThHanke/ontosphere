@@ -826,9 +826,12 @@
   }
 
   // Pre-seed: mark all calls currently visible on the page as already dispatched
-  // and as already notified, so history calls never trigger the duplicate toast.
+  // AND already notified, so history calls never trigger the duplicate toast.
+  // extractAllToolCalls adds their sigs to dispatchedSigs; we also add them to
+  // notifiedDupSigs here, because at this point dispatchedSigs was empty so
+  // _preSeed contains real call objects (no isDup flag yet).
   var _preSeed = extractAllToolCalls(document.body.innerText || document.body.textContent || '', dispatchedSigs);
-  newDupSigs(_preSeed, notifiedDupSigs); // absorb any pre-existing dups silently
+  _preSeed.forEach(function (c) { if (c && c.sig) notifiedDupSigs.add(c.sig); });
 
   idlePoll();
   window.__vgRelayObserver = { disconnect: function () { clearTimeout(idlePollTimer); idlePollTimer = null; } };
