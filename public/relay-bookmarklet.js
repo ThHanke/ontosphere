@@ -395,6 +395,7 @@
   var pendingTool        = null;
   var pendingMcpId       = null;
   var pendingRequestId   = null;
+  var pendingSig         = null;
   var callTimeoutTimer   = null;
   var batchTimeoutTimer  = null;
   var knownSessionId     = null;
@@ -408,6 +409,8 @@
       if (batchResults.length === 0 && !isProcessing) return; // nothing to flush
       // Flush whatever results arrived before the timeout
       clearTimeout(callTimeoutTimer);
+      if (pendingSig) { dispatchedSigs.delete(pendingSig); pendingSig = null; }
+      callQueue.forEach(function (item) { if (item.sig) dispatchedSigs.delete(item.sig); });
       callQueue = []; isProcessing = false;
       pendingTool = null; pendingMcpId = null; pendingRequestId = null;
       var results = batchResults.slice(); batchResults = [];
@@ -449,6 +452,10 @@
       stopBatchTimeout();
       var results = batchResults.slice(); batchResults = [];
       batchTotal = 0;
+      // Un-mark the timed-out call and any still-queued calls so idlePoll can
+      // re-extract them from the page after the AI retries.
+      if (pendingSig) { dispatchedSigs.delete(pendingSig); pendingSig = null; }
+      callQueue.forEach(function (item) { if (item.sig) dispatchedSigs.delete(item.sig); });
       callQueue = [];
       var resp = JSON.stringify({
         jsonrpc: '2.0', id: timedOutId != null ? timedOutId : null,
@@ -483,12 +490,16 @@
         if (knownSessionId && knownSessionId !== data.sessionId) {
           showToast('Ontosphere reloaded — graph data was lost', false);
           clearTimeout(callTimeoutTimer);
-          isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null;
+          isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingSig = null;
           batchResults = []; callQueue = []; lateResult = null;
         }
         knownSessionId = data.sessionId;
+        // Only extend the per-call deadline when Ontosphere itself is alive.
+        // The relay popup's own 10 s heartbeat (no sessionId) must NOT reset
+        // this — otherwise a non-responding app never times out and isProcessing
+        // stays true forever, blocking idlePoll from picking up new calls.
+        resetCallTimeout();
       }
-      resetCallTimeout();
       return;
     }
 
@@ -513,7 +524,7 @@
     lateResult = null;
     var ok = !!(data.result && data.result.success !== false);
     batchResults.push({ tool: pendingTool || '?', mcpId: pendingMcpId, ok: ok, result: data.result, summary: data.summary });
-    isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null;
+    isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingSig = null;
 
     if (callQueue.length > 0) {
       processNextInQueue();
@@ -614,7 +625,7 @@
       }
       var mcpId = req.id != null ? req.id : null;
       var sig = tool + ':' + JSON.stringify(params) + ':' + mcpId;
-      if (!seen.has(sig)) { seen.add(sig); calls.push({ tool: tool, params: params, mcpId: mcpId }); }
+      if (!seen.has(sig)) { seen.add(sig); calls.push({ tool: tool, params: params, mcpId: mcpId, sig: sig }); }
     }
     return calls;
   }
@@ -746,11 +757,14 @@
     if (!popup || popup.closed) popup = openPopup();
     if (!popup) {
       showToast('Relay popup could not open', false);
-      isProcessing = false; callQueue = []; batchResults = [];
+      if (item.sig) dispatchedSigs.delete(item.sig);
+      callQueue.forEach(function (q) { if (q.sig) dispatchedSigs.delete(q.sig); });
+      isProcessing = false; pendingSig = null; callQueue = []; batchResults = [];
       return;
     }
     pendingTool = item.tool;
     pendingMcpId = item.mcpId != null ? item.mcpId : null;
+    pendingSig = item.sig || null;
     lateResult = null;
     var requestId = 'rq-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     pendingRequestId = requestId;
