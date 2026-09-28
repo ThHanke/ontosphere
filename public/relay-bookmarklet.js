@@ -396,11 +396,13 @@
   var pendingMcpId       = null;
   var pendingRequestId   = null;
   var pendingSig         = null;
+  var pendingDispatchTime = 0;
   var callTimeoutTimer   = null;
   var batchTimeoutTimer  = null;
   var knownSessionId     = null;
   var lateResult         = null;
   var CALL_TIMEOUT_MS    = 30000;
+  var CALL_HARD_MAX_MS   = 90000; // absolute max regardless of Ontosphere pings
   var BATCH_TIMEOUT_MS   = 180000; // 3 min — reasoning / tests can be slow
 
   function startBatchTimeout() {
@@ -412,7 +414,7 @@
       if (pendingSig) { dispatchedSigs.delete(pendingSig); pendingSig = null; }
       callQueue.forEach(function (item) { if (item.sig) dispatchedSigs.delete(item.sig); });
       callQueue = []; isProcessing = false;
-      pendingTool = null; pendingMcpId = null; pendingRequestId = null;
+      pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingDispatchTime = 0;
       var results = batchResults.slice(); batchResults = [];
       var missing = batchTotal - results.length;
       batchTotal = 0;
@@ -439,6 +441,11 @@
 
   function resetCallTimeout() {
     clearTimeout(callTimeoutTimer);
+    if (!isProcessing) return;
+    // Clamp delay so the hard max is respected regardless of how many pings arrive.
+    var elapsed = pendingDispatchTime > 0 ? Date.now() - pendingDispatchTime : 0;
+    var remaining = Math.max(5000, CALL_HARD_MAX_MS - elapsed);
+    var delay = Math.min(CALL_TIMEOUT_MS, remaining);
     callTimeoutTimer = setTimeout(function () {
       if (!isProcessing) return;
       var timedOutTool      = pendingTool    || '?';
@@ -473,7 +480,7 @@
       if (lastSumT) { timeoutLines.push(''); timeoutLines.push(lastSumT); }
       injectResult(timeoutLines.join('\n'));
       showToast('⏱ ' + timedOutTool + ' timed out', false);
-    }, CALL_TIMEOUT_MS);
+    }, delay);
   }
 
   /* ── Result listener (popup → chat tab) ───────────────────────────────── */
@@ -490,7 +497,7 @@
         if (knownSessionId && knownSessionId !== data.sessionId) {
           showToast('Ontosphere reloaded — graph data was lost', false);
           clearTimeout(callTimeoutTimer);
-          isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingSig = null;
+          isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingSig = null; pendingDispatchTime = 0;
           batchResults = []; callQueue = []; lateResult = null;
         }
         knownSessionId = data.sessionId;
@@ -524,7 +531,7 @@
     lateResult = null;
     var ok = !!(data.result && data.result.success !== false);
     batchResults.push({ tool: pendingTool || '?', mcpId: pendingMcpId, ok: ok, result: data.result, summary: data.summary });
-    isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingSig = null;
+    isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingSig = null; pendingDispatchTime = 0;
 
     if (callQueue.length > 0) {
       processNextInQueue();
@@ -626,8 +633,19 @@
       var mcpId = req.id != null ? req.id : null;
       var sig = tool + ':' + JSON.stringify(params) + ':' + mcpId;
       if (!seen.has(sig)) { seen.add(sig); calls.push({ tool: tool, params: params, mcpId: mcpId, sig: sig }); }
+      else { calls.push(null); } // sentinel for already-seen (for skipped count)
     }
     return calls;
+  }
+
+  function countSkipped(rawCalls) {
+    var skipped = 0;
+    for (var i = 0; i < rawCalls.length; i++) { if (rawCalls[i] === null) skipped++; }
+    return skipped;
+  }
+
+  function filterNew(rawCalls) {
+    return rawCalls.filter(function (c) { return c !== null; });
   }
 
   /* ── Streaming-idle detection ──────────────────────────────────────────── */
@@ -759,12 +777,13 @@
       showToast('Relay popup could not open', false);
       if (item.sig) dispatchedSigs.delete(item.sig);
       callQueue.forEach(function (q) { if (q.sig) dispatchedSigs.delete(q.sig); });
-      isProcessing = false; pendingSig = null; callQueue = []; batchResults = [];
+      isProcessing = false; pendingSig = null; pendingDispatchTime = 0; callQueue = []; batchResults = [];
       return;
     }
     pendingTool = item.tool;
     pendingMcpId = item.mcpId != null ? item.mcpId : null;
     pendingSig = item.sig || null;
+    pendingDispatchTime = Date.now();
     lateResult = null;
     var requestId = 'rq-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     pendingRequestId = requestId;
@@ -780,16 +799,24 @@
   // before we extract any of them — prevents splitting a batch mid-stream.
   var idlePollTimer = null;
 
+  var lastSkippedToastAt = 0;
+
   function idlePoll() {
     if (window.__vgRelayInstanceId !== instanceId) return; // stale instance
     if (!isProcessing && callQueue.length === 0 && !isAiStreaming() && !injectInProgress) {
       var text = document.body.innerText || document.body.textContent || '';
-      var calls = extractAllToolCalls(text, dispatchedSigs);
-      if (calls.length > 0) {
-        callQueue = callQueue.concat(calls);
+      var rawCalls = extractAllToolCalls(text, dispatchedSigs);
+      var newCalls = filterNew(rawCalls);
+      var skipped  = countSkipped(rawCalls);
+      if (newCalls.length > 0) {
+        callQueue = callQueue.concat(newCalls);
         batchTotal = callQueue.length;
         startBatchTimeout();
         processNextInQueue();
+      } else if (skipped > 0 && Date.now() - lastSkippedToastAt > 10000) {
+        // AI retried an already-dispatched call — warn so user knows why nothing happens
+        lastSkippedToastAt = Date.now();
+        showToast('⚠ ' + skipped + ' duplicate tool call' + (skipped > 1 ? 's' : '') + ' ignored — AI retried same call(s). Ask it to use different params or IDs.', false);
       }
     }
     idlePollTimer = setTimeout(idlePoll, 500);
