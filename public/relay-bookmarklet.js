@@ -609,7 +609,7 @@
           }
         }
       }
-      if (!complete) break;
+      if (!complete) { i = start + 1; continue; } // malformed { shifts quote phase → restart
     }
     return objects;
   }

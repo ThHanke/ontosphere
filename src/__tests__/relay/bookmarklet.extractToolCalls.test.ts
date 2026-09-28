@@ -60,7 +60,7 @@ function extractJsonObjects(text: string): string[] {
         }
       }
     }
-    if (!complete) break;
+    if (!complete) { i = start + 1; continue; } // malformed { shifts quote phase → restart
   }
   return objects;
 }
@@ -210,5 +210,21 @@ describe('extractAllToolCalls', () => {
   it('returns empty array for text with no JSON', () => {
     const calls = extractAllToolCalls('just some plain text with no JSON at all', seen);
     expect(calls).toHaveLength(0);
+  });
+
+  // ── Malformed call resilience ─────────────────────────────────────────
+
+  it('extracts valid call that follows a malformed JSON-RPC call on the same page', () => {
+    // Reproduces the real bug: AI sends {Jsiirpc"...} (missing opening quote on first key),
+    // which phase-shifts the string scanner so all closing } are consumed as phantom-string
+    // content. Without the fix, the valid retry on the next line is invisible to the relay.
+    const malformed = '{Jsiirpc":"2.0","id":6,"method":"tools/call","params":{"name":"searchTerms","arguments":{"query":"planned process"}}}';
+    const valid     = '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"searchTerms","arguments":{"query":"planned process"}}}';
+    const text = malformed + '\n' + valid;
+    const calls = extractAllToolCalls(text, seen);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].tool).toBe('searchTerms');
+    expect(calls[0].params.query).toBe('planned process');
+    expect(calls[0].mcpId).toBe(6);
   });
 });
