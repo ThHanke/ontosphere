@@ -633,19 +633,23 @@
       var mcpId = req.id != null ? req.id : null;
       var sig = tool + ':' + JSON.stringify(params) + ':' + mcpId;
       if (!seen.has(sig)) { seen.add(sig); calls.push({ tool: tool, params: params, mcpId: mcpId, sig: sig }); }
-      else { calls.push(null); } // sentinel for already-seen (for skipped count)
+      else { calls.push({ isDup: true, sig: sig }); }
     }
     return calls;
   }
 
-  function countSkipped(rawCalls) {
-    var skipped = 0;
-    for (var i = 0; i < rawCalls.length; i++) { if (rawCalls[i] === null) skipped++; }
-    return skipped;
+  function filterNew(rawCalls) {
+    return rawCalls.filter(function (c) { return c && !c.isDup; });
   }
 
-  function filterNew(rawCalls) {
-    return rawCalls.filter(function (c) { return c !== null; });
+  // Returns sigs that are duplicates AND have not been notified before.
+  function newDupSigs(rawCalls, notified) {
+    var fresh = [];
+    for (var i = 0; i < rawCalls.length; i++) {
+      var c = rawCalls[i];
+      if (c && c.isDup && !notified.has(c.sig)) { notified.add(c.sig); fresh.push(c.sig); }
+    }
+    return fresh;
   }
 
   /* ── Streaming-idle detection ──────────────────────────────────────────── */
@@ -799,7 +803,7 @@
   // before we extract any of them — prevents splitting a batch mid-stream.
   var idlePollTimer = null;
 
-  var lastSkippedToastAt = 0;
+  var notifiedDupSigs = new Set();
 
   function idlePoll() {
     if (window.__vgRelayInstanceId !== instanceId) return; // stale instance
@@ -807,23 +811,24 @@
       var text = document.body.innerText || document.body.textContent || '';
       var rawCalls = extractAllToolCalls(text, dispatchedSigs);
       var newCalls = filterNew(rawCalls);
-      var skipped  = countSkipped(rawCalls);
+      var freshDups = newDupSigs(rawCalls, notifiedDupSigs);
       if (newCalls.length > 0) {
         callQueue = callQueue.concat(newCalls);
         batchTotal = callQueue.length;
         startBatchTimeout();
         processNextInQueue();
-      } else if (skipped > 0 && Date.now() - lastSkippedToastAt > 10000) {
-        // AI retried an already-dispatched call — warn so user knows why nothing happens
-        lastSkippedToastAt = Date.now();
-        showToast('⚠ ' + skipped + ' duplicate tool call' + (skipped > 1 ? 's' : '') + ' ignored — AI retried same call(s). Ask it to use different params or IDs.', false);
+      } else if (freshDups.length > 0) {
+        // AI retried an already-dispatched call — warn once per unique sig
+        showToast('⚠ ' + freshDups.length + ' duplicate tool call' + (freshDups.length > 1 ? 's' : '') + ' ignored — AI retried same call(s). Ask it to use different params or IDs.', false);
       }
     }
     idlePollTimer = setTimeout(idlePoll, 500);
   }
 
-  // Pre-seed: mark all calls currently visible on the page as already dispatched.
-  extractAllToolCalls(document.body.innerText || document.body.textContent || '', dispatchedSigs);
+  // Pre-seed: mark all calls currently visible on the page as already dispatched
+  // and as already notified, so history calls never trigger the duplicate toast.
+  var _preSeed = extractAllToolCalls(document.body.innerText || document.body.textContent || '', dispatchedSigs);
+  newDupSigs(_preSeed, notifiedDupSigs); // absorb any pre-existing dups silently
 
   idlePoll();
   window.__vgRelayObserver = { disconnect: function () { clearTimeout(idlePollTimer); idlePollTimer = null; } };
