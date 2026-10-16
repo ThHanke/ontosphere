@@ -201,7 +201,7 @@ The annotated diagram below identifies the numbered UI elements described in thi
 
 **11** **SHACL toggle** (☑) — enable or disable SHACL validation as part of the reasoning pipeline. When checked, running reasoning also validates data against loaded SHACL shapes.
 
-**12** **Run reasoning** (▶) — triggers DL reasoning (Konclude) and optionally SHACL validation. Inferred triples appear as amber dashed edges. Idempotent.
+**12** **Run reasoning** (▶) — triggers DL reasoning (Konclude) and optionally SHACL validation. Inferred triples appear as amber dashed edges. Idempotent. While reasoning runs the button turns into a stop button (■) that terminates the run; the graph is unaffected and the next run starts a fresh reasoner.
 
 ### Left sidebar (collapsed icon rail)
 
@@ -272,13 +272,13 @@ Hover over any node to reveal the authoring halo with these controls:
 Reasoning
 ---------
 
-Ontosphere runs OWL reasoning entirely in the browser via a pluggable backend. The default is **Konclude** (full OWL 2 DL). Inferred triples appear as amber dashed edges; inferred types and annotations appear in amber italic. A reasoning report lists all inferred triples. Reasoning is idempotent — running it again produces no additional triples. Use **Clear inferred** to remove all inferred triples without affecting asserted data. See the [feat-reasoning demo video](https://thhanke.github.io/ontosphere/demo-videos/feat-reasoning.mp4) for a walkthrough of all 15 supported OWL 2 DL construct patterns.
+Ontosphere runs OWL reasoning entirely in the browser via a pluggable backend. The default is **Konclude** (full OWL 2 DL). Inferred triples appear as amber dashed edges; inferred types and annotations appear in amber italic. A reasoning report lists all inferred triples. Reasoning is idempotent — running it again produces no additional triples. Use **Clear inferred** to remove all inferred triples without affecting asserted data. Inferred triples are also dropped automatically when an ontology is unloaded or a graph is removed, since they were derived from axioms that are gone. See the [feat-reasoning demo video](https://thhanke.github.io/ontosphere/demo-videos/feat-reasoning.mp4) for a walkthrough of all 15 supported OWL 2 DL construct patterns.
 
 **OWL DL consistency checking** runs automatically alongside inference (Konclude only). If the ontology is logically contradictory, reasoning is skipped and the report's **Errors** tab shows per-entity clash details (affected individual, violated axiom, description). An "OWL DL inconsistency detected" banner appears in the report. Common inconsistencies: an individual in two `owl:disjointWith` classes, an `owl:allValuesFrom` restriction violated by an asserted type, or an `owl:AsymmetricProperty` / `owl:IrreflexiveProperty` cycle. The N3 backend does not perform consistency checking (`isConsistent` is always `null`).
 
 ### Konclude (default — OWL 2 DL)
 
-[Konclude](https://www.derivo.de/products/konclude/) is a complete tableau reasoner for the description logic **SROIQ(D)** (OWL 2 DL), compiled to WebAssembly. It runs classification over the loaded ontology and writes `rdfs:subClassOf` and `owl:equivalentClass` inferences.
+[Konclude](https://www.derivo.de/products/konclude/) is a complete tableau reasoner for the description logic **SROIQ(D)** (OWL 2 DL), compiled to WebAssembly. It runs classification and ABox realization over the loaded ontology and writes `rdfs:subClassOf`, `owl:equivalentClass`, `rdf:type` and object-property (role) inferences. One reasoner instance serves all runs: it hashes the store content on every call and rebuilds only when the content changed, so re-running on an unchanged graph is cheap.
 
 **Supported OWL constructs (complete):** `rdfs:subClassOf`, `owl:equivalentClass`, `owl:someValuesFrom`, `owl:allValuesFrom`, `owl:hasValue`, `owl:inverseOf`, `owl:SymmetricProperty`, `owl:TransitiveProperty`, `owl:subPropertyOf`, `rdfs:domain`/`rdfs:range`, `owl:intersectionOf`, `owl:unionOf`, `owl:oneOf`, `owl:propertyChainAxiom`, number restrictions, nominals, and more.
 
@@ -637,7 +637,7 @@ Developer
 
 **Deployment requirement:** Konclude's WASM binary uses `SharedArrayBuffer` (pthreads). The server must send `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless` headers. Localhost deployments have `SharedArrayBuffer` available without headers. Ontosphere's `server.js` sets these headers automatically.
 
-**Performance:** Konclude: 250 ms – 2.5 s for typical benchmark ontologies (LUBM, GALEN, Pizza). N3: under 2 seconds for typical ontologies (hundreds to a few thousand triples).
+**Performance:** Konclude, end to end in headless Chromium (load + consistency check + materialization, median of 3): reasoning-demo 1.1 s, Pizza 1.4 s, PMDCO 2.6 s, GALEN 3.4 s, LUBM-1 with data about 66 s. Small ontologies are dominated by reasoner start-up (about 1 s). See [Konclude WASM reasoning performance](#konclude-wasm-reasoning-performance) for reasoner-only numbers. N3: under 2 seconds for typical ontologies (hundreds to a few thousand triples).
 
 ### Other startup mechanisms
 
@@ -958,16 +958,19 @@ node scripts/bench-ontoauthor-mat.mjs 2>&1 | tee logs/bench-ontoauthor-mat.log
 Benchmark data from [rdf-reasoner-konclude](https://github.com/ThHanke/rdf-reasoner-konclude)
 comparing native Konclude (Docker) vs the Emscripten WASM port used in Ontosphere.
 
-| Ontology | Expressivity | Triples | Native | WASM | Ratio | Inferred |
-|----------|:------------:|--------:|-------:|-----:|------:|---------:|
-| LUBM schema | SHI | 307 | 32 ms | 272 ms | ~8.5× | 44 |
-| GALEN | SHIF | 30 817 | 228 ms | 656 ms | ~2.9× | 3 287 |
-| Roberts family | SROIQ | 3 866 | 2 213 ms | 30 124 ms | ~13.6× | 269 829 |
-| LUBM + data | SHI | 100 850 | 164 ms | 1 424 ms | ~8.7× | 138 522 |
+| Ontology | Expressivity | Triples | Native Konclude | WASM (ingest→result) | WASM / native |
+|----------|:------------:|--------:|----------------:|---------------------:|--------------:|
+| LUBM schema | SHI | 307 | 67 ms | 297 ms | ~4.4× |
+| GALEN | SHIF | 30 817 | 322 ms | 1 594 ms | ~5.0× |
+| Roberts family ¹ | SROIQ | 3 866 | 40 038 ms | 27 471 ms | ~0.7× |
+| LUBM + data | SHI | 100 850 | 1 237 ms | 3 550 ms | ~2.9× |
 
-Native = Konclude v0.7.0, Docker, 8 threads. WASM = Emscripten pthreads, Node.js, median of 3 runs.
-Ratio = WASM classify / native classify. For typical interactive ontologies (< 10 000 triples),
-Konclude WASM completes classification in 250 ms – 2.5 s.
+Package rdf-reasoner-konclude 0.8.0, native = Konclude v0.7.0-1138 in Docker (8 threads), WASM = Emscripten
+pthreads under Node.js, medians of 3–5 runs, single shared host (see the package's
+[benchmark](https://github.com/ThHanke/rdf-reasoner-konclude/blob/main/docs/benchmark.md) for spreads).
+Ratio = WASM / native Konclude. ¹ Full role-closure realization; the native figure is Konclude with
+`RealizePrecomputation.RoleInstances=true`, the like-for-like configuration (WASM always computes the
+role closure). The WASM figures exclude the one-off module start (about 0.9 s).
 
 ### Module-extraction benchmark
 

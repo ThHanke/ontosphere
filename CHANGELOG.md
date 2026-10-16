@@ -7,7 +7,7 @@
 - **rdf-reasoner-konclude 0.8.0.** The reasoner digests the store content on every call, rebuilds only when it changed, recycles its own Worker when the WASM heap grows, and recovers from stalled kernels. It also fixes lossy realization, a cardinality crash and an `owl:AsymmetricProperty` self-loop gap.
 - **One reasoner across runs.** The per-run terminate/recreate workaround is gone; an unchanged graph costs no rebuild. The entailment-explanation cache is keyed on the reasoning input, so edits invalidate it.
 - **Stop button** terminates in-flight reasoning (play button becomes a stop button in the top bar and reasoning indicator).
-- Benchmarks rerun on 0.8.0 (headless Chromium, median of 3): reasoning-demo 1.1 s, Pizza 1.4 s, PMDCO 2.6 s (previously timed out at 120 s), GALEN 3.4 s, LUBM-1 65.6 s. On one page with PMDCO loaded, a run after a one-individual edit takes about 0.3 s once the first run has started the reasoner (2.3 s), and an unchanged graph about 0.5 s.
+- Benchmarks rerun on 0.8.0 (headless Chromium, median of 3): reasoning-demo 1.1 s, Pizza 1.4 s, PMDCO 2.6 s, GALEN 3.4 s, LUBM-1 65.6 s. On one page with PMDCO loaded, a run after a one-individual edit takes about 0.3 s once the first run has started the reasoner (2.3 s), and an unchanged graph about 0.5 s.
 
 ### Bug fixes
 
