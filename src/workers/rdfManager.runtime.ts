@@ -313,8 +313,12 @@ function getDlReasoner(): DlReasonerLike {
   return _dlReasoner;
 }
 
+// Explanations are keyed on the reasoning input they were computed from; the runtime clears the
+// cache when reasoningInputGeneration moves on.
 const _entailmentCache = new Map<string, unknown>();
+let _entailmentCacheGeneration = -1;
 
+/** Terminates the reasoner Worker (rejecting in-flight calls); the next call starts a fresh one. */
 function resetDlReasoner(): void {
   if (_dlReasoner) {
     _dlReasoner.terminate();
@@ -1820,7 +1824,6 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               );
             }
           }
-          if (removed > 0) void withReasoner(async () => resetDlReasoner());
           result = { graphName, removed };
           break;
         }
@@ -2194,7 +2197,6 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             emitChange({ reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removed: removedSubjects.length });
             emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removedSubjects });
           }
-          if (removedSubjects.length > 0) void withReasoner(async () => resetDlReasoner());
           result = { removed: removedSubjects.length, removedSubjects };
           break;
         }
@@ -3222,6 +3224,10 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             objectIri: "",
           }) as RDFWorkerCommandPayloads["explainEntailment"];
           const n = typeof p.maxJustifications === "number" ? p.maxJustifications : 1;
+          if (_entailmentCacheGeneration !== reasoningInputGeneration) {
+            _entailmentCache.clear();
+            _entailmentCacheGeneration = reasoningInputGeneration;
+          }
           const cacheKey = `${p.subjectIri}\0${p.predicateIri}\0${p.objectIri}\0${p.objectIsLiteral}\0${n}`;
           const cached = _entailmentCache.get(cacheKey);
           if (cached) {
@@ -3332,10 +3338,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (!sabAvailable) {
           throw new Error("SharedArrayBuffer unavailable — page needs HTTPS + COOP/COEP headers (or localhost). Use reasonerBackend='n3' as fallback.");
         }
-        // The package releases a knowledge base only through terminate(), and each run
-        // loads a new one into WASM memory, so every run starts from a fresh reasoner.
-        // Runs are queued (withReasoner), so no other reasoner call is in flight here.
-        resetDlReasoner();
+        // One reasoner serves every run: the package digests the store content on each call,
+        // rebuilds only when it changed, and recycles its own Worker when the WASM heap grows.
         const konclude = getDlReasoner();
         await konclude.ready;
         const kQuadCount = kStore.size ?? kStore.countQuads?.(null,null,null,null) ?? 0;
