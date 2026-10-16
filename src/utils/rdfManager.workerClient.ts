@@ -225,6 +225,10 @@ export class RdfManagerWorkerClient {
     };
   }
 
+  async stopReasoning(): Promise<void> {
+    await this.call("stopReasoning", undefined);
+  }
+
   terminate() {
     if (this.worker) {
       this.worker.removeEventListener("message", this.handleMessage);

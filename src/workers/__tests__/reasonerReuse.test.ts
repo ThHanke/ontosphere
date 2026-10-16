@@ -1,7 +1,6 @@
-// rdf-reasoner-konclude releases a loaded knowledge base only through terminate(). Measured
-// with rdf-reasoner-konclude 0.7.2 on PMDco + the Fe-Si record, adding one triple before each
-// of 8 calls: RSS grew by 1,528 MiB with one reused reasoner and stayed flat (-71 MiB) with a
-// fresh reasoner per call. Each full reasoning run therefore starts a fresh reasoner.
+// rdf-reasoner-konclude >= 0.8.0 digests the store content on every call, rebuilds its knowledge
+// base only when the content changed, and recycles its own Worker when the WASM heap grows. The
+// runtime therefore keeps one reasoner across full reasoning runs instead of terminating it per run.
 
 import { describe, it, expect, afterEach } from 'vitest';
 import * as N3 from 'n3';
@@ -59,20 +58,17 @@ afterEach(() => {
   terminated = 0;
 });
 
-describe('reasoner worker recycling', () => {
-  it('creates a fresh reasoner for each full reasoning run, and terminates the previous one', async () => {
+describe('reasoner reuse', () => {
+  it('serves consecutive full reasoning runs from one reasoner', async () => {
     const messages: unknown[] = [];
     setDlReasonerFactoryForTest(makeCountingReasoner);
     const runtime = createRdfWorkerRuntime((m) => messages.push(m));
 
     await runReasoningOnce(runtime, 'run-1');
-    const afterFirst = created;
-    expect(afterFirst, 'first run should instantiate a reasoner').toBeGreaterThanOrEqual(1);
-
     await runReasoningOnce(runtime, 'run-2');
 
-    expect(created, 'second run must instantiate a fresh reasoner (recycling)').toBeGreaterThan(afterFirst);
-    expect(terminated, 'the previous reasoner must be terminated to release its WASM memory').toBeGreaterThanOrEqual(1);
+    expect(created, 'both runs must share one reasoner').toBe(1);
+    expect(terminated, 'a reused reasoner must not be terminated between runs').toBe(0);
 
     runtime.terminate();
   });

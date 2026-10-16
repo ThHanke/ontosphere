@@ -198,6 +198,7 @@ export type RDFWorkerCommandPayloads = {
   getOntologyStats: undefined;
   syncRemoveBatchSubjectsFromGraph: { subjects: string[]; graphName?: string };
   unloadOntologySubjects: { ontologyUrl: string };
+  stopReasoning: undefined;
 };
 
 export const RDF_WORKER_COMMANDS = [
@@ -233,6 +234,7 @@ export const RDF_WORKER_COMMANDS = [
   "searchTerms",
   "explainEntailment",
   "getOntologyStats",
+  "stopReasoning",
 ] as const;
 
 export type RDFWorkerCommandName = (typeof RDF_WORKER_COMMANDS)[number];
@@ -751,6 +753,9 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
   },
   getOntologyStats(payload) {
     invariant(typeof payload === "undefined", "getOntologyStats payload must be undefined");
+  },
+  stopReasoning(payload) {
+    invariant(typeof payload === "undefined", "stopReasoning payload must be undefined");
   },
 };
 

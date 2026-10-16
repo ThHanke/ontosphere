@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="--background: #1f2023; --text-color: #FFFFFF; color-scheme: dark;">
+<html lang="en" style="--background: #1f2023; --text-color: #FFFFFF; color-scheme: dark;" id="html-root">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -147,6 +147,7 @@
   <button class="scenario" id="mode-fhgenie" style="border-color:#58a6ff;color:#58a6ff;">FhGenie (textarea)</button>
   <button class="scenario" id="mode-openwebui">Open WebUI (contenteditable)</button>
   <button class="scenario" id="mode-chatgpt">ChatGPT (ProseMirror)</button>
+  <button class="scenario" id="mode-claudeai">Claude.ai (TipTap)</button>
   <span style="margin-left:8px;">Inject scenario:</span>
   <button class="scenario" data-scenario="single">Single addNode</button>
   <button class="scenario" data-scenario="batch">Batch (3 nodes)</button>
@@ -178,7 +179,18 @@
       <p><br></p>
     </div>
   </div>
+  <!-- Claude.ai-style: TipTap contenteditable + separate send/stop buttons (hidden by default) -->
+  <div id="claudeai-input-wrap" style="display:none;flex:1;position:relative;">
+    <div id="claudeai-input" contenteditable="true" role="textbox" aria-multiline="true"
+         class="ProseMirror"
+         style="background:#2d2d2d;border:1px solid #444;border-radius:12px;color:#f0f0f0;font-size:14px;padding:10px 14px;min-height:44px;max-height:200px;overflow:auto;">
+      <p><br></p>
+    </div>
+  </div>
   <button id="send-btn" type="submit" aria-label="send" data-composer-submit>Send</button>
+  <!-- Claude.ai stop button — replaces send-btn during streaming in claude mode -->
+  <button id="claude-send-btn" aria-label="Send message" style="display:none;background:#cc785c;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;padding:8px 14px;">Send</button>
+  <button id="claude-stop-btn" aria-label="Stop generation" disabled style="display:none;background:#555;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:13px;padding:8px 14px;">■ Stop</button>
 </div>
 
 <div id="status-bar">Ready. Load the bookmarklet, then click a scenario above.</div>
@@ -221,6 +233,13 @@ function lockInput() {
     btn.setAttribute('data-stop-generating', '');
     btn.setAttribute('aria-busy', 'true');
   }
+  // Claude.ai mode: hide send button, show + enable stop button
+  if (currentMode === 'claudeai') {
+    document.getElementById('claude-send-btn').style.display = 'none';
+    var cs = document.getElementById('claude-stop-btn');
+    cs.style.display = '';
+    cs.disabled = false;
+  }
   var ta = document.getElementById('user-input');
   if (ta.style.display !== 'none') ta.disabled = true;
   var ce = document.getElementById('owui-input');
@@ -233,6 +252,11 @@ function unlockInput() {
   btn.disabled = false;
   btn.removeAttribute('data-stop-generating');
   btn.removeAttribute('aria-busy');
+  // Claude.ai mode: restore send button, hide + disable stop button
+  document.getElementById('claude-send-btn').style.display = (currentMode === 'claudeai') ? '' : 'none';
+  var csStop = document.getElementById('claude-stop-btn');
+  csStop.style.display = 'none';
+  csStop.disabled = true;
   var ta = document.getElementById('user-input');
   ta.disabled = false;
   document.getElementById('owui-input').removeAttribute('aria-disabled');
@@ -299,7 +323,22 @@ function setMode(mode) {
   document.getElementById('user-input').style.display = mode === 'fhgenie' ? '' : 'none';
   document.getElementById('owui-input').style.display = mode === 'openwebui' ? '' : 'none';
   document.getElementById('gpt-input-wrap').style.display = mode === 'chatgpt' ? '' : 'none';
-  ['mode-fhgenie','mode-openwebui','mode-chatgpt'].forEach(function(id) {
+  document.getElementById('claudeai-input-wrap').style.display = mode === 'claudeai' ? '' : 'none';
+  // Claude.ai: toggle data-theme on <html> and show/hide the Claude-specific send/stop buttons
+  if (mode === 'claudeai') {
+    document.getElementById('html-root').setAttribute('data-theme', 'claude');
+    document.getElementById('send-btn').style.display = 'none';
+    document.getElementById('claude-send-btn').style.display = '';
+    var cStop = document.getElementById('claude-stop-btn');
+    cStop.style.display = 'none';
+    cStop.disabled = true;
+  } else {
+    document.getElementById('html-root').removeAttribute('data-theme');
+    document.getElementById('send-btn').style.display = '';
+    document.getElementById('claude-send-btn').style.display = 'none';
+    document.getElementById('claude-stop-btn').style.display = 'none';
+  }
+  ['mode-fhgenie','mode-openwebui','mode-chatgpt','mode-claudeai'].forEach(function(id) {
     var el = document.getElementById(id);
     el.style.borderColor = '';
     el.style.color = '';
@@ -313,6 +352,7 @@ function setMode(mode) {
 document.getElementById('mode-fhgenie').addEventListener('click', function() { setMode('fhgenie'); });
 document.getElementById('mode-openwebui').addEventListener('click', function() { setMode('openwebui'); });
 document.getElementById('mode-chatgpt').addEventListener('click', function() { setMode('chatgpt'); });
+document.getElementById('mode-claudeai').addEventListener('click', function() { setMode('claudeai'); });
 
 document.querySelectorAll('button.scenario').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -351,6 +391,15 @@ document.getElementById('send-btn').addEventListener('click', function() {
     gpt.innerHTML = '<p><br></p>';
   }
 });
+
+// Claude.ai mode: send button
+document.getElementById('claude-send-btn').addEventListener('click', function() {
+  var el = document.getElementById('claudeai-input');
+  var v = (el.innerText || '').trim();
+  if (!v) return;
+  addMessage('user', v);
+  el.innerHTML = '<p><br></p>';
+});
 document.getElementById('user-input').addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('send-btn').click(); }
 });
@@ -360,28 +409,32 @@ document.getElementById('owui-input').addEventListener('keydown', function(e) {
 document.getElementById('gpt-input').addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('send-btn').click(); }
 });
+document.getElementById('claudeai-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('claude-send-btn').click(); }
+});
 
-// ── ChatGPT ProseMirror synthetic input handling ──────────────────────────
+// ── ChatGPT / Claude.ai ProseMirror synthetic input handling ─────────────
 // Real ProseMirror handles beforeinput internally. For synthetic (non-trusted)
 // events the browser won't apply the default action, so insert text explicitly.
-document.getElementById('gpt-input').addEventListener('beforeinput', function (e) {
-  if (e.isTrusted) return;
-  var text = null;
-  if (e.inputType === 'insertText' && e.data) {
-    text = e.data;
-  } else if (e.inputType === 'insertFromPaste' && e.dataTransfer) {
-    text = e.dataTransfer.getData('text/plain');
-  }
-  if (!text) return;
-  e.preventDefault();
-  var el = document.getElementById('gpt-input');
-  // Replace content (mirrors real ProseMirror selectAll+insertText behaviour).
-  el.textContent = text;
-  el.dispatchEvent(new Event('input', { bubbles: true }));
-});
-document.getElementById('gpt-input').addEventListener('paste', function (e) {
-  if (!e.isTrusted) return;
-  // Real paste: browser handles clipboardData
+['gpt-input', 'claudeai-input'].forEach(function(id) {
+  document.getElementById(id).addEventListener('beforeinput', function (e) {
+    if (e.isTrusted) return;
+    var text = null;
+    if (e.inputType === 'insertText' && e.data) {
+      text = e.data;
+    } else if (e.inputType === 'insertFromPaste' && e.dataTransfer) {
+      text = e.dataTransfer.getData('text/plain');
+    }
+    if (!text) return;
+    e.preventDefault();
+    var el = document.getElementById(id);
+    // Replace content (mirrors real ProseMirror selectAll+insertText behaviour).
+    el.textContent = text;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  document.getElementById(id).addEventListener('paste', function (e) {
+    if (!e.isTrusted) return;
+  });
 });
 
 // ── OpenWebUI TipTap paste — simulates real TipTap + Svelte reactive binding ──

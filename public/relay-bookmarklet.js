@@ -395,11 +395,14 @@
   var pendingTool        = null;
   var pendingMcpId       = null;
   var pendingRequestId   = null;
+  var pendingSig         = null;
+  var pendingDispatchTime = 0;
   var callTimeoutTimer   = null;
   var batchTimeoutTimer  = null;
   var knownSessionId     = null;
   var lateResult         = null;
   var CALL_TIMEOUT_MS    = 30000;
+  var CALL_HARD_MAX_MS   = 90000; // absolute max regardless of Ontosphere pings
   var BATCH_TIMEOUT_MS   = 180000; // 3 min — reasoning / tests can be slow
 
   function startBatchTimeout() {
@@ -408,8 +411,10 @@
       if (batchResults.length === 0 && !isProcessing) return; // nothing to flush
       // Flush whatever results arrived before the timeout
       clearTimeout(callTimeoutTimer);
+      if (pendingSig) { dispatchedSigs.delete(pendingSig); pendingSig = null; }
+      callQueue.forEach(function (item) { if (item.sig) dispatchedSigs.delete(item.sig); });
       callQueue = []; isProcessing = false;
-      pendingTool = null; pendingMcpId = null; pendingRequestId = null;
+      pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingDispatchTime = 0;
       var results = batchResults.slice(); batchResults = [];
       var missing = batchTotal - results.length;
       batchTotal = 0;
@@ -436,6 +441,11 @@
 
   function resetCallTimeout() {
     clearTimeout(callTimeoutTimer);
+    if (!isProcessing) return;
+    // Clamp delay so the hard max is respected regardless of how many pings arrive.
+    var elapsed = pendingDispatchTime > 0 ? Date.now() - pendingDispatchTime : 0;
+    var remaining = Math.max(5000, CALL_HARD_MAX_MS - elapsed);
+    var delay = Math.min(CALL_TIMEOUT_MS, remaining);
     callTimeoutTimer = setTimeout(function () {
       if (!isProcessing) return;
       var timedOutTool      = pendingTool    || '?';
@@ -449,6 +459,10 @@
       stopBatchTimeout();
       var results = batchResults.slice(); batchResults = [];
       batchTotal = 0;
+      // Un-mark the timed-out call and any still-queued calls so idlePoll can
+      // re-extract them from the page after the AI retries.
+      if (pendingSig) { dispatchedSigs.delete(pendingSig); pendingSig = null; }
+      callQueue.forEach(function (item) { if (item.sig) dispatchedSigs.delete(item.sig); });
       callQueue = [];
       var resp = JSON.stringify({
         jsonrpc: '2.0', id: timedOutId != null ? timedOutId : null,
@@ -466,7 +480,7 @@
       if (lastSumT) { timeoutLines.push(''); timeoutLines.push(lastSumT); }
       injectResult(timeoutLines.join('\n'));
       showToast('⏱ ' + timedOutTool + ' timed out', false);
-    }, CALL_TIMEOUT_MS);
+    }, delay);
   }
 
   /* ── Result listener (popup → chat tab) ───────────────────────────────── */
@@ -483,12 +497,16 @@
         if (knownSessionId && knownSessionId !== data.sessionId) {
           showToast('Ontosphere reloaded — graph data was lost', false);
           clearTimeout(callTimeoutTimer);
-          isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null;
+          isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingSig = null; pendingDispatchTime = 0;
           batchResults = []; callQueue = []; lateResult = null;
         }
         knownSessionId = data.sessionId;
+        // Only extend the per-call deadline when Ontosphere itself is alive.
+        // The relay popup's own 10 s heartbeat (no sessionId) must NOT reset
+        // this — otherwise a non-responding app never times out and isProcessing
+        // stays true forever, blocking idlePoll from picking up new calls.
+        resetCallTimeout();
       }
-      resetCallTimeout();
       return;
     }
 
@@ -513,7 +531,7 @@
     lateResult = null;
     var ok = !!(data.result && data.result.success !== false);
     batchResults.push({ tool: pendingTool || '?', mcpId: pendingMcpId, ok: ok, result: data.result, summary: data.summary });
-    isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null;
+    isProcessing = false; pendingTool = null; pendingMcpId = null; pendingRequestId = null; pendingSig = null; pendingDispatchTime = 0;
 
     if (callQueue.length > 0) {
       processNextInQueue();
@@ -591,7 +609,7 @@
           }
         }
       }
-      if (!complete) break;
+      if (!complete) { i = start + 1; continue; } // malformed { shifts quote phase → restart
     }
     return objects;
   }
@@ -614,9 +632,24 @@
       }
       var mcpId = req.id != null ? req.id : null;
       var sig = tool + ':' + JSON.stringify(params) + ':' + mcpId;
-      if (!seen.has(sig)) { seen.add(sig); calls.push({ tool: tool, params: params, mcpId: mcpId }); }
+      if (!seen.has(sig)) { seen.add(sig); calls.push({ tool: tool, params: params, mcpId: mcpId, sig: sig }); }
+      else { calls.push({ isDup: true, sig: sig }); }
     }
     return calls;
+  }
+
+  function filterNew(rawCalls) {
+    return rawCalls.filter(function (c) { return c && !c.isDup; });
+  }
+
+  // Returns sigs that are duplicates AND have not been notified before.
+  function newDupSigs(rawCalls, notified) {
+    var fresh = [];
+    for (var i = 0; i < rawCalls.length; i++) {
+      var c = rawCalls[i];
+      if (c && c.isDup && !notified.has(c.sig)) { notified.add(c.sig); fresh.push(c.sig); }
+    }
+    return fresh;
   }
 
   /* ── Streaming-idle detection ──────────────────────────────────────────── */
@@ -746,11 +779,15 @@
     if (!popup || popup.closed) popup = openPopup();
     if (!popup) {
       showToast('Relay popup could not open', false);
-      isProcessing = false; callQueue = []; batchResults = [];
+      if (item.sig) dispatchedSigs.delete(item.sig);
+      callQueue.forEach(function (q) { if (q.sig) dispatchedSigs.delete(q.sig); });
+      isProcessing = false; pendingSig = null; pendingDispatchTime = 0; callQueue = []; batchResults = [];
       return;
     }
     pendingTool = item.tool;
     pendingMcpId = item.mcpId != null ? item.mcpId : null;
+    pendingSig = item.sig || null;
+    pendingDispatchTime = Date.now();
     lateResult = null;
     var requestId = 'rq-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
     pendingRequestId = requestId;
@@ -766,23 +803,35 @@
   // before we extract any of them — prevents splitting a batch mid-stream.
   var idlePollTimer = null;
 
+  var notifiedDupSigs = new Set();
+
   function idlePoll() {
     if (window.__vgRelayInstanceId !== instanceId) return; // stale instance
     if (!isProcessing && callQueue.length === 0 && !isAiStreaming() && !injectInProgress) {
       var text = document.body.innerText || document.body.textContent || '';
-      var calls = extractAllToolCalls(text, dispatchedSigs);
-      if (calls.length > 0) {
-        callQueue = callQueue.concat(calls);
+      var rawCalls = extractAllToolCalls(text, dispatchedSigs);
+      var newCalls = filterNew(rawCalls);
+      var freshDups = newDupSigs(rawCalls, notifiedDupSigs);
+      if (newCalls.length > 0) {
+        callQueue = callQueue.concat(newCalls);
         batchTotal = callQueue.length;
         startBatchTimeout();
         processNextInQueue();
+      } else if (freshDups.length > 0) {
+        // AI retried an already-dispatched call — warn once per unique sig
+        showToast('⚠ ' + freshDups.length + ' duplicate tool call' + (freshDups.length > 1 ? 's' : '') + ' ignored — AI retried same call(s). Ask it to use different params or IDs.', false);
       }
     }
     idlePollTimer = setTimeout(idlePoll, 500);
   }
 
-  // Pre-seed: mark all calls currently visible on the page as already dispatched.
-  extractAllToolCalls(document.body.innerText || document.body.textContent || '', dispatchedSigs);
+  // Pre-seed: mark all calls currently visible on the page as already dispatched
+  // AND already notified, so history calls never trigger the duplicate toast.
+  // extractAllToolCalls adds their sigs to dispatchedSigs; we also add them to
+  // notifiedDupSigs here, because at this point dispatchedSigs was empty so
+  // _preSeed contains real call objects (no isDup flag yet).
+  var _preSeed = extractAllToolCalls(document.body.innerText || document.body.textContent || '', dispatchedSigs);
+  _preSeed.forEach(function (c) { if (c && c.sig) notifiedDupSigs.add(c.sig); });
 
   idlePoll();
   window.__vgRelayObserver = { disconnect: function () { clearTimeout(idlePollTimer); idlePollTimer = null; } };

@@ -785,6 +785,10 @@ export class RDFManagerImpl {
     };
   }
 
+  async stopReasoning(): Promise<void> {
+    await this.worker.stopReasoning();
+  }
+
   async runShaclValidation(): Promise<{ conforms: boolean; violations: ShaclViolation[]; shapeCount: number }> {
     const response = await this.worker.call("runShaclValidation", undefined);
     const safe = isPlainObject(response) ? response : {};

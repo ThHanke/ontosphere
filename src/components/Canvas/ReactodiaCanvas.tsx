@@ -801,7 +801,9 @@ export default function ReactodiaCanvas() {
 
   // Subscribe to rdfManager changes — incremental sync to live model
   React.useEffect(() => {
-    const handler = (subjects: string[], quads?: WorkerQuad[], _snapshot?: unknown, meta?: Record<string, unknown> | null) => {
+    const handler = (emittedSubjects: string[], emittedQuads?: WorkerQuad[], _snapshot?: unknown, meta?: Record<string, unknown> | null) => {
+      let subjects = emittedSubjects;
+      let quads = emittedQuads;
       console.debug("[VG_LAYOUT] subjects received", subjects, meta);
       if (metadataProvider.suppressSync) return;
 
@@ -817,8 +819,20 @@ export default function ReactodiaCanvas() {
 
       // When an ontology is unloaded, remove its subjects from the data provider's
       // inner dataset so knownElementTypes and lookupAll no longer return stale classes.
-      if (meta?.reason === 'unloadOntologySubjects' && Array.isArray(meta.removedSubjects)) {
-        dataProvider.removeSubjects(meta.removedSubjects as string[]);
+      // The emission also lists the unloaded subjects themselves: they must neither be re-added
+      // as new canvas elements nor re-fed to the provider. What remains is a refresh of surviving subjects.
+      const isUnload = meta?.reason === 'unloadOntologySubjects';
+      if (isUnload && Array.isArray(meta?.removedSubjects)) {
+        const removedSet = new Set(meta.removedSubjects as string[]);
+        dataProvider.removeSubjects([...removedSet]);
+        removedSet.forEach(s => knownSubjects.delete(s));
+        if (model) {
+          for (const el of [...model.elements]) {
+            if (el instanceof Reactodia.EntityElement && removedSet.has(el.data.id)) model.removeElement(el.id);
+          }
+        }
+        subjects = subjects.filter(s => !removedSet.has(s));
+        quads = quads?.filter(q => !removedSet.has(q.subject.value));
       }
 
       // When a namespace URI is renamed, remove stale canvas elements whose IRIs
@@ -890,7 +904,7 @@ export default function ReactodiaCanvas() {
       // Filter by current view mode now that quads (and their rdf:type triples) are in the provider.
       // Inferred graph subjects only decorate existing elements — don't create new canvas nodes
       // (OWL-RL inference touches vocabulary terms like owl:Thing that shouldn't appear on canvas).
-      const addedFiltered = isInferredGraph ? [] : dataProvider.filterByViewMode(added);
+      const addedFiltered = isInferredGraph || isUnload ? [] : dataProvider.filterByViewMode(added);
 
       // Read autoApplyLayout without subscribing — we only need the value at call time
       const autoApplyLayout = (useAppConfigStore as any).getState().config.autoApplyLayout as boolean;
@@ -1629,6 +1643,10 @@ export default function ReactodiaCanvas() {
     });
   }, []);
 
+  const handleStopReasoning = React.useCallback(() => {
+    void rdfManager.stopReasoning();
+  }, []);
+
   React.useEffect(() => {
     registerReasoningCallback(handleRunReasoning);
   }, [handleRunReasoning]);
@@ -2118,6 +2136,7 @@ export default function ReactodiaCanvas() {
                       onOpenReasoningReport={() => actions.toggleReasoningReport(true)}
                       onToggleOntologyList={() => { setOntologyListOpen(v => !v); setLayoutPanelOpen(false); }}
                       onRunReason={handleRunReasoning}
+                      onStopReason={handleStopReasoning}
                       onClearInferred={handleClearInferred}
                       currentReasoning={currentReasoning}
                       isReasoning={isReasoning}

@@ -313,8 +313,12 @@ function getDlReasoner(): DlReasonerLike {
   return _dlReasoner;
 }
 
+// Explanations are keyed on the reasoning input they were computed from; the runtime clears the
+// cache when reasoningInputGeneration moves on.
 const _entailmentCache = new Map<string, unknown>();
+let _entailmentCacheGeneration = -1;
 
+/** Terminates the reasoner Worker (rejecting in-flight calls); the next call starts a fresh one. */
 function resetDlReasoner(): void {
   if (_dlReasoner) {
     _dlReasoner.terminate();
@@ -1017,6 +1021,18 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       console.error("[rdfManager.worker] isBlacklistedIri failed", err);
     }
     return false;
+  }
+
+  /**
+   * Inferences were derived from axioms that are now gone, so they are dropped with them.
+   * Adds the subjects of the dropped quads to `touched`, so the emission refreshes them.
+   */
+  function dropInferredGraph(store: any, DataFactory: any, touched: Set<string>): number {
+    const stale = store.getQuads(null, null, null, DataFactory.namedNode(INFERRED_GRAPH)) || [];
+    if (stale.length === 0) return 0;
+    store.removeQuads(stale);
+    for (const q of stale) touched.add(subjectTermToString(q.subject));
+    return stale.length;
   }
 
   function prepareSubjectEmissionFromSet(
@@ -1804,6 +1820,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               console.error("[rdfManager.worker] syncRemoveGraph remove failed", err);
             }
           }
+          if (removed > 0 && !NON_AXIOM_GRAPHS.has(graphName)) {
+            dropInferredGraph(store, DataFactory, touchedSubjects);
+          }
           if (removed > 0) {
             const emission = prepareSubjectEmissionFromSet(
               touchedSubjects,
@@ -1820,7 +1839,6 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               );
             }
           }
-          if (removed > 0) void withReasoner(async () => resetDlReasoner());
           result = { graphName, removed };
           break;
         }
@@ -2189,12 +2207,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             }
           }
 
+          if (removedSubjects.length > 0) dropInferredGraph(store, DataFactory, touchedForEmit);
           if (touchedForEmit.size > 0) {
             const emission = prepareSubjectEmissionFromSet(touchedForEmit, store, DataFactory);
             emitChange({ reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removed: removedSubjects.length });
             emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removedSubjects });
           }
-          if (removedSubjects.length > 0) void withReasoner(async () => resetDlReasoner());
           result = { removed: removedSubjects.length, removedSubjects };
           break;
         }
@@ -2997,7 +3015,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             result = { type: "construct", triples };
           } else if (queryResult.resultType === "void") {
             await queryResult.execute();
-            // Trigger the normal subject-emission pipeline so the canvas refreshes
+            // Trigger the normal subject-emission pipeline so the canvas refreshes.
+            // Always emit — even with an empty subjects list so a complete DELETE
+            // causes the canvas to remove all nodes (no length > 0 guard here).
             const { DataFactory } = resolveN3();
             if (DataFactory) {
               const graphTerm = createGraphTerm("urn:vg:data", DataFactory);
@@ -3007,9 +3027,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                 try { const s = subjectTermToString(q.subject); if (s && !isBlacklistedIri(s)) subjectSet.add(s); } catch (_) { /* ignore */ }
               }
               const emission = prepareSubjectEmissionFromSet(subjectSet, store, DataFactory);
-              if (emission.subjects.length > 0) {
-                emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "sparqlUpdate" });
-              }
+              emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "sparqlUpdate" });
             }
             result = { type: "update" };
           } else if (queryResult.resultType === "boolean") {
@@ -3053,6 +3071,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             ruleQuadCount: outcome.ruleQuadCount,
             isConsistent: outcome.isConsistent,
           };
+          break;
+        }
+        case "stopReasoning": {
+          resetDlReasoner();
+          result = true;
           break;
         }
         case "runShaclValidation": {
@@ -3217,6 +3240,10 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             objectIri: "",
           }) as RDFWorkerCommandPayloads["explainEntailment"];
           const n = typeof p.maxJustifications === "number" ? p.maxJustifications : 1;
+          if (_entailmentCacheGeneration !== reasoningInputGeneration) {
+            _entailmentCache.clear();
+            _entailmentCacheGeneration = reasoningInputGeneration;
+          }
           const cacheKey = `${p.subjectIri}\0${p.predicateIri}\0${p.objectIri}\0${p.objectIsLiteral}\0${n}`;
           const cached = _entailmentCache.get(cacheKey);
           if (cached) {
@@ -3327,10 +3354,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (!sabAvailable) {
           throw new Error("SharedArrayBuffer unavailable — page needs HTTPS + COOP/COEP headers (or localhost). Use reasonerBackend='n3' as fallback.");
         }
-        // The package releases a knowledge base only through terminate(), and each run
-        // loads a new one into WASM memory, so every run starts from a fresh reasoner.
-        // Runs are queued (withReasoner), so no other reasoner call is in flight here.
-        resetDlReasoner();
+        // One reasoner serves every run: the package digests the store content on each call,
+        // rebuilds only when it changed, and recycles its own Worker when the WASM heap grows.
         const konclude = getDlReasoner();
         await konclude.ready;
         const kQuadCount = kStore.size ?? kStore.countQuads?.(null,null,null,null) ?? 0;
