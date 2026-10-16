@@ -1023,6 +1023,18 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     return false;
   }
 
+  /**
+   * Inferences were derived from axioms that are now gone, so they are dropped with them.
+   * Adds the subjects of the dropped quads to `touched`, so the emission refreshes them.
+   */
+  function dropInferredGraph(store: any, DataFactory: any, touched: Set<string>): number {
+    const stale = store.getQuads(null, null, null, DataFactory.namedNode(INFERRED_GRAPH)) || [];
+    if (stale.length === 0) return 0;
+    store.removeQuads(stale);
+    for (const q of stale) touched.add(subjectTermToString(q.subject));
+    return stale.length;
+  }
+
   function prepareSubjectEmissionFromSet(
     subjectSet: Set<string>,
     store: any,
@@ -1808,6 +1820,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               console.error("[rdfManager.worker] syncRemoveGraph remove failed", err);
             }
           }
+          if (removed > 0 && !NON_AXIOM_GRAPHS.has(graphName)) {
+            dropInferredGraph(store, DataFactory, touchedSubjects);
+          }
           if (removed > 0) {
             const emission = prepareSubjectEmissionFromSet(
               touchedSubjects,
@@ -2192,6 +2207,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             }
           }
 
+          if (removedSubjects.length > 0) dropInferredGraph(store, DataFactory, touchedForEmit);
           if (touchedForEmit.size > 0) {
             const emission = prepareSubjectEmissionFromSet(touchedForEmit, store, DataFactory);
             emitChange({ reason: "unloadOntologySubjects", ontologyUrl: unloadUrl, removed: removedSubjects.length });
