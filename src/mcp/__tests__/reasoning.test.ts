@@ -48,7 +48,7 @@ vi.mock('@/stores/appConfigStore', () => ({
 
 vi.mock('@/utils/rdfManager', () => ({
   rdfManager: {
-    getNamespaces: (...a: unknown[]) => mockGetNamespaces(...a),
+    getNamespaces: () => mockGetNamespaces(),
     explainEntailment: mockExplainEntailment,
     validate: mockValidate,
     fetchQuadsPage: mockFetchQuadsPage,
