@@ -34,7 +34,7 @@ test('feat-loading: URL param, unresolved labels, ontology autocomplete, widget'
 
   await page.goto(`${BASE_URL}?url=${encodeURIComponent(DATA_URL)}`);
   await page.waitForFunction(
-    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
+    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function' && ((window as any).__startupComplete?.() ?? true),
     { timeout: 20_000 },
   );
 

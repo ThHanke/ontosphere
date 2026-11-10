@@ -65,6 +65,9 @@ export async function waitFor(url, ms = 120000) {
 
 export async function callTool(page, name, params = {}) {
   return page.evaluate(async ([n, p]) => {
+    // Tool calls are rejected until startup loading is complete (window.__startupComplete()).
+    const until = Date.now() + 120000;
+    while (window.__startupComplete && !window.__startupComplete() && Date.now() < until) await new Promise(r => setTimeout(r, 250));
     const tool = window.__mcpTools?.[n];
     if (!tool) return { success: false, error: `Tool not registered: ${n}` };
     try { return await tool(p); } catch (e) { return { success: false, error: String(e) }; }

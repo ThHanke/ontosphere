@@ -43,7 +43,7 @@ async function openOntosphereApp(context: BrowserContext): Promise<Page> {
   const appPage = await context.newPage();
   await appPage.goto(DEV_URL);
   await appPage.waitForFunction(
-    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
+    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function' && ((window as any).__startupComplete?.() ?? true),
     { timeout: 20_000 },
   );
   return appPage;

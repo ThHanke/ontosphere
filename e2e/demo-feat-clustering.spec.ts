@@ -25,7 +25,7 @@ test('feat-clustering: pagination, algorithm selection, view-specific levels', a
   // Load via URL parameter — triggers full app init with auto L0→L1
   await page.goto(`${BASE_URL}/?rdfUrl=${encodeURIComponent(`${BASE_URL}/reasoning-demo.ttl`)}`);
   await page.waitForFunction(
-    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
+    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function' && ((window as any).__startupComplete?.() ?? true),
     { timeout: 20_000 },
   );
 

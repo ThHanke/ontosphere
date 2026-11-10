@@ -335,7 +335,7 @@ test('openwebui-socratic: Socratic pizza ontology — live qwen3:4b via OWUI rel
     const appAuthPage = await context.newPage();
     const appUrl = `${VG_URL}/?ontologies=${encodeURIComponent('owl,rdf,rdfs')}`;
     await appAuthPage.goto(appUrl);
-    await appAuthPage.waitForFunction(() => !!(window as any).__mcpTools?.addNode, { timeout: 30_000 });
+    await appAuthPage.waitForFunction(() => !!(window as any).__mcpTools?.addNode && ((window as any).__startupComplete?.() ?? true), { timeout: 30_000 });
     await appAuthPage.evaluate(() => {
       localStorage.setItem('ontology-painter-config', JSON.stringify({
         config: { autoApplyLayout: true, workflowCatalogEnabled: false },
@@ -362,7 +362,7 @@ test('openwebui-socratic: Socratic pizza ontology — live qwen3:4b via OWUI rel
       window.open(url, 'ontosphere', 'left=960,top=0,width=960,height=1080,popup=yes');
     }, appUrl);
     const appPage = await appPagePromise;
-    await appPage.waitForFunction(() => !!(window as any).__mcpTools?.addNode, { timeout: 30_000 });
+    await appPage.waitForFunction(() => !!(window as any).__mcpTools?.addNode && ((window as any).__startupComplete?.() ?? true), { timeout: 30_000 });
     demoLog('step 2: Ontosphere popup loaded');
 
     // Ensure Ontosphere window is positioned at right half.

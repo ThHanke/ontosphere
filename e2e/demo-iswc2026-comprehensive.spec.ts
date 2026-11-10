@@ -36,7 +36,7 @@ test('iswc2026-comprehensive', async ({ page }) => {
 
   await page.goto(`${BASE_URL}?url=${encodeURIComponent(DATA_URL)}`);
   await page.waitForFunction(
-    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
+    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function' && ((window as any).__startupComplete?.() ?? true),
     { timeout: 30_000 },
   );
   await runner.verifyState(
