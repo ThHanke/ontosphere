@@ -15,12 +15,16 @@ import type { Page } from '@playwright/test';
  *  2. `window.crossOriginIsolated === true`
  *  3. `window.__mcpTools` is registered and the requested tool exists
  *
+ * 4. startup loading is complete (MCP calls are rejected until then), unless
+ *    `waitForStartup` is false — for tests that exercise the rejection itself.
+ *
  * Call this instead of bare `page.goto()` + `waitForReady()`.
  */
 export async function gotoAndWaitForReady(
   page: Page,
   url: string,
   requiredTool = 'addNode',
+  waitForStartup = true,
 ): Promise<void> {
   // The COI service worker may reload the page during the initial
   // navigation, causing "interrupted by another navigation". Retry once
@@ -50,11 +54,12 @@ export async function gotoAndWaitForReady(
 
   // Now wait for the app to be fully ready on the (possibly reloaded) page.
   await page.waitForFunction(
-    (tool: string) =>
+    ({ tool, startup }: { tool: string; startup: boolean }) =>
       window.crossOriginIsolated === true &&
       !!(window as any).__mcpTools &&
-      typeof (window as any).__mcpTools[tool] === 'function',
-    requiredTool,
+      typeof (window as any).__mcpTools[tool] === 'function' &&
+      (!startup || (window as any).__startupComplete?.() === true),
+    { tool: requiredTool, startup: waitForStartup },
     { timeout: 30_000 },
   );
 }

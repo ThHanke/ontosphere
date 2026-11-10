@@ -28,7 +28,8 @@ import { generateEntityIri } from '@/utils/iriUtils';
 import ResizableNamespaceLegend from './ResizableNamespaceLegend';
 import { TrackpadZoomDampener } from './TrackpadZoomDampener';
 import { useAppConfigStore } from '@/stores/appConfigStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { markStartupComplete } from '@/utils/startupReady';
+import { useSettingsStore, DEFAULT_SHACL_SHAPES_URL } from '@/stores/settingsStore';
 import { useShaclResultStore } from '@/stores/shaclResultStore';
 import { getLayoutFunction } from './layout/getLayoutFunction';
 import { runSilentLayout, type SilentLayoutEdge } from './layout/silentLayout';
@@ -1265,7 +1266,7 @@ export default function ReactodiaCanvas() {
       }
 
       // Load SHACL shapes: ?shaclShapes= param takes priority, otherwise use settings
-      const shaclUrl = shaclShapesParam || useSettingsStore.getState().settings.shaclShapesUrl;
+      const shaclUrl = shaclShapesParam || useSettingsStore.getState().settings.shaclShapesUrl.trim() || DEFAULT_SHACL_SHAPES_URL;
       if (shaclUrl) {
         try {
           const { loadShaclShapes } = await import('../../utils/shaclShapeLoader');
@@ -1294,7 +1295,7 @@ export default function ReactodiaCanvas() {
       } else {
         useShaclResultStore.getState().setShaclShapesLoaded(false);
       }
-    })();
+    })().finally(markStartupComplete);
   }, [loadKnowledgeGraph, loadAdditionalOntologies, actions]);
 
   // Intercept Ctrl+F / Cmd+F (and browser equivalents) to open the unified search widget

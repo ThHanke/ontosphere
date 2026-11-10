@@ -44,12 +44,16 @@ interface SettingsStore {
 const SETTINGS_STORAGE_KEY = "ontology-painter-settings";
 const SETTINGS_VERSION = 3;
 
+/** Shapes applied at startup only when neither ?shaclShapes= nor the configured URL names any. */
+export const DEFAULT_SHACL_SHAPES_URL = "shacl-shapes/ontology-quality.shacl.ttl";
+
 const defaultSettings: Settings = {
   ontologies: [
     { url: "http://xmlns.com/foaf/0.1/", name: "FOAF", enabled: true },
     { url: "https://www.w3.org/TR/vocab-org/", name: "Organization", enabled: true },
   ],
-  shaclShapesUrl: "shacl-shapes/ontology-quality.shacl.ttl",
+  // Empty: the built-in ontology-quality shapes apply (see DEFAULT_SHACL_SHAPES_URL).
+  shaclShapesUrl: "",
   autoReasoning: false,
   layoutAlgorithm: "horizontal",
   enableValidation: true,

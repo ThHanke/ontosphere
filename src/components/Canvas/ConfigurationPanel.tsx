@@ -579,7 +579,7 @@ export const ConfigurationPanel = ({
                 <div className="space-y-2">
                   <Label>Shapes URL</Label>
                   <p className="text-xs text-muted-foreground">
-                    Direct .ttl URL, GitHub folder URL, or comma-separated list. Clear to disable auto-loading.
+                    Direct .ttl URL, GitHub folder URL, or comma-separated list. Leave empty to use the built-in ontology-quality shapes. A ?shaclShapes= URL parameter overrides this.
                   </p>
                   <div className="flex gap-2">
                     <Input
