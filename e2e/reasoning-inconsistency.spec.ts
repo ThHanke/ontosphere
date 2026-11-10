@@ -111,3 +111,59 @@ test('Consistent sanity: reasoning-demo.ttl → isConsistent=true, errors=0, inf
   // count), mirroring the "Inconsistent" label asserted in the error-status test.
   expect(text).toMatch(/Consistent/i);
 });
+
+test('Diagnose, repair, apply, re-check: explainDiagnostics -> removeLink -> consistent', async ({ page }) => {
+  test.setTimeout(120_000);
+  const NS = 'http://example.com/reasoning-demo-inconsistent#';
+  const TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
+  await gotoAndWaitForReady(page, BASE_URL, 'loadRdf');
+  const turtle = fs.readFileSync(path.resolve('public/reasoning-demo-inconsistent.ttl'), 'utf-8');
+  await callTool(page, 'loadRdf', { turtle }, BASE_URL);
+
+  // 1. Diagnose: one clash on frank, one verified repair, no classification of an inconsistent ontology.
+  const diag = await callTool(page, 'explainDiagnostics', { includeTimings: true }, BASE_URL) as any;
+  expect(diag?.success, JSON.stringify(diag)).toBe(true);
+  expect(diag.data.isConsistent).toBe(false);
+  expect(diag.data.justifications).toHaveLength(1);
+  const clash = diag.data.justifications[0].map((q: any) => `${q.subject} ${q.predicate} ${q.object}`);
+  expect(clash).toEqual(expect.arrayContaining([`${NS}frank ${TYPE} ${NS}Employee`, `${NS}frank ${TYPE} ${NS}Contractor`]));
+  expect(diag.data.unsatisfiableClassesSkipped).toBe('ontology-inconsistent');
+  expect(diag.data.repairSetVerifiedConsistent).toBe(true);
+  expect(diag.data.timingsMs.reasonerCalls.map((c: any) => c.call)).toContain('repair');
+
+  // 2. The suggested deletion repair removes one of the clashing type assertions.
+  const repair = diag.data.suggestedRepairs.find((r: any) => r.issue === 'inconsistency' && r.kind !== 'weaken');
+  expect(repair?.action?.tool).toBe('removeLink');
+  expect(repair.verifiedConsistent).toBe(true);
+  expect(repair.action.args.subjectIri).toBe(`${NS}frank`);
+
+  // 3. Apply it through its own action, then reason again.
+  const applied = await callTool(page, repair.action.tool, repair.action.args, BASE_URL) as any;
+  expect(applied?.success, JSON.stringify(applied)).toBe(true);
+  const run = await callTool(page, 'runReasoning', {}, BASE_URL) as any;
+  expect(run.data.isConsistent).toBe(true);
+  expect(run.data.inferredTriples).toBeGreaterThan(0);
+
+  // 4. Diagnostics agree: consistent, no justifications, unsatisfiable classes computed again.
+  const after = await callTool(page, 'explainDiagnostics', {}, BASE_URL) as any;
+  expect(after.data.isConsistent).toBe(true);
+  expect(after.data.justifications).toHaveLength(0);
+  expect(after.data).not.toHaveProperty('unsatisfiableClassesSkipped');
+
+  // 5. explainEntailment (full IRIs): the kept assertion is entailed, the removed one is not.
+  const kept = await callTool(page, 'explainEntailment', { subjectIri: `${NS}frank`, predicateIri: TYPE, objectIri: `${NS}Employee` }, BASE_URL) as any;
+  expect(kept.data.isEntailed).toBe(true);
+  const gone = await callTool(page, 'explainEntailment', { subjectIri: `${NS}frank`, predicateIri: TYPE, objectIri: repair.action.args.objectIri }, BASE_URL) as any;
+  expect(gone.data.isEntailed).toBe(false);
+
+  // 6. The same question with prefixed names (resolved through the namespace map, as in every tool),
+  //    and the two mistakes that must fail loudly instead of answering "not entailed".
+  const prefixed = await callTool(page, 'explainEntailment', { subjectIri: 'inc:frank', predicateIri: 'rdf:type', objectIri: 'inc:Employee' }, BASE_URL) as any;
+  expect(prefixed.success, JSON.stringify(prefixed)).toBe(true);
+  expect(prefixed.data.isEntailed).toBe(true);
+  const unknownPrefix = await callTool(page, 'explainEntailment', { subjectIri: 'zzz:frank', predicateIri: 'rdf:type', objectIri: 'inc:Employee' }, BASE_URL) as any;
+  expect(unknownPrefix.success).toBe(false);
+  expect(unknownPrefix.error).toMatch(/Unknown prefix/);
+  const bareName = await callTool(page, 'explainEntailment', { subjectIri: 'frank', predicateIri: 'rdf:type', objectIri: 'inc:Employee' }, BASE_URL) as any;
+  expect(bareName.success).toBe(false);
+});
