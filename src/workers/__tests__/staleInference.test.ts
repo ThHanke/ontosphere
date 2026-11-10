@@ -98,4 +98,22 @@ describe('stale inference is not carried into validation', () => {
     ).toBeGreaterThan(0);
     runtime.terminate();
   });
+
+  it('reports a stalled reasoner as a failed run', async () => {
+    const stalled = reasonerReporting(true);
+    stalled.checkConsistency = async () => { throw new Error('Konclude did not finish within 240 s'); };
+    setDlReasonerFactoryForTest(() => stalled);
+    const { runtime, messages } = makeRuntime();
+
+    await seed(runtime, 'urn:vg:data', [N3.DataFactory.quad(nn(`${EX}a`), nn(`${EX}p`), nn(`${EX}b`))]);
+    messages.length = 0;
+    await runReasoning(runtime);
+
+    const events = messages.filter((m: any) => m?.type === 'event' && m?.event === 'reasoningResult') as any[];
+    const reply = messages.find((m: any) => m?.type === 'response' && m?.id === 'reason-1') as any;
+    expect(events[events.length - 1]?.payload?.status, 'a stall is an error, not a completed run').toBe('error');
+    expect(reply?.result?.errors?.some((e: any) => e.rule === 'reasoner-error')).toBe(true);
+    expect(reply?.result?.isConsistent).toBeNull();
+    runtime.terminate();
+  });
 });

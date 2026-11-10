@@ -164,7 +164,9 @@ export function shaclViolationToEntry(v: ShaclViolationInput): ShaclEntry {
   }
 
   return {
-    nodeId: v.focusNode ?? undefined,
+    // Never leave the id empty: a violation without a focus node (engine error, shape-level
+    // finding) is attributed to the shape that fired.
+    nodeId: v.focusNode || v.sourceShape || undefined,
     message,
     rule: `shacl:${constraintLocal ?? "constraint"}`,
     severity: mapShaclSeverity(v.severity),

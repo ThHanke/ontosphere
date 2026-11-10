@@ -93,4 +93,9 @@ describe("shaclViolationToEntry", () => {
     expect(entry.nodeId).toBe("http://ex/a");
     expect(entry.sourceShape).toBe("http://ex/AShape");
   });
+
+  it("falls back to the source shape when there is no focus node", () => {
+    const entry = shaclViolationToEntry({ focusNode: null, sourceShape: "http://ex/AShape", message: "engine error" });
+    expect(entry.nodeId).toBe("http://ex/AShape");
+  });
 });

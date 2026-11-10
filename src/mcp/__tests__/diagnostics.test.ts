@@ -4,37 +4,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   mockRunReasoning,
-  mockExplainInconsistency,
-  mockExplainInconsistencyWithLaconic,
+  mockReasonerJustifications,
   mockRunShacl,
   mockValidate,
   mockFetchQuadsPage,
-  mockVerifyRepair,
-  mockVerifyRepairDetailed,
+  mockSuggestRepairs,
 } = vi.hoisted(() => ({
   mockRunReasoning: vi.fn(),
-  mockExplainInconsistency: vi.fn(),
-  mockExplainInconsistencyWithLaconic: vi.fn(),
+  mockReasonerJustifications: vi.fn(),
   mockRunShacl: vi.fn(),
   mockValidate: vi.fn(),
   mockFetchQuadsPage: vi.fn(),
-  mockVerifyRepair: vi.fn(),
-  mockVerifyRepairDetailed: vi.fn(),
+  mockSuggestRepairs: vi.fn(),
 }));
 
-// NOTE: explainInconsistencyWithLaconic is intentionally OMITTED from the default
-// mock object so reasoning.ts falls back to explainInconsistency for the existing
-// suite (which asserts explainInconsistency call args). The dedicated laconic test
-// below re-mocks rdfManager to add it.
+// explainDiagnostics makes no explain call of its own: the justifications are what the reasoner's
+// repair() found, returned by suggestRepairs. mockReasonerJustifications scripts that answer.
 vi.mock('@/utils/rdfManager', () => ({
   rdfManager: {
     runReasoning: mockRunReasoning,
-    explainInconsistency: mockExplainInconsistency,
     runShaclValidation: mockRunShacl,
     validate: mockValidate,
     fetchQuadsPage: mockFetchQuadsPage,
-    verifyRepair: mockVerifyRepair,
-    verifyRepairDetailed: mockVerifyRepairDetailed,
+    suggestRepairs: mockSuggestRepairs,
   },
 }));
 
@@ -45,25 +37,30 @@ vi.mock('@/stores/appConfigStore', () => ({
 }));
 
 import { reasoningTools } from '../tools/reasoning';
-import { rdfManager } from '@/utils/rdfManager';
+import { suggestDeletionRepairs } from '../tools/repairAdapter';
+import { fakeRepairLibrary, type FakeRepairLibrary, type FakeRepairOptions } from './helpers/fakeRepairLibrary';
 
 const explainDiagnostics = reasoningTools.find((t) => t.name === 'explainDiagnostics')!;
 
+// The reasoner's repair() / assessEdit() / weaken() are scripted from the justifications the
+// handler passes to suggestRepairs; the adapter that maps them is the real one.
+let fakeReasoner: FakeRepairOptions = {};
+let lib: FakeRepairLibrary | undefined;
+
 beforeEach(() => {
   vi.clearAllMocks();
+  fakeReasoner = {};
+  lib = undefined;
+  mockSuggestRepairs.mockImplementation(async (payload: object) => {
+    lib = fakeRepairLibrary(await mockReasonerJustifications(), fakeReasoner);
+    return suggestDeletionRepairs({ lib, reskolemize: (q) => q, ...payload });
+  });
   // sensible "clean" defaults; individual tests override.
   mockRunReasoning.mockResolvedValue({ isConsistent: true, errors: [] });
-  mockExplainInconsistency.mockResolvedValue([]);
+  mockReasonerJustifications.mockResolvedValue([]);
   mockRunShacl.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
   mockValidate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
   mockFetchQuadsPage.mockResolvedValue({ items: [] });
-  mockVerifyRepair.mockResolvedValue(true);
-  mockVerifyRepairDetailed.mockResolvedValue({
-    verifiedConsistent: true,
-    removedCount: 1,
-    requestedCount: 1,
-    matchedCount: 1,
-  });
 });
 
 describe('explainDiagnostics', () => {
@@ -78,13 +75,14 @@ describe('explainDiagnostics', () => {
     expect(data.isConsistent).toBe(true);
     expect(data.justifications).toEqual([]);
     expect(data.repairBrief).toBe('No issues detected.');
-    // does not call explainInconsistency when consistent
-    expect(mockExplainInconsistency).not.toHaveBeenCalled();
+    // consistent: no explain, no repair search
+    expect(mockSuggestRepairs).not.toHaveBeenCalled();
+    expect(mockReasonerJustifications).not.toHaveBeenCalled();
   });
 
   it('inconsistent graph → returns justifications and a clash brief', async () => {
     mockRunReasoning.mockResolvedValue({ isConsistent: false, errors: [] });
-    mockExplainInconsistency.mockResolvedValue([
+    mockReasonerJustifications.mockResolvedValue([
       [
         { subject: 'http://ex/frank', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'http://ex/Employee' },
         { subject: 'http://ex/Employee', predicate: 'http://www.w3.org/2002/07/owl#disjointWith', object: 'http://ex/Contractor' },
@@ -95,7 +93,7 @@ describe('explainDiagnostics', () => {
     expect((res as any).data.isConsistent).toBe(false);
     expect((res as any).data.justifications).toHaveLength(1);
     expect((res as any).data.justifications[0]).toHaveLength(2);
-    expect(mockExplainInconsistency).toHaveBeenCalledWith(2);
+    expect(mockSuggestRepairs).toHaveBeenCalledWith(expect.objectContaining({ maxJustifications: 2 }));
     expect((res as any).data.repairBrief.toLowerCase()).toContain('disjointwith');
   });
 
@@ -108,8 +106,7 @@ describe('explainDiagnostics', () => {
         { subject: 'http://ex/Employee', predicate: 'http://www.w3.org/2002/07/owl#disjointWith', object: 'http://ex/Contractor' },
       ],
     ];
-    mockExplainInconsistency.mockResolvedValue(mips);
-    mockVerifyRepair.mockResolvedValue(true);
+    mockReasonerJustifications.mockResolvedValue(mips);
 
     const res = (await explainDiagnostics.handler({ maxJustifications: 3 })) as { success: boolean; data: any };
     expect(res.success).toBe(true);
@@ -124,16 +121,17 @@ describe('explainDiagnostics', () => {
     // The top candidate was symbolically verified.
     expect(top.verifiedConsistent).toBe(true);
     expect(top.action.tool).toMatch(/removeLink|removeTriple/);
-    // verifyRepair was invoked with the chosen axiom.
-    expect(mockVerifyRepair).toHaveBeenCalled();
+    // The reasoner was asked for the repairs; explainDiagnostics supplies no justifications of its own.
+    expect(mockSuggestRepairs).toHaveBeenCalledWith(expect.objectContaining({ maxJustifications: 3 }));
+    expect(mockSuggestRepairs.mock.calls[0][0]).not.toHaveProperty('justifications');
+    expect((res as any).data.justifications.map((j: any[]) => j.map(({ subject, predicate, object }) => ({ subject, predicate, object })))).toEqual(mips);
     // The brief enumerates the ranked repairs.
     expect((res as any).data.repairBrief).toContain('SUGGESTED REPAIRS');
   });
 
-  it('does not call verifyRepair when the graph is consistent', async () => {
+  it('does not ask the reasoner for repairs when the graph is consistent', async () => {
     await explainDiagnostics.handler({});
-    expect(mockVerifyRepair).not.toHaveBeenCalled();
-    expect(mockVerifyRepairDetailed).not.toHaveBeenCalled();
+    expect(mockSuggestRepairs).not.toHaveBeenCalled();
   });
 
   it('M2: two disjoint contradictions → per-axiom false, but full-set verified true is surfaced', async () => {
@@ -149,16 +147,9 @@ describe('explainDiagnostics', () => {
         { subject: 'http://ex/gina', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'http://ex/Q' },
       ],
     ];
-    mockExplainInconsistency.mockResolvedValue(mips);
-    // Per-axiom removal NEVER restores consistency (the other clash remains).
-    mockVerifyRepair.mockResolvedValue(false);
-    // The FULL set together DOES restore consistency.
-    mockVerifyRepairDetailed.mockResolvedValue({
-      verifiedConsistent: true,
-      removedCount: 2,
-      requestedCount: 2,
-      matchedCount: 2,
-    });
+    mockReasonerJustifications.mockResolvedValue(mips);
+    // Per-axiom removal NEVER restores consistency (the other clash remains); the FULL set
+    // together DOES (the fake's default: only the whole set is consistent).
 
     const res = (await explainDiagnostics.handler({ maxJustifications: 3 })) as { success: boolean; data: any };
     expect(res.success).toBe(true);
@@ -173,21 +164,21 @@ describe('explainDiagnostics', () => {
     // The brief must NOT read a per-axiom false as "this repair is wrong".
     expect((res as any).data.repairBrief).toContain('apply the full repair set');
     expect((res as any).data.repairBrief).toContain('restore consistency');
-    // The FIRST verifyRepairDetailed call carries ALL removals (the full-set
-    // check); any subsequent calls are the bounded subset-minimality search.
-    expect(mockVerifyRepairDetailed).toHaveBeenCalled();
-    expect(mockVerifyRepairDetailed.mock.calls[0][0]).toHaveLength(2);
+    // The reasoner's repair set holds BOTH axioms, and each per-axiom check removed exactly one.
+    expect(lib!.chosen).toHaveLength(2);
+    const removalSizes = lib!.calls.assessEdit.map((c) => c.remove.length);
+    expect(removalSizes).toContain(2); // the full-set match check
+    expect(removalSizes.filter((n) => n === 1)).toHaveLength(2); // one check per axiom
   });
 
-  it('BUG B: per-axiom AND full-set verifyRepair receive the graph + typed-literal threaded from the MIPS', async () => {
+  it('BUG B: the removal the reasoner checks AND the suggested action carry the graph + typed-literal threaded from the MIPS', async () => {
     mockRunReasoning.mockResolvedValue({ isConsistent: false, errors: [] });
     const XSD_INT = 'http://www.w3.org/2001/XMLSchema#integer';
     // A single-axiom MIPS whose covering axiom lives in urn:vg:ontologies and
     // has a typed-literal object — the worker's explainInconsistency threads
-    // graph + objectTermType + objectDatatype, which computeRepairs carries into
-    // action.args. The verify call MUST forward them so it matches the SAME
-    // triple the apply path (removeLink) removes.
-    mockExplainInconsistency.mockResolvedValue([
+    // graph + objectTermType + objectDatatype. The reasoner is asked to remove that exact quad, and
+    // action.args carries the same term, so the apply path (removeLink) removes the SAME triple.
+    mockReasonerJustifications.mockResolvedValue([
       [
         {
           subject: 'http://ex/i',
@@ -199,32 +190,26 @@ describe('explainDiagnostics', () => {
         },
       ],
     ]);
-    mockVerifyRepair.mockResolvedValue(true);
-    mockVerifyRepairDetailed.mockResolvedValue({
-      verifiedConsistent: true, removedCount: 1, requestedCount: 1, matchedCount: 1,
-    });
 
     const res = (await explainDiagnostics.handler({ maxJustifications: 3 })) as { success: boolean; data: any };
     expect(res.success).toBe(true);
 
-    // Per-axiom verifyRepair was called with the EXACT structured removal.
-    expect(mockVerifyRepair).toHaveBeenCalled();
-    const perAxiom = mockVerifyRepair.mock.calls[0][0];
-    expect(perAxiom).toHaveLength(1);
-    expect(perAxiom[0]).toMatchObject({
-      subject: 'http://ex/i',
-      predicate: 'http://ex/age',
-      object: '42',
-      objectTermType: 'Literal',
-      objectDatatype: XSD_INT,
-      graph: 'urn:vg:ontologies',
-    });
+    // The reasoner was asked to remove the EXACT quad: typed literal, in the ontologies graph.
+    expect(lib!.calls.assessEdit.length).toBeGreaterThan(0);
+    const removed = lib!.calls.assessEdit[0].remove;
+    expect(removed).toHaveLength(1);
+    expect(removed[0].subject.value).toBe('http://ex/i');
+    expect(removed[0].predicate.value).toBe('http://ex/age');
+    expect(removed[0].object.value).toBe('42');
+    expect((removed[0].object as { datatype?: { value: string } }).datatype?.value).toBe(XSD_INT);
+    expect(removed[0].graph.value).toBe('urn:vg:ontologies');
 
-    // The FIRST (full-set) verifyRepairDetailed call carries the same metadata;
-    // any subsequent calls are the bounded subset-minimality search.
-    expect(mockVerifyRepairDetailed).toHaveBeenCalled();
-    const fullSet = mockVerifyRepairDetailed.mock.calls[0][0];
-    expect(fullSet[0]).toMatchObject({
+    // The suggested action carries the same metadata, so apply removes that triple.
+    const action = (res as any).data.suggestedRepairs[0].action.args;
+    expect(action).toMatchObject({
+      subjectIri: 'http://ex/i',
+      predicateIri: 'http://ex/age',
+      objectIri: '42',
       objectTermType: 'Literal',
       objectDatatype: XSD_INT,
       graph: 'urn:vg:ontologies',
@@ -233,20 +218,15 @@ describe('explainDiagnostics', () => {
 
   it('L2: a matchedCount < requestedCount surfaces a warning (nothing-matched vs still-inconsistent)', async () => {
     mockRunReasoning.mockResolvedValue({ isConsistent: false, errors: [] });
-    mockExplainInconsistency.mockResolvedValue([
+    mockReasonerJustifications.mockResolvedValue([
       [
         { subject: 'http://ex/frank', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'http://ex/A' },
         { subject: 'http://ex/frank', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'http://ex/B' },
       ],
     ]);
-    mockVerifyRepair.mockResolvedValue(false);
-    // One removal requested but zero matched (serialization mismatch).
-    mockVerifyRepairDetailed.mockResolvedValue({
-      verifiedConsistent: false,
-      removedCount: 0,
-      requestedCount: 1,
-      matchedCount: 0,
-    });
+    // One removal requested but zero matched (serialization mismatch): the reasoner reports it
+    // as an unmatched removal, and the set does not restore consistency.
+    fakeReasoner = { unmatchedRemovals: true, setVerified: false };
     const res = (await explainDiagnostics.handler({})) as { success: boolean; data: any };
     expect(res.success).toBe(true);
     expect((res as any).data.repairSetMatchWarning).toBeTruthy();
@@ -280,61 +260,5 @@ describe('explainDiagnostics', () => {
     expect(res.success).toBe(false);
     expect((res as any).error).toContain('explainDiagnostics');
     expect((res as any).error).toContain('worker boom');
-  });
-
-  // LACONIC threading (Horridge et al. ISWC 2008): when rdfManager exposes the
-  // laconic-enriched call, explainDiagnostics threads laconicJustifications into
-  // the response data and surfaces the precise culprit PART in the repair brief.
-  it('threads laconicJustifications into the response and brief when available', async () => {
-    mockRunReasoning.mockResolvedValue({ isConsistent: false, errors: [] });
-    const justifications = [
-      [
-        { subject: 'http://ex/A', predicate: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', object: '_:int' },
-        { subject: 'http://ex/B', predicate: 'http://www.w3.org/2002/07/owl#disjointWith', object: 'http://ex/D' },
-        { subject: 'http://ex/x', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'http://ex/A' },
-        { subject: 'http://ex/x', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'http://ex/D' },
-      ],
-    ];
-    const laconicJustifications = [
-      {
-        sharpened: true,
-        skipped: false,
-        parts: [
-          {
-            subject: 'http://ex/A',
-            predicate: 'http://www.w3.org/2000/01/rdf-schema#subClassOf',
-            object: 'http://ex/B',
-            sourceSubject: 'http://ex/A',
-            sourcePredicate: 'http://www.w3.org/2000/01/rdf-schema#subClassOf',
-            sourceObject: '_:int',
-            isPartOf: true,
-          },
-        ],
-      },
-    ];
-    mockExplainInconsistencyWithLaconic.mockResolvedValue({ justifications, laconicJustifications });
-    // Inject the laconic-enriched method onto the mocked rdfManager for this test.
-    (rdfManager as unknown as { explainInconsistencyWithLaconic?: unknown }).explainInconsistencyWithLaconic =
-      mockExplainInconsistencyWithLaconic;
-    mockVerifyRepair.mockResolvedValue(true);
-
-    try {
-      const res = (await explainDiagnostics.handler({ maxJustifications: 3 })) as {
-        success: boolean;
-        data: any;
-      };
-      expect(res.success).toBe(true);
-      // The laconic refinement is surfaced in the response data …
-      expect(Array.isArray((res as any).data.laconicJustifications)).toBe(true);
-      expect((res as any).data.laconicJustifications[0].sharpened).toBe(true);
-      expect((res as any).data.laconicJustifications[0].parts[0].object).toBe('http://ex/B');
-      // … and the precise culprit PART is rendered in the brief.
-      expect((res as any).data.repairBrief).toContain('Precise culprit');
-      expect((res as any).data.repairBrief).toContain('part of');
-      expect(mockExplainInconsistencyWithLaconic).toHaveBeenCalledWith(3);
-    } finally {
-      delete (rdfManager as unknown as { explainInconsistencyWithLaconic?: unknown })
-        .explainInconsistencyWithLaconic;
-    }
   });
 });

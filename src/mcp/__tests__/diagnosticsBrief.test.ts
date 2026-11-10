@@ -198,87 +198,11 @@ describe('buildRepairBrief', () => {
     // Weakening rendered with [weaken] tag + alternative-to + verified note.
     expect(result).toContain('W1. [weaken]');
     expect(result).toContain('alternative to deletion R1');
-    expect(result).toContain('weaker axiom is entailed by it');
+    expect(result).toContain('adding the weaker axiom leaves the ontology consistent');
     // Deletion tagged [delete] when weakenings are present.
     expect(result).toContain('R1. removeLink [delete]');
     // The preserve-more-knowledge note + citation.
     expect(result).toContain('PRESERVE MORE KNOWLEDGE');
     expect(result).toContain('Troquard');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// LACONIC justifications in the brief (Horridge et al. ISWC 2008)
-// ---------------------------------------------------------------------------
-describe('buildRepairBrief — laconic culprit rendering', () => {
-  const cleanData: DiagnosticsData = {
-    isConsistent: true,
-    justifications: [],
-    unsatisfiableClasses: [],
-    profile: { owl2dl: true, violations: [] },
-    shaclViolations: [],
-  };
-
-  it('surfaces the precise culprit PART and its source axiom when laconic sharpened', () => {
-    const d: DiagnosticsData = {
-      ...cleanData,
-      isConsistent: false,
-      justifications: [
-        [
-          { subject: 'http://ex/A', predicate: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', object: '_:int' },
-          { subject: 'http://ex/B', predicate: 'http://www.w3.org/2002/07/owl#disjointWith', object: 'http://ex/D' },
-        ],
-      ],
-      laconicJustifications: [
-        {
-          sharpened: true,
-          skipped: false,
-          parts: [
-            {
-              subject: 'http://ex/A',
-              predicate: 'http://www.w3.org/2000/01/rdf-schema#subClassOf',
-              object: 'http://ex/B',
-              sourceSubject: 'http://ex/A',
-              sourcePredicate: 'http://www.w3.org/2000/01/rdf-schema#subClassOf',
-              sourceObject: '_:int',
-              isPartOf: true,
-            },
-          ],
-        },
-      ],
-    };
-    const result = buildRepairBrief(d);
-    expect(result).toContain('Precise culprit (laconic');
-    // The precise part A ⊑ B and its source axiom are both shown.
-    expect(result).toMatch(/A subClassOf B \(part of A subClassOf/);
-  });
-
-  it('does NOT render a laconic section when laconic was skipped (cost cap)', () => {
-    const d: DiagnosticsData = {
-      ...cleanData,
-      isConsistent: false,
-      justifications: [
-        [{ subject: 'http://ex/A', predicate: 'http://www.w3.org/2002/07/owl#disjointWith', object: 'http://ex/B' }],
-      ],
-      laconicJustifications: [
-        {
-          sharpened: false,
-          skipped: true,
-          parts: [
-            {
-              subject: 'http://ex/A',
-              predicate: 'http://www.w3.org/2002/07/owl#disjointWith',
-              object: 'http://ex/B',
-              sourceSubject: 'http://ex/A',
-              sourcePredicate: 'http://www.w3.org/2002/07/owl#disjointWith',
-              sourceObject: 'http://ex/B',
-              isPartOf: false,
-            },
-          ],
-        },
-      ],
-    };
-    const result = buildRepairBrief(d);
-    expect(result).not.toContain('Precise culprit');
   });
 });

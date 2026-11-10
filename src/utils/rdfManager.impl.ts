@@ -15,6 +15,7 @@ import type {
   WorkerReconcileSubjectSnapshotPayload,
 } from "./rdfManager.workerProtocol";
 import type { WorkerQuad, WorkerQuadUpdate, WorkerTerm, WorkerNamedNode } from "./rdfSerialization";
+import type { SuggestRepairsResult } from "../mcp/tools/repairAdapter";
 import {
   isWorkerQuad,
   serializeTerm,
@@ -34,14 +35,6 @@ type SubjectsSubscriber = (
 
 const DEFAULT_GRAPH = "urn:vg:data";
 const IRI_REGEX = /^[a-z][a-z0-9+.-]*:/i;
-
-/**
- * BUG B: a verifyRepair removal. The optional object-term metadata + source
- * graph let VERIFY exclude the IDENTICAL triple APPLY removes (precise
- * typed/lang literal in the correct graph). Sourced from the worker protocol so
- * the two stay in lockstep.
- */
-export type VerifyRepairRemoval = RDFWorkerCommandPayloads["verifyRepair"]["removals"][number];
 
 const DEFAULT_BLACKLIST_PREFIXES = ["owl", "rdf", "rdfs", "xml", "xsd"];
 const DEFAULT_BLACKLIST_URIS = [
@@ -835,83 +828,6 @@ export class RDFManagerImpl {
       : [];
   }
 
-  /**
-   * Like explainInconsistency, but ALSO returns the LACONIC justifications
-   * (Horridge, Parsia, Sattler, "Laconic and Precise Justifications in OWL",
-   * ISWC 2008): for each MIPS, the superfluous-part-free axiom PARTS that are the
-   * precise culprit, each mapped back to the ORIGINAL axiom it was split from.
-   *
-   * `justifications` is identical to what explainInconsistency returns (the
-   * regular, whole-axiom MIPS). `laconicJustifications` is aligned BY INDEX with
-   * `justifications`; entry i is the laconic refinement of justification i:
-   *   - parts: the laconic axiom parts (e.g. the `A ⊑ B` part of `A ⊑ B ⊓ C`),
-   *     each carrying its source axiom's principal triple (sourceSubject/…);
-   *   - sharpened: true when laconic dropped at least one superfluous part;
-   *   - skipped: true when the worker's cost cap suppressed laconic for this MIPS
-   *     (then parts == the regular axioms, lossless fallback).
-   *
-   * NON-BREAKING: the laconic data is purely additive; older worker builds omit
-   * the field and `laconicJustifications` comes back as an empty array.
-   */
-  async explainInconsistencyWithLaconic(
-    maxJustifications = 1,
-  ): Promise<{
-    justifications: {
-      subject: string;
-      predicate: string;
-      object: string;
-      objectTermType?: string;
-      objectDatatype?: string;
-      objectLanguage?: string;
-      graph?: string;
-    }[][];
-    laconicJustifications: {
-      parts: {
-        subject: string;
-        predicate: string;
-        object: string;
-        objectIsLiteral?: boolean;
-        sourceSubject: string;
-        sourcePredicate: string;
-        sourceObject: string;
-        isPartOf: boolean;
-      }[];
-      sharpened: boolean;
-      skipped: boolean;
-    }[];
-  }> {
-    const response = await this.worker.call("explainInconsistency", { maxJustifications });
-    const safe = isPlainObject(response) ? response : {};
-    const justifications = Array.isArray(safe.mips)
-      ? (safe.mips as {
-          subject: string;
-          predicate: string;
-          object: string;
-          objectTermType?: string;
-          objectDatatype?: string;
-          objectLanguage?: string;
-          graph?: string;
-        }[][])
-      : [];
-    const laconicJustifications = Array.isArray(safe.laconicJustifications)
-      ? (safe.laconicJustifications as {
-          parts: {
-            subject: string;
-            predicate: string;
-            object: string;
-            objectIsLiteral?: boolean;
-            sourceSubject: string;
-            sourcePredicate: string;
-            sourceObject: string;
-            isPartOf: boolean;
-          }[];
-          sharpened: boolean;
-          skipped: boolean;
-        }[])
-      : [];
-    return { justifications, laconicJustifications };
-  }
-
   async validate(): Promise<{ consistent: boolean; unsatisfiable: string[] }> {
     const response = await this.worker.call("validate", undefined);
     const safe = isPlainObject(response) ? response : {};
@@ -1007,43 +923,15 @@ export class RDFManagerImpl {
   }
 
   /**
-   * Symbolically verify a repair candidate: re-run the Konclude consistency
-   * oracle on a COPY of the data store with the given axioms removed. Returns
-   * true when removing those axioms makes the ontology consistent. Never
-   * mutates urn:vg:data.
-   *
-   * Backwards-compatible boolean wrapper around `verifyRepairDetailed`.
+   * Repair suggestions from the reasoner's repair() and weaken(): deletion repairs (R1...), their
+   * weakening alternatives (W1...) and the set-level verdict. `justifications` are the triples the
+   * caller shows; `justificationsCovered` indexes into them. Read-only.
    */
-  async verifyRepair(
-    removals: VerifyRepairRemoval[],
-  ): Promise<boolean> {
-    return (await this.verifyRepairDetailed(removals)).verifiedConsistent;
-  }
-
-  /**
-   * Like `verifyRepair` but also reports how many of the requested removals
-   * actually matched a quad in the store. `matchedCount < requestedCount`
-   * means some removals matched nothing (e.g. a serialization mismatch), so a
-   * `verifiedConsistent:false` may simply mean "the store was not changed"
-   * rather than "removing this repair leaves the ontology inconsistent" (L2).
-   */
-  async verifyRepairDetailed(
-    removals: VerifyRepairRemoval[],
-  ): Promise<{
-    verifiedConsistent: boolean;
-    removedCount: number;
-    requestedCount: number;
-    matchedCount: number;
-  }> {
-    const response = await this.worker.call("verifyRepair", { removals });
-    const safe = (isPlainObject(response) ? response : {}) as Record<string, unknown>;
-    const num = (v: unknown): number => (typeof v === "number" ? v : 0);
-    return {
-      verifiedConsistent: safe.verifiedConsistent === true,
-      removedCount: num(safe.removedCount),
-      requestedCount: num(safe.requestedCount),
-      matchedCount: num(safe.matchedCount),
-    };
+  async suggestRepairs(
+    payload: RDFWorkerCommandPayloads["suggestRepairs"] = {},
+  ): Promise<SuggestRepairsResult> {
+    const response = await this.worker.call("suggestRepairs", payload);
+    return response as SuggestRepairsResult;
   }
 
   onReasoningStage(handler: (payload: { id: string; stage: string; meta?: Record<string, unknown> }) => void): () => void {

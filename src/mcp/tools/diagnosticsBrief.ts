@@ -21,31 +21,6 @@ export interface DiagnosticsData {
     objectLanguage?: string;
     graph?: string;
   }[][];
-  /**
-   * LACONIC justifications (Horridge, Parsia, Sattler, ISWC 2008) — the
-   * superfluous-part-free refinement of `justifications`, aligned BY INDEX:
-   * entry i sharpens justification i. Each `part` is the precise culprit axiom
-   * PART (e.g. the `A ⊑ B` part of `A ⊑ B ⊓ C`) and carries its source axiom's
-   * principal triple (sourceSubject/sourcePredicate/sourceObject) so the brief
-   * can attribute "the `A ⊑ B` part of axiom `A ⊑ B ⊓ C` is the culprit".
-   * `sharpened` ⇒ laconic dropped a superfluous part; `skipped` ⇒ the worker's
-   * cost cap suppressed laconic for this MIPS (parts == the regular axioms).
-   * OPTIONAL: absent on older worker builds / non-inconsistency diagnostics.
-   */
-  laconicJustifications?: {
-    parts: {
-      subject: string;
-      predicate: string;
-      object: string;
-      objectIsLiteral?: boolean;
-      sourceSubject: string;
-      sourcePredicate: string;
-      sourceObject: string;
-      isPartOf: boolean;
-    }[];
-    sharpened: boolean;
-    skipped: boolean;
-  }[];
   unsatisfiableClasses: string[];
   profile: {
     owl2dl: boolean;
@@ -83,10 +58,7 @@ function localName(iri: string): string {
 // Section builders
 // ---------------------------------------------------------------------------
 
-function buildInconsistencySection(
-  justifications: DiagnosticsData['justifications'],
-  laconic?: DiagnosticsData['laconicJustifications'],
-): string {
+function buildInconsistencySection(justifications: DiagnosticsData['justifications']): string {
   const lines: string[] = ['1. INCONSISTENCY (most severe)'];
 
   if (justifications.length > 1) {
@@ -101,29 +73,6 @@ function buildInconsistencySection(
       lines.push(
         `     - ${localName(ax.subject)} ${localName(ax.predicate)} ${localName(ax.object)}`,
       );
-    }
-
-    // LACONIC sharpening (Horridge et al. ISWC 2008): when the laconic
-    // refinement of THIS justification dropped a superfluous axiom part, surface
-    // the precise culprit PART and the axiom it came from, so the agent removes/
-    // weakens the minimal thing rather than the whole conjunction.
-    const lac = laconic?.[idx];
-    if (lac && lac.sharpened && lac.parts.length > 0) {
-      lines.push('   Precise culprit (laconic — superfluous parts removed):');
-      for (const part of lac.parts) {
-        const partText = `${localName(part.subject)} ${localName(part.predicate)} ${localName(part.object)}`;
-        if (
-          part.isPartOf &&
-          (part.sourceSubject !== part.subject ||
-            part.sourcePredicate !== part.predicate ||
-            part.sourceObject !== part.object)
-        ) {
-          const srcText = `${localName(part.sourceSubject)} ${localName(part.sourcePredicate)} ${localName(part.sourceObject)}`;
-          lines.push(`     • ${partText} (part of ${srcText})`);
-        } else {
-          lines.push(`     • ${partText}`);
-        }
-      }
     }
 
     lines.push(
@@ -254,7 +203,7 @@ function buildSuggestedRepairsSection(
     if (r.kind === 'weaken') {
       const wv =
         r.weakeningVerified === true
-          ? ' [verified: removal restores consistency; weaker axiom is entailed by it]'
+          ? ' [verified: removing the original and adding the weaker axiom leaves the ontology consistent]'
           : '';
       const alt = r.alternativeTo ? ` (alternative to deletion ${r.alternativeTo})` : '';
       lines.push(`   ${r.id}. [weaken]${alt} — ${r.rationale}${wv}`);
@@ -331,7 +280,7 @@ export function buildRepairBrief(
   let num = 1;
 
   if (hasInconsistency) {
-    sections.push(buildInconsistencySection(d.justifications, d.laconicJustifications));
+    sections.push(buildInconsistencySection(d.justifications));
     num++;
   }
 

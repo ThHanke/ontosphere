@@ -145,19 +145,12 @@ export type RDFWorkerCommandPayloads = {
   explainInconsistency: { maxJustifications?: number };
   validate: undefined;
   /**
-   * Symbolically verify a repair candidate: build a working store COPY without
-   * the listed axioms and re-run the EXISTING Konclude consistency oracle.
-   * Never mutates urn:vg:data. Returns { verifiedConsistent: boolean }.
-   *
-   * BUG B: each removal may OPTIONALLY carry the object's term metadata
-   * (objectTermType + objectDatatype/objectLanguage) and the source graph so
-   * VERIFY targets the IDENTICAL triple APPLY will remove — otherwise verify
-   * could match a same-lexical sibling in a different graph / datatype and
-   * report a false `verifiedConsistent`. Absent metadata ⇒ the legacy bare
-   * lexical, all-graph match (back-compat).
+   * Repair suggestions from the reasoner's repair() and weaken() (rdf-reasoner-konclude >= 0.9.0).
+   * `justifications` are the caller's justification triples; `justificationsCovered` of each
+   * suggestion indexes into them. Never mutates the store. Returns SuggestRepairsResult.
    */
-  verifyRepair: {
-    removals: {
+  suggestRepairs: {
+    justifications?: {
       subject: string;
       predicate: string;
       object: string;
@@ -165,7 +158,12 @@ export type RDFWorkerCommandPayloads = {
       objectDatatype?: string;
       objectLanguage?: string;
       graph?: string;
-    }[];
+    }[][];
+    unsatisfiableClasses?: string[];
+    maxJustifications?: number;
+    timeoutMs?: number;
+    /** Also offer weakenings of rdfs:subClassOf culprits (default true). */
+    weaken?: boolean;
   };
   /**
    * Search existing ontology terms (classes / properties / individuals) by
@@ -230,7 +228,7 @@ export const RDF_WORKER_COMMANDS = [
   "runShaclValidation",
   "explainInconsistency",
   "validate",
-  "verifyRepair",
+  "suggestRepairs",
   "searchTerms",
   "explainEntailment",
   "getOntologyStats",
@@ -691,23 +689,30 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
   validate(payload) {
     invariant(typeof payload === "undefined", "validate payload must be undefined");
   },
-  verifyRepair(payload) {
-    assertPlainObject(payload, "verifyRepair payload must be an object");
-    const { removals } = payload as { removals: unknown };
-    assertArray(removals, "verifyRepair.removals must be an array");
-    for (const entry of removals as unknown[]) {
-      assertPlainObject(entry, "verifyRepair.removals entry must be an object");
-      const r = entry as Record<string, unknown>;
-      assertString(r.subject, "verifyRepair.removals entry.subject must be a string");
-      assertString(r.predicate, "verifyRepair.removals entry.predicate must be a string");
-      assertString(r.object, "verifyRepair.removals entry.object must be a string");
-      // BUG B: optional object-term + graph metadata so VERIFY matches the
-      // EXACT triple APPLY removes (precise typed/lang literal + source graph).
-      assertOptionalString(r.objectTermType, "verifyRepair.removals entry.objectTermType must be a string when provided");
-      assertOptionalString(r.objectDatatype, "verifyRepair.removals entry.objectDatatype must be a string when provided");
-      assertOptionalString(r.objectLanguage, "verifyRepair.removals entry.objectLanguage must be a string when provided");
-      assertOptionalString(r.graph, "verifyRepair.removals entry.graph must be a string when provided");
+  suggestRepairs(payload) {
+    if (typeof payload === "undefined") return;
+    assertPlainObject(payload, "suggestRepairs payload must be an object");
+    const p = payload as RDFWorkerCommandPayloads["suggestRepairs"];
+    if (typeof p.justifications !== "undefined") {
+      assertArray(p.justifications, "suggestRepairs.justifications must be an array when provided");
+      for (const j of p.justifications as unknown[]) {
+        assertArray(j, "suggestRepairs.justifications entry must be an array");
+        for (const t of j as unknown[]) {
+          assertPlainObject(t, "suggestRepairs.justifications triple must be an object");
+          const r = t as Record<string, unknown>;
+          assertString(r.subject, "suggestRepairs.justifications triple.subject must be a string");
+          assertString(r.predicate, "suggestRepairs.justifications triple.predicate must be a string");
+          assertString(r.object, "suggestRepairs.justifications triple.object must be a string");
+        }
+      }
     }
+    if (typeof p.unsatisfiableClasses !== "undefined") {
+      assertStringArray(p.unsatisfiableClasses, "suggestRepairs.unsatisfiableClasses must be an array of strings when provided");
+    }
+    for (const k of ["maxJustifications", "timeoutMs"] as const) {
+      invariant(typeof p[k] === "undefined" || (typeof p[k] === "number" && Number.isFinite(p[k] as number)), `suggestRepairs.${k} must be a finite number when provided`);
+    }
+    invariant(typeof p.weaken === "undefined" || typeof p.weaken === "boolean", "suggestRepairs.weaken must be a boolean when provided");
   },
   searchTerms(payload) {
     assertPlainObject(payload, "searchTerms payload must be an object");
