@@ -1,29 +1,60 @@
 # Changelog
 
-## [Unreleased] — 1.8.0
+## [1.8.0] — 2026-11-11
+
+Reasoning moves to rdf-reasoner-konclude 0.9.1: results change (see *Upgrade notes*), and repair suggestions are now computed by the reasoner. Startup is stricter: MCP tools answer only once startup loading has finished.
+
+### Upgrade notes
+
+- **Inferred counts change with the reasoner (0.8.0 to 0.9.x).** Pizza (`bench-pizza.owl`): 137 inferred triples with 0.8.0, 165 with 0.9.x. PMDco classification: two direct edges that 0.8.0 lost are back (`PMD_0020243 ⊑ PMD_0023003`, `PMD_0080022 ⊑ PMD_0023003`). GALEN is unchanged (1,386). Re-measure any figure you published with 1.7.x.
+- **Fewer unsound `rdf:type` assertions after materialization** (only ones the reasoner does not entail: a `someValuesFrom` filler typed from its owner, `hasSelf`, `hasValue` and `minCardinality` rules applied to `subClassOf`), and more types where the class hierarchy used to be incomplete.
+- Texts, justifications and repair suggestions changed shape; see *Breaking changes*.
 
 ### Breaking changes
 
+- **MCP tool calls are rejected until startup loading has finished.** Ontology autoload, `?rdfUrl=` data and the startup shapes load after the page opens, and a tool call during that window read a half-loaded graph. Calls now return `success: false` ("…still loading…") until `window.__startupComplete()` is `true` (a 120 s safety valve lifts the block if a start never completes). Scripts and agents that call a tool right after the page opens must wait for that flag or retry; the demo, relay and benchmark drivers in this repository were updated to wait (only the benchmark script has been run since).
+- **An empty SHACL shapes URL in the settings now means "use the built-in ontology-quality shapes"** (it used to mean "do not load shapes"). The built-in shapes are the fallback only when neither `?shaclShapes=` nor the configured URL names shapes. Turn SHACL off with the SHACL toggle.
 - **`explainDiagnostics` no longer returns laconic explanations.** The `laconicJustifications` field and the "Precise culprit (laconic — superfluous parts removed)" lines in `repairBrief` are gone. `justifications` still lists the whole axioms that cause each clash.
   - *Why:* laconic explanations show which part of an axiom causes a clash (for example `A ⊑ B` inside `A ⊑ B ⊓ C`). The app used them for two things only: hints to the old weakening code, and extra wording in the agent-facing repair brief. The hints are obsolete, because the reasoner's `weaken()` now splits conjuncts itself and verifies each weaker axiom. The wording was never shown in the UI. Computing them was the most expensive step of the call: 180.5 s of 232 s for PMDCO plus one disjoint-class clash (node, real reasoner), and `explainDiagnostics` took about 513 s in the browser.
   - *Impact:* agents that read `laconicJustifications` or the "Precise culprit" lines should read `justifications` instead. Repair suggestions are unaffected: they work on whole axioms, and weakenings still offer the dropped-conjunct alternatives. `rdf-reasoner-konclude` still provides `explainInconsistencyLaconic` for direct use.
+- **`explainDiagnostics` justifications come from the reasoner's repair search.** Declarations (`C a owl:Class`) are not part of a justification, and the number of justifications can exceed `maxJustifications`. Repairs are one minimal verified set (a deletion set, as before), and weakenings are offered only when removing the culprit alone restores consistency, i.e. with a single independent clash.
+- **Text in results names IRIs as prefixed names or full IRIs, never as bare local names.** The clash message of `runReasoning`, SHACL error text, repair rationales and weakening notes, the repair brief, SHACL repair text and the `explainEntailment` summary used the part after the last `#` or `/`, which is not unique across namespaces and cannot be passed back to a tool. They now use a prefix from the namespace map (`inc:frank`, `rdf:type`) or the full IRI when no prefix is registered. Structured fields were already full IRIs. The canvas still shows an `rdfs:label` in place of the name where the ontology has one. Agents that parse these texts need to adapt.
+
+### Reasoning
+
+- **rdf-reasoner-konclude 0.9.1, pinned (no caret).** It completes class hierarchies again, removes the unsound type post-processing, fixes the blank-node ids it returned, and removes an intermittent slow role realization (same output, up to 8× CPU on the Roberts ontology). LUBM-1 with data still varies in our browser benchmark (28.5–85.8 s over 4 runs).
+- **Repair and weakening run on the reasoner.** `repair()`, `weaken()` and `assessEdit()` find and verify the repair sets; Ontosphere maps them onto the existing `RepairSuggestion` shape (ranking: smallest set first, then assertions before schema axioms). The panel and the `explainDiagnostics` tool share one worker command. The old greedy hitting set, minimality search, weakening enumerator and `verifyRepair` command are removed; SHACL repair suggestions are unchanged.
+- **One explain per graph state.** The worker caches the whole-axiom justifications per input generation (any write to the store invalidates them) and hands them to `repair()` as a seed, so `runReasoning`, `explainDiagnostics` and the panel do not explain again.
+- **`explainDiagnostics` is about four times faster on a large inconsistent ontology.** PMDCO plus one disjoint-class clash, headless Chromium: 513 s before, 128 s now. The gains come from reasoner 0.9.1 (`repair()` takes the justifications that were already computed instead of explaining again), no laconic pass, no classification of an inconsistent ontology, and one explain per graph state (cached, invalidated on every write to the store). Most of what remains is the first consistency check and explain inside `runReasoning` (99 s).
+- **`explainDiagnostics` does not compute `unsatisfiableClasses` for an inconsistent ontology.** In an inconsistent ontology every class is unsatisfiable, so the list says nothing, and the classification took 52 s on PMDCO in the browser. The field is empty, the output carries `unsatisfiableClassesSkipped: "ontology-inconsistent"`, and the UI shows a toast ("Unsatisfiable classes not computed"). Consistent ontologies are unchanged.
+- **Deletion repairs carry `kind: "delete"`**, as the tool description always said (weakenings carry `kind: "weaken"`). Before, a deletion had no `kind`.
+- **`explainDiagnostics({ includeTimings: true })`** adds `timingsMs` (wall time of each stage and of each reasoner call) for diagnosing slow runs.
+- **A stalled or crashed reasoner is a failed run.** SHACL is skipped, the result status is `error`, and the MCP tool `runReasoning` returns `success: false`.
+
+### Startup and loading
+
+- **`window.__startupComplete()`** reports whether startup loading has finished.
+- **Shapes:** `?shaclShapes=` wins, then the configured shapes URL, then the built-in shapes (written only into an empty shapes graph).
+- **`?workflowCatalog=off`** skips the startup load of the PyodideSemanticWorkflow catalog, for headless runs and evaluations.
+- **The PyodideSemanticWorkflow ontology joins `urn:vg:ontologies` when a workflow is first dropped on the canvas**, not at startup, so it is not reasoning input for sessions that never use a workflow.
+- **Bundled W3C vocabularies are a fallback.** `rdf`, `rdfs`, `owl` and `prov` are fetched from w3.org first; if that fails (blocked, offline) the copies shipped in `public/w3-vocabularies/` are used.
 
 ### Changes
 
-- **`explainDiagnostics` does not compute `unsatisfiableClasses` for an inconsistent ontology.** In an inconsistent ontology every class is unsatisfiable, so the list says nothing, and the classification took 52 s on PMDCO in the browser. The field is empty, the output carries `unsatisfiableClassesSkipped: "ontology-inconsistent"`, and the UI shows a toast ("Unsatisfiable classes not computed"). Consistent ontologies are unchanged.
-- **`explainDiagnostics` is about four times faster on a large inconsistent ontology.** PMDCO plus one disjoint-class clash, headless Chromium: 513 s before, 128 s now. The gains come from reasoner 0.9.1 (`repair()` takes the justifications that were already computed instead of explaining again), no laconic pass, no classification of an inconsistent ontology, and one explain per graph state (cached, invalidated on every write to the store). Most of what remains is the first consistency check and explain inside `runReasoning` (99 s).
-- **Deletion repairs carry `kind: "delete"`**, as the tool description always said (weakenings carry `kind: "weaken"`). Before, a deletion had no `kind`.
 - **README performance numbers re-measured on reasoner 0.9.1** (8 cores, headless Chromium, ranges over 5 fresh runs): reasoning-demo 1.1–1.2 s, Pizza 1.4–1.5 s, PMDCO 15.2–16.0 s, GALEN 2.6–2.8 s, LUBM-1 with data 28.5–85.8 s (4 of 5 runs completed). The README had quoted 2.6 s for PMDCO, which this script does not reproduce, so that figure is corrected. The Konclude WASM table (native against WASM, in Node) is copied from the reasoner repository and still carries its 0.8.0 numbers.
-- **`explainDiagnostics({ includeTimings: true })`** adds `timingsMs` (wall time of each stage and of each reasoner call) for diagnosing slow runs.
 
 ### Bug fixes
 
 - **Dataset and Turtle export no longer drop literals that differ only by language or datatype.** The export de-duplicated quads by the literal's text alone, so `"chair"`, `"chair"@en` and `"chair"^^xsd:token` on the same subject and predicate collapsed into one. Exporting PMDco (commit 3b98aad) lost 7 triples this way, among them the labels of `PMD_0000964`, `PMD_0001003`, `IAO_0000112`, `IAO_0000115`, `dc:source` and `rdfs:label`. The same key was used for inferred quads. Loading was never affected.
 - **Reasoning no longer reports success when the reasoner stalls.** A stalled or crashed run is now a failed run: SHACL is skipped, the result status is `error`, and the MCP tool `runReasoning` returns `success: false`.
-- **Text names IRIs as prefixed names or full IRIs, never as bare local names.** The clash message of `runReasoning`, SHACL error text, repair rationales and weakening notes, the repair brief, SHACL repair text and the `explainEntailment` summary used the part after the last `#` or `/`, which is not unique across namespaces and cannot be passed back to a tool. They now use a prefix from the namespace map (`inc:frank`, `rdf:type`) or the full IRI when no prefix is registered. Structured fields were already full IRIs. The canvas still shows an `rdfs:label` in place of the name where the ontology has one.
 - **`explainEntailment` resolves prefixed names like every other tool.** It took only full IRIs and answered "NOT entailed" (with `success: true`) for anything else, so `inc:frank` from a `queryGraph` row looked like an unentailed fact. Prefixed names now go through the namespace map, full IRIs pass unchanged, and an unknown prefix or a bare name is an error.
 - **Validation reports carry a node id.** A SHACL violation without a focus node is attributed to its shape.
 - **Blank-node values after reasoning** (`sh:class` on `x p [ a SubOfTarget ]`) conform again. The cause was inferred blank nodes coming back from the reasoner under another name; fixed in rdf-reasoner-konclude 0.9.1.
+
+### Tests and tooling
+
+- New browser tests: the PMDCO chemical-composition user story (data, ontology and shapes through URL parameters, reasoning, the `some_silicon` violation and its fix), the diagnose, repair, apply and re-check loop, and startup from URL parameters. Previously skipped tests are enabled (`owl:oneOf` realization, the import and TriG round trip on PMDco); the PMDco repair check at scale runs by default.
+- The demo, relay and benchmark drivers wait for `window.__startupComplete()` before their first tool call. `scripts/bench-paper-table2.mjs` gains `--only` and `--fresh-browser`.
 
 ## [1.7.7] — 2026-10-16
 
