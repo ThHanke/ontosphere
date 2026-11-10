@@ -36,8 +36,14 @@ const App = () => {
         return;
       }
 
+      // ?workflowCatalog=off: headless runs and evaluations keep the catalog (and the
+      // PyodideSemanticWorkflow ontology it writes to urn:vg:ontologies) out of the reasoning input.
+      if (new URLSearchParams(window.location.search).get('workflowCatalog') === 'off') {
+        return;
+      }
+
       try {
-        const result = await loadWorkflowCatalog(config);
+        const result = await loadWorkflowCatalog(config, { includeOntology: false });
         
         if (result.success) {
           console.log('[VG_APP] Workflow catalog loaded successfully:', result.loadedFiles);

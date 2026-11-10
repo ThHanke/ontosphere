@@ -660,6 +660,27 @@ export function searchWellKnownOntologies(query: string): typeof WELL_KNOWN_PREF
   });
 }
 
+/**
+ * W3C vocabularies shipped in public/w3-vocabularies/, used only as a fallback. The live copy is
+ * always tried first; w3.org answers some automated browser fetches with a Cloudflare challenge
+ * (403, no CORS header), and offline runs have no network at all.
+ */
+const BUNDLED_VOCABULARIES: Record<string, string> = {
+  "https://www.w3.org/1999/02/22-rdf-syntax-ns": "w3-vocabularies/rdf.ttl",
+  "https://www.w3.org/2000/01/rdf-schema": "w3-vocabularies/rdfs.ttl",
+  "https://www.w3.org/2002/07/owl": "w3-vocabularies/owl.ttl",
+  "https://www.w3.org/ns/prov-o": "w3-vocabularies/prov.ttl",
+};
+
+/** The bundled copy of a vocabulary's fetch URL, or null when none ships with the app. */
+export function bundledVocabularyUrl(fetchUrl: string): string | null {
+  const path = BUNDLED_VOCABULARIES[fetchUrl];
+  if (!path) return null;
+  const base = (import.meta as any).env?.BASE_URL ?? "/";
+  const href = (globalThis as any).location?.href;
+  return href ? new URL(`${base}${path}`, href).href : `${base}${path}`;
+}
+
 export function resolveOntologyLoadUrl(prefixOrUri: string): string {
   // Match by prefix name first
   const byPrefix = WELL_KNOWN_BY_PREFIX[prefixOrUri];
