@@ -103,8 +103,8 @@ describe("Pre-validation: owl:propertyChainAxiom and owl:oneOf in Konclude v0.3.
     30000,
   );
 
-  it.skip(
-    "owl:oneOf: LeadershipTeam oneOf (alice, dave) → alice and dave inferred LeadershipTeam members [DOES NOT FIRE in v0.3.0 — only TBox subClassOf owl:Thing returned; fallback used in reasoning-demo.ttl]",
+  it(
+    "owl:oneOf: LeadershipTeam oneOf (alice, dave) → alice and dave inferred LeadershipTeam members",
     async () => {
       let r: RdfReasoner | undefined;
       try {

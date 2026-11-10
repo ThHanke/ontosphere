@@ -266,7 +266,7 @@ export function axiomKey(a: Axiom): string {
     a.objectDatatype ?? '',
     a.objectLanguage ?? '',
     a.graph ?? '',
-  ].join(' ');
+  ].join('\u0000');
 }
 
 /**

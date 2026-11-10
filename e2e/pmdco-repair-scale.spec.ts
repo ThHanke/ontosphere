@@ -12,8 +12,6 @@ const BFO = 'http://purl.obolibrary.org/obo/';
 // example the version the coworker used: https://raw.githubusercontent.com/materialdigital/core-ontology/3b98aad/pmdco.ttl
 const PMDCO_URL = process.env.PMDCO_URL ?? `${BASE_URL}/bench-pmdco.ttl`;
 
-test.skip(!process.env.PMDCO_SCALE, 'manual scale check: set PMDCO_SCALE=1');
-
 test('explainDiagnostics on an inconsistent PMDco returns repairs in the browser', async ({ page }) => {
   test.setTimeout(600_000);
   await gotoAndWaitForReady(page, `${BASE_URL}/?rdfUrl=${encodeURIComponent(PMDCO_URL)}`, 'explainDiagnostics');

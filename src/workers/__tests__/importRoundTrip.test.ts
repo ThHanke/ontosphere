@@ -81,19 +81,18 @@ describe('importSerialized keeps every triple of the source', () => {
     expect(missing.slice(0, 10)).toEqual([]);
   }, 180_000);
 
-  // Manual: P14_FILE=logs/pmdco-3b98aad/pmdco.ttl, the version the coworker evaluated.
-  it.skipIf(!process.env.P14_FILE)('the file named by P14_FILE: nothing missing', async () => {
-    const { stored, source } = await importAndRead(fs.readFileSync(process.env.P14_FILE!, 'utf8'));
+  // P14_FILE=logs/pmdco-3b98aad/pmdco.ttl runs these on the version the coworker evaluated.
+  const PMDCO_FILE = process.env.P14_FILE ?? 'public/bench-pmdco.ttl';
+  it('PMDco file: nothing missing after import', async () => {
+    const { stored, source } = await importAndRead(fs.readFileSync(PMDCO_FILE, 'utf8'));
     const missing = [...source].filter((t) => !stored.has(t));
-    fs.writeFileSync('logs/p14-missing.txt', missing.join('\n'));
-    console.log(`[P1-4] ${process.env.P14_FILE}: source ${source.size}, stored ${stored.size}, missing ${missing.length}`);
+    console.log(`[P1-4] ${PMDCO_FILE}: source ${source.size}, stored ${stored.size}, missing ${missing.length}`);
     expect(missing.slice(0, 10)).toEqual([]);
   }, 180_000);
 
-  it.skipIf(!process.env.P14_FILE)('the file named by P14_FILE survives a TriG export and re-parse', async () => {
-    const { stored, source } = await importAndRead(fs.readFileSync(process.env.P14_FILE!, 'utf8'), 'trig');
+  it('PMDco file survives a TriG export and re-parse', async () => {
+    const { stored, source } = await importAndRead(fs.readFileSync(PMDCO_FILE, 'utf8'), 'trig');
     const missing = [...source].filter((t) => !stored.has(t));
-    fs.writeFileSync('logs/p14-missing-trig.txt', missing.join('\n'));
     console.log(`[P1-4] via TriG export: source ${source.size}, stored ${stored.size}, missing ${missing.length}`);
     expect(missing.slice(0, 10)).toEqual([]);
   }, 180_000);
