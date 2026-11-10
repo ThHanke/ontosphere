@@ -7,6 +7,7 @@ import { VALID_ALGORITHMS } from './layout';
 import { rdfManager } from '@/utils/rdfManager';
 import { checkOwl2Profile, detectOwl2Profiles, type ProfileTriple } from '@/utils/owlProfile';
 import { buildRepairBrief, type DiagnosticsData } from './diagnosticsBrief';
+import { expandIri } from './iriUtils';
 import { buildShaclRepairs, type RepairSuggestion } from './computeRepairs';
 const EXPORT_FORMATS = ['turtle', 'jsonld', 'rdfxml', 'svg', 'png'];
 
@@ -325,22 +326,32 @@ const explainEntailment: McpTool = {
     type: 'object',
     required: ['subjectIri', 'predicateIri', 'objectIri'],
     properties: {
-      subjectIri: { type: 'string', description: 'IRI of the axiom subject (e.g. the subclass, or the individual).' },
-      predicateIri: { type: 'string', description: 'IRI of the predicate — rdfs:subClassOf or rdf:type.' },
-      objectIri: { type: 'string', description: 'IRI of the axiom object (e.g. the superclass, or the class).' },
+      subjectIri: { type: 'string', description: 'Full IRI, or a prefixed name resolved through the namespace map (e.g. inc:frank): the axiom subject (the subclass, or the individual).' },
+      predicateIri: { type: 'string', description: 'Full IRI or prefixed name: rdfs:subClassOf or rdf:type.' },
+      objectIri: { type: 'string', description: 'Full IRI or prefixed name: the axiom object (the superclass, or the class).' },
       maxJustifications: { type: 'number', default: 1, description: 'Maximum number of independent justifications to return.' },
     },
   },
   async handler(params): Promise<McpResult> {
     try {
-      const { subjectIri, predicateIri, objectIri, maxJustifications = 1 } = (params ?? {}) as {
+      const { subjectIri: rawSubject, predicateIri: rawPredicate, objectIri: rawObject, maxJustifications = 1 } = (params ?? {}) as {
         subjectIri?: string;
         predicateIri?: string;
         objectIri?: string;
         maxJustifications?: number;
       };
-      if (!subjectIri || !predicateIri || !objectIri) {
+      if (!rawSubject || !rawPredicate || !rawObject) {
         return { success: false, error: 'explainEntailment requires subjectIri, predicateIri and objectIri.' };
+      }
+      // Like every other tool: a prefixed name is expanded through the namespace map, a full IRI passes
+      // through, anything else is an error. An unresolved name must never reach the reasoner, where it
+      // would just be "not entailed".
+      const [subjectIri, predicateIri, objectIri] = [rawSubject, rawPredicate, rawObject].map(expandIri);
+      const expandError = [subjectIri, predicateIri, objectIri].find((v) => v.startsWith('Unknown prefix:'));
+      if (expandError) return { success: false, error: expandError };
+      const notIri = [rawSubject, rawPredicate, rawObject].find((raw, i) => !/^[A-Za-z][A-Za-z0-9+.-]*:/.test([subjectIri, predicateIri, objectIri][i]));
+      if (notIri !== undefined) {
+        return { success: false, error: `"${notIri}" is neither a full IRI nor a prefixed name (such as rdf:type or inc:Employee).` };
       }
 
       // Ensure the reasoner has the current asserted graph (read-only).

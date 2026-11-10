@@ -219,6 +219,41 @@ describe('explainEntailment', () => {
     expect(result).toMatchObject({ success: false, error: expect.stringContaining('requires') });
   });
 
+  describe('IRIs: prefixed names go through the namespace map, full IRIs pass, anything else is an error', () => {
+    beforeEach(() => {
+      mockExplainEntailment.mockReset();
+      mockExplainEntailment.mockResolvedValue({ isEntailed: false, justifications: [] });
+    });
+
+    it('expands prefixed names before asking the reasoner', async () => {
+      const result = await tool('explainEntailment').handler({ subjectIri: 'ex:A', predicateIri: 'rdfs:subClassOf', objectIri: 'owl:Thing' });
+      expect(result).toMatchObject({ success: true });
+      expect(mockExplainEntailment).toHaveBeenCalledWith(
+        'http://example.org/A',
+        'http://www.w3.org/2000/01/rdf-schema#subClassOf',
+        'http://www.w3.org/2002/07/owl#Thing',
+        expect.anything(),
+      );
+    });
+
+    it('passes full IRIs unchanged', async () => {
+      await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
+      expect(mockExplainEntailment).toHaveBeenCalledWith(SUB, PRED, OBJ, expect.anything());
+    });
+
+    it('rejects an unknown prefix instead of reporting "not entailed"', async () => {
+      const result = await tool('explainEntailment').handler({ subjectIri: 'nope:A', predicateIri: PRED, objectIri: OBJ });
+      expect(result).toMatchObject({ success: false, error: expect.stringContaining('Unknown prefix: nope:') });
+      expect(mockExplainEntailment).not.toHaveBeenCalled();
+    });
+
+    it('rejects a bare name that is neither a prefixed name nor a full IRI', async () => {
+      const result = await tool('explainEntailment').handler({ subjectIri: 'frank', predicateIri: PRED, objectIri: OBJ });
+      expect(result).toMatchObject({ success: false, error: expect.stringContaining('"frank"') });
+      expect(mockExplainEntailment).not.toHaveBeenCalled();
+    });
+  });
+
   it('returns ontologyInconsistent when the ontology has a contradiction', async () => {
     mockExplainEntailment.mockResolvedValueOnce({
       isEntailed: null,

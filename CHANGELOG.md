@@ -18,6 +18,7 @@
 
 - **Dataset and Turtle export no longer drop literals that differ only by language or datatype.** The export de-duplicated quads by the literal's text alone, so `"chair"`, `"chair"@en` and `"chair"^^xsd:token` on the same subject and predicate collapsed into one. Exporting PMDco (commit 3b98aad) lost 7 triples this way, among them the labels of `PMD_0000964`, `PMD_0001003`, `IAO_0000112`, `IAO_0000115`, `dc:source` and `rdfs:label`. The same key was used for inferred quads. Loading was never affected.
 - **Reasoning no longer reports success when the reasoner stalls.** A stalled or crashed run is now a failed run: SHACL is skipped, the result status is `error`, and the MCP tool `runReasoning` returns `success: false`.
+- **`explainEntailment` resolves prefixed names like every other tool.** It took only full IRIs and answered "NOT entailed" (with `success: true`) for anything else, so `inc:frank` from a `queryGraph` row looked like an unentailed fact. Prefixed names now go through the namespace map, full IRIs pass unchanged, and an unknown prefix or a bare name is an error.
 - **Validation reports carry a node id.** A SHACL violation without a focus node is attributed to its shape.
 - **Blank-node values after reasoning** (`sh:class` on `x p [ a SubOfTarget ]`) conform again. The cause was inferred blank nodes coming back from the reasoner under another name; fixed in rdf-reasoner-konclude 0.9.1.
 

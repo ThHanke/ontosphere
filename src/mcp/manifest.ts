@@ -438,9 +438,9 @@ export const mcpManifest: McpToolManifestEntry[] = [
       type: 'object',
       required: ['subjectIri', 'predicateIri', 'objectIri'],
       properties: {
-        subjectIri: { type: 'string', description: 'IRI of the axiom subject (the subclass, or the individual).' },
-        predicateIri: { type: 'string', description: 'IRI of the predicate — rdfs:subClassOf or rdf:type.' },
-        objectIri: { type: 'string', description: 'IRI of the axiom object (the superclass, or the class).' },
+        subjectIri: { type: 'string', description: 'Full IRI, or a prefixed name resolved through the namespace map (e.g. inc:frank): the axiom subject (the subclass, or the individual).' },
+        predicateIri: { type: 'string', description: 'Full IRI or prefixed name: rdfs:subClassOf or rdf:type.' },
+        objectIri: { type: 'string', description: 'Full IRI or prefixed name: the axiom object (the superclass, or the class).' },
         maxJustifications: { type: 'number', default: 1, description: 'Maximum number of independent justifications to return.' },
       },
     },
