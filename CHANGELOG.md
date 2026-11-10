@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased] — 1.8.0
+
+### Breaking changes
+
+- **`explainDiagnostics` no longer returns laconic explanations.** The `laconicJustifications` field and the "Precise culprit (laconic — superfluous parts removed)" lines in `repairBrief` are gone. `justifications` still lists the whole axioms that cause each clash.
+  - *Why:* laconic explanations show which part of an axiom causes a clash (for example `A ⊑ B` inside `A ⊑ B ⊓ C`). The app used them for two things only: hints to the old weakening code, and extra wording in the agent-facing repair brief. The hints are obsolete, because the reasoner's `weaken()` now splits conjuncts itself and verifies each weaker axiom. The wording was never shown in the UI. Computing them was the most expensive step of the call: 180.5 s of 232 s for PMDCO plus one disjoint-class clash (node, real reasoner), and `explainDiagnostics` took about 513 s in the browser.
+  - *Impact:* agents that read `laconicJustifications` or the "Precise culprit" lines should read `justifications` instead. Repair suggestions are unaffected: they work on whole axioms, and weakenings still offer the dropped-conjunct alternatives. `rdf-reasoner-konclude` still provides `explainInconsistencyLaconic` for direct use.
+
+### Changes
+
+- **`explainDiagnostics` does not compute `unsatisfiableClasses` for an inconsistent ontology.** In an inconsistent ontology every class is unsatisfiable, so the list says nothing, and the classification took 52 s on PMDCO in the browser. The field is empty, the output carries `unsatisfiableClassesSkipped: "ontology-inconsistent"`, and the UI shows a toast ("Unsatisfiable classes not computed"). Consistent ontologies are unchanged.
+- **`explainDiagnostics` is about four times faster on a large inconsistent ontology.** PMDCO plus one disjoint-class clash, headless Chromium: 513 s before, 128 s now. The gains come from reasoner 0.9.1 (`repair()` takes the justifications that were already computed instead of explaining again), no laconic pass, no classification of an inconsistent ontology, and one explain per graph state (cached, invalidated on every write to the store). Most of what remains is the first consistency check and explain inside `runReasoning` (99 s).
+- **`explainDiagnostics({ includeTimings: true })`** adds `timingsMs` (wall time of each stage and of each reasoner call) for diagnosing slow runs.
+
+### Bug fixes
+
+- **Dataset and Turtle export no longer drop literals that differ only by language or datatype.** The export de-duplicated quads by the literal's text alone, so `"chair"`, `"chair"@en` and `"chair"^^xsd:token` on the same subject and predicate collapsed into one. Exporting PMDco (commit 3b98aad) lost 7 triples this way, among them the labels of `PMD_0000964`, `PMD_0001003`, `IAO_0000112`, `IAO_0000115`, `dc:source` and `rdfs:label`. The same key was used for inferred quads. Loading was never affected.
+- **Reasoning no longer reports success when the reasoner stalls.** A stalled or crashed run is now a failed run: SHACL is skipped, the result status is `error`, and the MCP tool `runReasoning` returns `success: false`.
+- **Validation reports carry a node id.** A SHACL violation without a focus node is attributed to its shape.
+- **Blank-node values after reasoning** (`sh:class` on `x p [ a SubOfTarget ]`) conform again. The cause was inferred blank nodes coming back from the reasoner under another name; fixed in rdf-reasoner-konclude 0.9.1.
+
 ## [1.7.7] — 2026-10-16
 
 ### Reasoning

@@ -74,7 +74,7 @@ flowchart LR
     Store["RDF store<br/>named graphs · Web Workers"]
     Reason["OWL 2 DL reasoner<br/>Konclude · WebAssembly"]
     Check["OWL 2 profile + SHACL"]
-    Repair["Repair engine<br/>deletion · weakening · laconic"]
+    Repair["Repair engine<br/>deletion · weakening"]
     Diag["Diagnosis object<br/>verdict · justifications · verified repairs"]
     Prov["PROV-O provenance + reversal"]
     MCP["MCP server · 43 tools"]
@@ -112,11 +112,11 @@ Everything below runs in the browser tab, against an in-memory RDF store backed 
 
 #### 🧠 Reason
 - **Complete OWL 2 DL inference** in the browser via **Konclude (WebAssembly)**; inferred triples render as amber dashed edges and inferred types/annotations in amber italic, with a full inference report and one-click clearing that never touches asserted data.
-- Automatic **consistency checking** with per-entity clash details in the Errors tab, **justifications** (MIPS) with laconic targeting, **OWL 2 profile** detection (EL/QL/RL/DL), and **locality-module** scoping for incremental/modular verification.
+- Automatic **consistency checking** with per-entity clash details in the Errors tab, **justifications** (MIPS), **OWL 2 profile** detection (EL/QL/RL/DL), and **locality-module** scoping for incremental/modular verification.
 
 #### 🔧 Repair — reasoner-verified
 - When the reasoner finds a contradiction (or SHACL reports a violation), a **Repairs** tab shows reasoner-computed, ranked, verified fixes — the same repairs the `explainDiagnostics` MCP tool hands an agent.
-- Minimal hitting-set **deletion** plus, for `rdfs:subClassOf` culprits, **axiom weakening** that replaces `A ⊑ D` with a logically weaker `A ⊑ D′` to preserve more knowledge than deletion (Troquard et al. AAAI 2018; Li & Lambrix ISWC 2024). Each suggestion shows its rationale and the exact triples it adds/removes, with a "verified consistent" badge and a bounded **minimality** check. Apply a single deletion, **Apply weakening** as one undoable remove+add batch, or **Apply all verified** in one batch — then re-run reasoning to confirm.
+- Minimal hitting-set **deletion** plus, for `rdfs:subClassOf` culprits, **axiom weakening** that replaces `A ⊑ D` with a logically weaker `A ⊑ D′` to preserve more knowledge than deletion (Troquard et al. AAAI 2018; Li & Lambrix ISWC 2024). Each suggestion shows its rationale and the exact triples it adds/removes, with a "verified consistent" badge and the reasoner's minimality verdict. The reasoner (rdf-reasoner-konclude `repair()` and `weaken()`) finds and verifies the repair sets; weakenings are offered only when removing the culprit alone restores consistency, i.e. with a single independent contradiction. Apply a single deletion, **Apply weakening** as one undoable remove+add batch, or **Apply all verified** in one batch — then re-run reasoning to confirm.
 
 #### ✅ Validate & track
 - **SHACL validation** with focus node / path / constraint / severity reporting.
@@ -308,6 +308,8 @@ Affected nodes display validation badges directly on the canvas — red for erro
 | Settings → SHACL tab | Persistent shapes URL with bundled presets |
 | MCP tool `loadShaclFromUrl` | AI-agent-driven shape loading |
 
+When neither `?shaclShapes=` nor the Settings URL names shapes, the built-in ontology-quality shapes load at startup. Shapes loaded any other way are never mixed with them.
+
 Shapes are loaded into the `urn:vg:shapes` named graph, which is excluded from OWL reasoning. The sidebar **SHACL Shapes** panel shows loaded shapes with their target classes, constraint messages, and severity levels.
 
 ### Bundled shape presets
@@ -419,6 +421,7 @@ The API key is sent only with the RDF fetch request. CORS: the server must allow
 | Parameter      | Description |
 |----------------|-------------|
 | `shaclShapes`  | URL of SHACL shapes to load on startup. Accepts a direct `.ttl` URL, a GitHub folder URL, or a comma-separated list. Overrides the configured shapes URL for this session. |
+| `workflowCatalog` | `off` skips the startup load of the PyodideSemanticWorkflow catalog, so `urn:vg:workflows` stays empty and its ontology stays out of the reasoning input. For headless runs and evaluations. |
 
 ```text
 ?rdfUrl=https://example.org/data.ttl&shaclShapes=/shacl-shapes/ontology-quality.shacl.ttl
