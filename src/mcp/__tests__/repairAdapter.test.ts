@@ -36,7 +36,7 @@ describe('suggestDeletionRepairs — mapping to RepairSuggestion', () => {
     const r = res.repairs[0];
     expect(r.id).toBe('R1');
     expect(r.issue).toBe('inconsistency');
-    expect(r.kind).toBeUndefined(); // a deletion carries no kind
+    expect(r.kind).toBe('delete'); // as documented in the tool description
     expect(r.action.tool).toBe('removeLink');
     // least destructive: an ABox assertion, not the disjointWith axiom
     expect(r.action.args).toMatchObject({ subjectIri: `${EX}i`, predicateIri: RDF_TYPE, objectIri: `${EX}A`, graph: 'urn:vg:data', objectTermType: 'NamedNode' });

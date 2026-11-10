@@ -12,6 +12,7 @@
 
 - **`explainDiagnostics` does not compute `unsatisfiableClasses` for an inconsistent ontology.** In an inconsistent ontology every class is unsatisfiable, so the list says nothing, and the classification took 52 s on PMDCO in the browser. The field is empty, the output carries `unsatisfiableClassesSkipped: "ontology-inconsistent"`, and the UI shows a toast ("Unsatisfiable classes not computed"). Consistent ontologies are unchanged.
 - **`explainDiagnostics` is about four times faster on a large inconsistent ontology.** PMDCO plus one disjoint-class clash, headless Chromium: 513 s before, 128 s now. The gains come from reasoner 0.9.1 (`repair()` takes the justifications that were already computed instead of explaining again), no laconic pass, no classification of an inconsistent ontology, and one explain per graph state (cached, invalidated on every write to the store). Most of what remains is the first consistency check and explain inside `runReasoning` (99 s).
+- **Deletion repairs carry `kind: "delete"`**, as the tool description always said (weakenings carry `kind: "weaken"`). Before, a deletion had no `kind`.
 - **`explainDiagnostics({ includeTimings: true })`** adds `timingsMs` (wall time of each stage and of each reasoner call) for diagnosing slow runs.
 
 ### Bug fixes

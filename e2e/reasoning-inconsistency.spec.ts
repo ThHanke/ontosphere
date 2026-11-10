@@ -133,6 +133,7 @@ test('Diagnose, repair, apply, re-check: explainDiagnostics -> removeLink -> con
 
   // 2. The suggested deletion repair removes one of the clashing type assertions.
   const repair = diag.data.suggestedRepairs.find((r: any) => r.issue === 'inconsistency' && r.kind !== 'weaken');
+  expect(repair?.kind).toBe('delete');
   expect(repair?.action?.tool).toBe('removeLink');
   expect(repair.verifiedConsistent).toBe(true);
   expect(repair.action.args.subjectIri).toBe(`${NS}frank`);

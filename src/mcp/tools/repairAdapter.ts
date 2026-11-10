@@ -316,6 +316,7 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
     return {
       id: `R${i + 1}`,
       issue: 'inconsistency' as const,
+      kind: 'delete' as const,
       action: {
         tool: 'removeLink' as const,
         args: {
