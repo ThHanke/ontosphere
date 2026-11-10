@@ -1,3 +1,5 @@
+import { abbreviateIri } from '@/utils/iriAbbreviation';
+import { entriesToRecord } from '@/constants/namespaces';
 import React from 'react';
 import * as Reactodia from '@reactodia/workspace';
 import { UnifiedSearchTopic } from '@reactodia/workspace';
@@ -1602,12 +1604,15 @@ export default function ReactodiaCanvas() {
           } catch { /* graph not yet loaded */ }
         }
 
-        const localName = (iri: string) => iri.split(/[#/]/).pop() ?? iri;
-        const resolveLabel = (iri: string) => labelMap.get(iri) ?? localName(iri);
+        // The message names the path and the shape the way the worker wrote them: a prefixed name or the
+        // full IRI. Where the ontology has an rdfs:label for it, show the label; otherwise leave the text.
+        const namespaces = entriesToRecord(rdfManager.getNamespaces());
         const enrichMessage = (msg: string, path: string | undefined, shape: string | undefined): string => {
           let out = msg;
-          if (path) out = out.replaceAll(`path: ${localName(path)}`, `path: ${resolveLabel(path)}`);
-          if (shape) out = out.replaceAll(`shape: ${localName(shape)}`, `shape: ${resolveLabel(shape)}`);
+          const pathLabel = path ? labelMap.get(path) : undefined;
+          const shapeLabel = shape ? labelMap.get(shape) : undefined;
+          if (path && pathLabel) out = out.replaceAll(`path: ${abbreviateIri(path, namespaces)}`, `path: ${pathLabel}`);
+          if (shape && shapeLabel) out = out.replaceAll(`shape: ${abbreviateIri(shape, namespaces)}`, `shape: ${shapeLabel}`);
           return out;
         };
 

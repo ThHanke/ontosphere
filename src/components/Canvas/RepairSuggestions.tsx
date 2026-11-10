@@ -14,6 +14,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { rdfManager } from '../../utils/rdfManager';
+import { entriesToRecord } from '../../constants/namespaces';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -116,7 +117,7 @@ export const RepairSuggestions = memo(({ reasoningId, isConsistent }: RepairSugg
 
         // 2. The reasoner computes the repairs and weakenings (the same call the agent path makes);
         //    SHACL repairs are a separate pipeline.
-        const shaclRepairs = buildShaclRepairs(shaclViolations);
+        const shaclRepairs = buildShaclRepairs(shaclViolations, entriesToRecord(rdfManager.getNamespaces()));
         let repairs: RepairSuggestion[] = shaclRepairs;
         let repairSetVerifiedConsistent: boolean | null = null;
         if (isConsistent === false) {

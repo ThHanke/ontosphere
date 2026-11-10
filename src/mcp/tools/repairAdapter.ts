@@ -10,6 +10,7 @@
 // No worker or WASM dependency: the reasoner is injected as `RepairLibrary`, so the mapping is
 // unit-testable without it (see __tests__/repairAdapter.test.ts).
 
+import { abbreviateIri, type NamespaceMap } from '../../utils/iriAbbreviation';
 import type {
   Axiom as LibAxiom,
   AxiomJustification,
@@ -27,7 +28,6 @@ import {
   hasIriObject,
   isDeclaration,
   isTBoxAxiom,
-  localName,
   type AxiomTriple,
   type RepairSuggestion,
 } from './computeRepairs';
@@ -64,6 +64,8 @@ export interface SuggestDeletionRepairsInput {
    */
   seed?: AxiomJustification[];
   unsatisfiableClasses?: string[];
+  /** prefix to namespace IRI; rationales name IRIs as prefixed names from it, else as full IRIs. */
+  namespaces?: NamespaceMap;
   /** Justifications per explanation round. Default 3. */
   maxJustifications?: number;
   /** Wall-clock budget in ms for the repair search and for each weakening call; 0 = none. Library defaults when absent. */
@@ -217,6 +219,7 @@ interface Entry {
 export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput): Promise<SuggestRepairsResult> {
   const { lib, reskolemize } = input;
   const unsat = new Set(input.unsatisfiableClasses ?? []);
+  const name = (iri: string): string => abbreviateIri(iri, input.namespaces);
 
   const seeded: SeededRepairOptions = {
     maxJustifications: input.maxJustifications ?? 3,
@@ -310,8 +313,8 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
     const alsoIn =
       graphs.length > 1 ? ` The axiom is stored in ${graphs.length} graphs (${graphs.join(', ')}).` : '';
     const rationale =
-      `Remove ${localName(triple.subject)} ${localName(triple.predicate)} ` +
-      `${localName(triple.object)} — ${kind}; this ${coversText}.${alsoIn}`;
+      `Remove ${name(triple.subject)} ${name(triple.predicate)} ` +
+      `${hasIriObject(triple) ? name(triple.object) : triple.object} — ${kind}; this ${coversText}.${alsoIn}`;
     const verified = verifiedAlone.get(i);
     return {
       id: `R${i + 1}`,
@@ -400,13 +403,13 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
         justs.flatMap((j, i) => (j.some((t) => spo(t) === spo(culpritTriple)) ? [i] : []));
       for (const w of weakened.weakenings) {
         if (w.strategy === 'delete') continue;
-        const A = localName(culpritTriple.subject);
-        const original = culpritTriple.object.startsWith(SKOLEM_PREFIX) ? 'a class expression' : localName(culpritTriple.object);
+        const A = name(culpritTriple.subject);
+        const original = culpritTriple.object.startsWith(SKOLEM_PREFIX) ? 'a class expression' : name(culpritTriple.object);
         const rationale =
           w.strategy === 'generalize' && w.change?.to
-            ? `Weaken ${A} ⊑ ${original} to ${A} ⊑ ${localName(w.change.to)} (a named superclass; logically weaker) — ` +
-              `keeps ${A} ⊑ ${localName(w.change.to)} instead of deleting the axiom.`
-            : `Weaken ${A} ⊑ ${original} by dropping the conjunct ${localName(w.change?.from ?? '')} — ` +
+            ? `Weaken ${A} ⊑ ${original} to ${A} ⊑ ${name(w.change.to)} (a named superclass; logically weaker) — ` +
+              `keeps ${A} ⊑ ${name(w.change.to)} instead of deleting the axiom.`
+            : `Weaken ${A} ⊑ ${original} by dropping the conjunct ${name(w.change?.from ?? '')} — ` +
               `keeps the remaining conjuncts instead of deleting the axiom.`;
         const triples = (qs: readonly Quad[]) =>
           qs.map((q) => {

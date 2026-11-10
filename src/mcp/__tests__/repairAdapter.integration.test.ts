@@ -197,7 +197,7 @@ describe('repair adapter — real Konclude integration', () => {
     if (!r) return;
     try {
       const store = parseTtl(FIXTURE_WEAKEN);
-      const res = await suggestDeletionRepairs({ lib: realLib(r, store), reskolemize: identity, maxJustifications: 5 });
+      const res = await suggestDeletionRepairs({ lib: realLib(r, store), reskolemize: identity, namespaces: { ex: 'http://example.org/' }, maxJustifications: 5 });
       const dels = deletions(res);
       expect(dels.length).toBeGreaterThanOrEqual(1);
 
@@ -214,7 +214,7 @@ describe('repair adapter — real Konclude integration', () => {
         expect(w.batch!.adds.length).toBeGreaterThanOrEqual(1);
       }
       // The generalisation A ⊑ B -> A ⊑ C is among them.
-      expect(weak.some((w) => w.rationale.includes('A ⊑ B to A ⊑ C') && w.rationale.includes('logically weaker'))).toBe(true);
+      expect(weak.some((w) => w.rationale.includes('ex:A ⊑ ex:B to ex:A ⊑ ex:C') && w.rationale.includes('logically weaker'))).toBe(true);
       // Each weakening is tied to a deletion repair that exists.
       for (const w of weak) expect(res.repairs.some((d) => d.id === w.alternativeTo && d.kind !== 'weaken')).toBe(true);
 

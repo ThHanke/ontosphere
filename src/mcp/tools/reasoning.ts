@@ -1,4 +1,6 @@
 // src/mcp/tools/reasoning.ts
+import { abbreviateIri, type NamespaceMap } from '@/utils/iriAbbreviation';
+import { entriesToRecord } from '@/constants/namespaces';
 import { toast } from 'sonner';
 import type { McpTool, McpResult } from '@/mcp/types';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
@@ -238,7 +240,8 @@ const explainDiagnostics: McpTool = {
       let repairSetVerifiedConsistent: boolean | null = null;
       let repairSetMatchWarning: string | undefined;
       let libTimingsMs: { call: string; ms: number }[] | undefined;
-      const shaclRepairs = buildShaclRepairs(shaclViolations);
+      const namespaces = entriesToRecord(rdfManager.getNamespaces());
+      const shaclRepairs = buildShaclRepairs(shaclViolations, namespaces);
       let suggestedRepairs: RepairSuggestion[] = shaclRepairs;
 
       if (isConsistent === false) {
@@ -267,6 +270,7 @@ const explainDiagnostics: McpTool = {
       };
 
       const repairBrief = buildRepairBrief(data, suggestedRepairs, {
+        namespaces,
         repairSetVerifiedConsistent,
         repairSetMatchWarning,
       });
@@ -295,16 +299,8 @@ const explainDiagnostics: McpTool = {
 // explainEntailment
 // ---------------------------------------------------------------------------
 
-/** Local name of an IRI for compact, human-readable summaries. */
-function localName(iri: string): string {
-  const hash = iri.lastIndexOf('#');
-  const slash = iri.lastIndexOf('/');
-  const cut = Math.max(hash, slash);
-  return cut >= 0 && cut < iri.length - 1 ? iri.slice(cut + 1) : iri;
-}
-
-function axiomToText(a: { subject: string; predicate: string; object: string }): string {
-  return `${localName(a.subject)} ${localName(a.predicate)} ${localName(a.object)}`;
+function axiomToText(a: { subject: string; predicate: string; object: string }, namespaces: NamespaceMap): string {
+  return `${abbreviateIri(a.subject, namespaces)} ${abbreviateIri(a.predicate, namespaces)} ${abbreviateIri(a.object, namespaces)}`;
 }
 
 const explainEntailment: McpTool = {
@@ -363,7 +359,8 @@ const explainEntailment: McpTool = {
           { maxJustifications },
         );
 
-      const axiomText = axiomToText({ subject: subjectIri, predicate: predicateIri, object: objectIri });
+      const entailmentNamespaces = entriesToRecord(rdfManager.getNamespaces());
+      const axiomText = axiomToText({ subject: subjectIri, predicate: predicateIri, object: objectIri }, entailmentNamespaces);
       let summary: string;
       if (ontologyInconsistent) {
         // C1: the ontology is already inconsistent, so the entailment reduction is
@@ -395,7 +392,7 @@ const explainEntailment: McpTool = {
       } else {
         const sets = justifications
           .map((j, i) => {
-            const axioms = j.map(axiomToText).join('; ');
+            const axioms = j.map((a) => axiomToText(a, entailmentNamespaces)).join('; ');
             return justifications.length > 1 ? `[${i + 1}] ${axioms}` : axioms;
           })
           .join(' | ');

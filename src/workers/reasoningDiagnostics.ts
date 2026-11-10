@@ -3,6 +3,7 @@
 // Pure, dependency-light helpers that turn raw reasoner output into structured,
 // explainable diagnostics. Extracted from rdfManager.runtime.ts so the logic is
 // unit-testable in isolation (no Konclude WASM / worker harness required).
+import { abbreviateIri as abbreviateWith, type NamespaceMap } from "../utils/iriAbbreviation.ts";
 import type * as N3 from "n3";
 import type { ReasoningError } from "@/utils/reasoningTypes";
 
@@ -16,18 +17,9 @@ const CLASH_PREDICATES = new Set([
   "http://www.w3.org/2002/07/owl#AsymmetricProperty",
 ]);
 
-const KNOWN_PREFIXES: Record<string, string> = {
-  "http://www.w3.org/1999/02/22-rdf-syntax-ns#": "rdf:",
-  "http://www.w3.org/2000/01/rdf-schema#": "rdfs:",
-  "http://www.w3.org/2002/07/owl#": "owl:",
-};
-
-/** Abbreviate an IRI to a prefixed or local name for human-readable messages. */
-export function abbreviateIri(iri: string): string {
-  for (const [ns, prefix] of Object.entries(KNOWN_PREFIXES)) {
-    if (iri.startsWith(ns)) return prefix + iri.slice(ns.length);
-  }
-  return iri.split(/[#/]/).pop() ?? iri;
+/** A prefixed name from the namespace map, or the full IRI; never a bare local name. */
+export function abbreviateIri(iri: string, namespaces: NamespaceMap = {}): string {
+  return abbreviateWith(iri, namespaces);
 }
 
 /**
@@ -40,7 +32,7 @@ export function abbreviateIri(iri: string): string {
  * human-readable summary to three axioms, so both the UI and MCP agents can
  * inspect every axiom involved in the clash.
  */
-export function mipsToReasoningError(mips: N3.Quad[]): ReasoningError {
+export function mipsToReasoningError(mips: N3.Quad[], namespaces: NamespaceMap = {}): ReasoningError {
   // nodeId: prefer the clash individual (subject of rdf:type to a user-defined class),
   // falling back progressively so we always name something concrete.
   let nodeId: string | undefined;
@@ -92,13 +84,13 @@ export function mipsToReasoningError(mips: N3.Quad[]): ReasoningError {
     object: q.object.value,
   }));
 
-  const nodeLocalName = nodeId ? abbreviateIri(nodeId) : "unknown";
+  const nodeName = nodeId ? abbreviateIri(nodeId, namespaces) : "unknown";
   const axiomSummary = mips
     .slice(0, 3)
-    .map((q) => `${abbreviateIri(q.subject.value)} ${abbreviateIri(q.predicate.value)} ${abbreviateIri(q.object.value)}`)
+    .map((q) => `${abbreviateIri(q.subject.value, namespaces)} ${abbreviateIri(q.predicate.value, namespaces)} ${abbreviateIri(q.object.value, namespaces)}`)
     .join("; ");
   const message =
-    `Clash on ${nodeLocalName} (${rule}). Involved axioms: ${axiomSummary}` +
+    `Clash on ${nodeName} (${rule}). Involved axioms: ${axiomSummary}` +
     (mips.length > 3 ? ` (+${mips.length - 3} more — see justification)` : "");
 
   return { nodeId, rule, severity: "critical", message, justification };
@@ -138,11 +130,14 @@ export function mapShaclSeverity(severity: string | null | undefined): "error" |
  * Always includes shape and path context so the canvas badge tooltip identifies
  * which shape fired and which property was checked — not just the raw engine message.
  */
-export function shaclViolationToEntry(v: ShaclViolationInput): ShaclEntry {
-  const constraintLocal = v.constraint ? v.constraint.split(/[#/]/).pop() ?? "constraint" : null;
-  const focusLocal = v.focusNode ? abbreviateIri(v.focusNode) : "node";
-  const pathLabel = v.path ? abbreviateIri(v.path) : null;
-  const shapeLabel = v.sourceShape ? abbreviateIri(v.sourceShape) : null;
+export function shaclViolationToEntry(v: ShaclViolationInput, namespaces: NamespaceMap = {}): ShaclEntry {
+  // The rule id keeps the bare constraint name (it is an identifier, `shacl:MinCountConstraintComponent`);
+  // the text names the constraint, node, path and shape as prefixed names or full IRIs.
+  const constraintId = v.constraint ? v.constraint.split(/[#/]/).pop() ?? "constraint" : null;
+  const constraintLocal = v.constraint ? abbreviateIri(v.constraint, namespaces) : null;
+  const focusLocal = v.focusNode ? abbreviateIri(v.focusNode, namespaces) : "node";
+  const pathLabel = v.path ? abbreviateIri(v.path, namespaces) : null;
+  const shapeLabel = v.sourceShape ? abbreviateIri(v.sourceShape, namespaces) : null;
 
   let message: string;
   if (v.message && v.message.trim().length > 0) {
@@ -168,7 +163,7 @@ export function shaclViolationToEntry(v: ShaclViolationInput): ShaclEntry {
     // finding) is attributed to the shape that fired.
     nodeId: v.focusNode || v.sourceShape || undefined,
     message,
-    rule: `shacl:${constraintLocal ?? "constraint"}`,
+    rule: `shacl:${constraintId ?? "constraint"}`,
     severity: mapShaclSeverity(v.severity),
     sourceShape: v.sourceShape ?? undefined,
     path: v.path ?? undefined,

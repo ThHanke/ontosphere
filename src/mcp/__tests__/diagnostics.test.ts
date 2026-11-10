@@ -22,6 +22,7 @@ const {
 // repair() found, returned by suggestRepairs. mockReasonerJustifications scripts that answer.
 vi.mock('@/utils/rdfManager', () => ({
   rdfManager: {
+    getNamespaces: () => [],
     runReasoning: mockRunReasoning,
     runShaclValidation: mockRunShacl,
     validate: mockValidate,

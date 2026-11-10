@@ -112,6 +112,9 @@ test('Consistent sanity: reasoning-demo.ttl → isConsistent=true, errors=0, inf
   expect(text).toMatch(/Consistent/i);
 });
 
+const repairRationale = (diag: any): string =>
+  diag.data.suggestedRepairs.find((r: any) => r.issue === 'inconsistency' && r.kind === 'delete')?.rationale ?? '';
+
 test('Diagnose, repair, apply, re-check: explainDiagnostics -> removeLink -> consistent', async ({ page }) => {
   test.setTimeout(120_000);
   const NS = 'http://example.com/reasoning-demo-inconsistent#';
@@ -128,6 +131,10 @@ test('Diagnose, repair, apply, re-check: explainDiagnostics -> removeLink -> con
   const clash = diag.data.justifications[0].map((q: any) => `${q.subject} ${q.predicate} ${q.object}`);
   expect(clash).toEqual(expect.arrayContaining([`${NS}frank ${TYPE} ${NS}Employee`, `${NS}frank ${TYPE} ${NS}Contractor`]));
   expect(diag.data.unsatisfiableClassesSkipped).toBe('ontology-inconsistent');
+  // Text names IRIs as prefixed names from the namespace map (or full IRIs), never as bare local names.
+  expect(diag.data.repairBrief).toContain('inc:frank rdf:type inc:Employee');
+  expect(diag.data.repairBrief).not.toMatch(/- frank type /);
+  expect(repairRationale(diag)).toContain('Remove inc:frank rdf:type inc:');
   expect(diag.data.repairSetVerifiedConsistent).toBe(true);
   expect(diag.data.timingsMs.reasonerCalls.map((c: any) => c.call)).toContain('repair');
 

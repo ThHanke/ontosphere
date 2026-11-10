@@ -205,4 +205,19 @@ describe('buildRepairBrief', () => {
     expect(result).toContain('PRESERVE MORE KNOWLEDGE');
     expect(result).toContain('Troquard');
   });
+
+  it('names IRIs as prefixed names from the namespace map, else as full IRIs, never as local names', () => {
+    const d: any = {
+      isConsistent: false,
+      justifications: [[
+        { subject: 'http://example.com/demo#frank', predicate: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', object: 'http://example.com/demo#Employee' },
+      ]],
+      unsatisfiableClasses: [], profile: { owl2dl: true, violations: [] }, shaclViolations: [],
+    };
+    const prefixed = buildRepairBrief(d, [], { namespaces: { inc: 'http://example.com/demo#' } });
+    expect(prefixed).toContain('- inc:frank rdf:type inc:Employee');
+    const full = buildRepairBrief(d);
+    expect(full).toContain('- http://example.com/demo#frank rdf:type http://example.com/demo#Employee');
+    expect(full).not.toMatch(/- frank /);
+  });
 });

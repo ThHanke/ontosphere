@@ -23,6 +23,7 @@ const {
 }));
 
 const mockToastInfo = vi.hoisted(() => vi.fn());
+const mockGetNamespaces = vi.hoisted(() => vi.fn(() => [] as { prefix: string; uri: string }[]));
 vi.mock('sonner', () => ({ toast: { info: mockToastInfo } }));
 vi.mock('@/mcp/workspaceContext', () => {
   const dataProvider = { clearInferred: mockClearInferred };
@@ -47,6 +48,7 @@ vi.mock('@/stores/appConfigStore', () => ({
 
 vi.mock('@/utils/rdfManager', () => ({
   rdfManager: {
+    getNamespaces: (...a: unknown[]) => mockGetNamespaces(...a),
     explainEntailment: mockExplainEntailment,
     validate: mockValidate,
     fetchQuadsPage: mockFetchQuadsPage,
@@ -328,6 +330,19 @@ describe('explainEntailment', () => {
     expect((result as any).data.summary).toContain('inferred because');
     expect((result as any).data.justifications).toHaveLength(1);
     expect((result as any).data.justifications[0]).toHaveLength(2);
+  });
+
+  it('names the axioms of the summary as prefixed names from the namespace map, else as full IRIs', async () => {
+    const ax = { subject: 'http://ex.org/X', predicate: 'http://ex.org/p', object: 'http://ex.org/Y' };
+    mockExplainEntailment.mockResolvedValue({ isEntailed: true, justifications: [[ax]] });
+    const plain = await tool('explainEntailment').handler({ subjectIri: 'http://ex.org/X', predicateIri: 'http://ex.org/p', objectIri: 'http://ex.org/Y' });
+    expect((plain as any).data.summary).toContain('http://ex.org/X http://ex.org/p http://ex.org/Y');
+    expect((plain as any).data.summary).not.toMatch(/inferred because: X p Y/);
+
+    mockGetNamespaces.mockReturnValueOnce([{ prefix: 'exo', uri: 'http://ex.org/' }]);
+    const prefixed = await tool('explainEntailment').handler({ subjectIri: 'http://ex.org/X', predicateIri: 'http://ex.org/p', objectIri: 'http://ex.org/Y' });
+    expect((prefixed as any).data.summary).toContain('exo:X exo:p exo:Y');
+    mockExplainEntailment.mockReset();
   });
 
   it('numbers multiple justification sets', async () => {

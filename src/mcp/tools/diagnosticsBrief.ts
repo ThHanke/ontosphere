@@ -2,6 +2,8 @@
 // Pure function: turns structured diagnostics into a ranked, plain-language,
 // agent-actionable repair brief.
 
+import { abbreviateIri, type NamespaceMap } from '../../utils/iriAbbreviation';
+
 export interface DiagnosticsData {
   isConsistent: boolean | null;
   /**
@@ -40,18 +42,14 @@ export interface DiagnosticsData {
   }[];
 }
 
-// ---------------------------------------------------------------------------
-// IRI → local name helper
+// IRI naming: a prefixed name from the namespace map, or the full IRI; never a bare local name
 // ---------------------------------------------------------------------------
 
-/** Returns the local name after the last '#' or '/', or the full string if neither. */
-function localName(iri: string): string {
-  if (!iri) return iri;
-  const hashIdx = iri.lastIndexOf('#');
-  if (hashIdx !== -1 && hashIdx < iri.length - 1) return iri.slice(hashIdx + 1);
-  const slashIdx = iri.lastIndexOf('/');
-  if (slashIdx !== -1 && slashIdx < iri.length - 1) return iri.slice(slashIdx + 1);
-  return iri;
+/** The namespace map of the brief being built (buildRepairBrief is synchronous, so one slot is safe). */
+let briefNamespaces: NamespaceMap = {};
+
+function nameOf(iri: string): string {
+  return abbreviateIri(iri, briefNamespaces);
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +69,7 @@ function buildInconsistencySection(justifications: DiagnosticsData['justificatio
     lines.push(`   Justification ${idx + 1}:`);
     for (const ax of axiomSet) {
       lines.push(
-        `     - ${localName(ax.subject)} ${localName(ax.predicate)} ${localName(ax.object)}`,
+        `     - ${nameOf(ax.subject)} ${nameOf(ax.predicate)} ${nameOf(ax.object)}`,
       );
     }
 
@@ -89,7 +87,7 @@ function buildProfileSection(
 ): string {
   const lines: string[] = [`${num}. OWL 2 DL PROFILE VIOLATIONS`];
   for (const v of profile.violations) {
-    lines.push(`   - Axiom: ${localName(v.axiom)}`);
+    lines.push(`   - Axiom: ${nameOf(v.axiom)}`);
     lines.push(`     Reason: ${v.reason}`);
   }
   if (profile.mostRestrictive) {
@@ -119,8 +117,8 @@ function buildShaclSection(
   for (const [severity, group] of bySeverity.entries()) {
     lines.push(`   [${severity}]`);
     for (const v of group) {
-      const focus = v.focusNode ? localName(v.focusNode) : '(unknown)';
-      const path = v.path ? localName(v.path) : '(no path)';
+      const focus = v.focusNode ? nameOf(v.focusNode) : '(unknown)';
+      const path = v.path ? nameOf(v.path) : '(no path)';
       const msg = v.message ?? '(no message)';
       lines.push(`   - Focus: ${focus} | Path: ${path}`);
       lines.push(`     Message: ${msg}`);
@@ -179,6 +177,8 @@ export interface RepairBriefOptions {
   repairSetVerifiedConsistent?: boolean | null;
   /** Warning when some repair axioms matched no triple during verification. */
   repairSetMatchWarning?: string;
+  /** prefix to namespace IRI: IRIs in the brief are prefixed names from it, else full IRIs. */
+  namespaces?: NamespaceMap;
 }
 
 function buildSuggestedRepairsSection(
@@ -260,6 +260,7 @@ export function buildRepairBrief(
   repairs: BriefRepair[] = [],
   options: RepairBriefOptions = {},
 ): string {
+  briefNamespaces = options.namespaces ?? {};
   const hasInconsistency = d.isConsistent === false;
   const hasUnsatisfiable = d.unsatisfiableClasses.length > 0;
   const hasProfileViolations = d.profile?.owl2dl === false && (d.profile?.violations.length ?? 0) > 0;
@@ -288,7 +289,7 @@ export function buildRepairBrief(
     const lines: string[] = [`${num}. UNSATISFIABLE CLASSES`];
     for (const cls of d.unsatisfiableClasses) {
       lines.push(
-        `   - ${localName(cls)}: This class can never have instances — relax its definition` +
+        `   - ${nameOf(cls)}: This class can never have instances — relax its definition` +
           ' (e.g. remove a disjointness or an over-constraining restriction).',
       );
     }

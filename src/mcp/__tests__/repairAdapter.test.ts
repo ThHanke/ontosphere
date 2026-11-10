@@ -29,7 +29,7 @@ const clash = [
 describe('suggestDeletionRepairs — mapping to RepairSuggestion', () => {
   it('maps the repair of one clash: id, issue, removeLink action, rationale, coverage, verdicts', async () => {
     const lib = fakeRepairLibrary([clash]);
-    const res = await suggestDeletionRepairs({ lib, reskolemize: identity });
+    const res = await suggestDeletionRepairs({ lib, reskolemize: identity, namespaces: { ex: EX } });
 
     expect(res.consistent).toBe(false);
     expect(res.repairs).toHaveLength(1);
@@ -40,7 +40,7 @@ describe('suggestDeletionRepairs — mapping to RepairSuggestion', () => {
     expect(r.action.tool).toBe('removeLink');
     // least destructive: an ABox assertion, not the disjointWith axiom
     expect(r.action.args).toMatchObject({ subjectIri: `${EX}i`, predicateIri: RDF_TYPE, objectIri: `${EX}A`, graph: 'urn:vg:data', objectTermType: 'NamedNode' });
-    expect(r.rationale).toContain('Remove i type A');
+    expect(r.rationale).toContain('Remove ex:i rdf:type ex:A'); // prefixed names from the namespace map
     expect(r.rationale).toContain('an ABox/assertion');
     expect(r.rationale).toContain('resolves contradiction 1');
     expect(r.justificationsCovered).toEqual([0]);
@@ -50,6 +50,13 @@ describe('suggestDeletionRepairs — mapping to RepairSuggestion', () => {
     expect(res.repairSetVerifiedConsistent).toBe(true);
     expect(res.minimal).toBe(true);
     expect(res.incomplete).toBe(false);
+  });
+
+  it('names IRIs as full IRIs when no namespace is registered, never as bare local names', async () => {
+    const res = await suggestDeletionRepairs({ lib: fakeRepairLibrary([clash]), reskolemize: identity });
+    const rationale = res.repairs[0].rationale;
+    expect(rationale).toContain(`Remove ${EX}i rdf:type ${EX}A`); // rdf: is built in; ex: is not registered here
+    expect(rationale).not.toMatch(/Remove i /);
   });
 
   it('carries the literal datatype, language and graph of the axiom into action.args', async () => {
@@ -240,7 +247,7 @@ describe('suggestDeletionRepairs — weakening', () => {
         ? [generalize(c), { strategy: 'delete', remove: c.quads, add: [], verifiedConsistent: true }]
         : [],
     });
-    const res = await suggestDeletionRepairs({ lib, reskolemize: identity });
+    const res = await suggestDeletionRepairs({ lib, reskolemize: identity, namespaces: { ex: EX } });
     const w = res.repairs.filter((r) => r.kind === 'weaken');
     expect(w).toHaveLength(1); // 'delete' dropped: the deletion repair is that
     expect(w[0].id).toBe('W1');
@@ -250,8 +257,8 @@ describe('suggestDeletionRepairs — weakening', () => {
       removes: [{ subject: `${EX}Penguin`, predicate: SUBCLASS, object: `${EX}Mammal`, graph: 'urn:vg:data' }],
       adds: [{ subject: `${EX}Penguin`, predicate: SUBCLASS, object: `${EX}Animal`, graph: 'urn:vg:data' }],
     });
-    expect(w[0].weakerThan).toBe('Penguin ⊑ Mammal');
-    expect(w[0].rationale).toContain('Penguin ⊑ Mammal to Penguin ⊑ Animal');
+    expect(w[0].weakerThan).toBe('ex:Penguin ⊑ ex:Mammal');
+    expect(w[0].rationale).toContain('ex:Penguin ⊑ ex:Mammal to ex:Penguin ⊑ ex:Animal');
     expect(w[0].rationale).toContain('logically weaker');
     // action removes the culprit, so an apply path that only knows `action` still removes it
     expect(w[0].action.args).toMatchObject({ subjectIri: `${EX}Penguin`, predicateIri: SUBCLASS, objectIri: `${EX}Mammal` });

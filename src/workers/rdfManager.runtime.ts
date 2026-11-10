@@ -3170,6 +3170,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             seed,
             justifications: p.justifications,
             unsatisfiableClasses: p.unsatisfiableClasses,
+            namespaces: workerNamespaces,
             maxJustifications: p.maxJustifications,
             timeoutMs: p.timeoutMs,
             weaken: p.weaken,
@@ -3335,7 +3336,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             : await konclude.explainInconsistency(kStore, DEFAULT_UI_MAX_JUSTIFICATIONS);
           kReasonerDuration = Date.now() - kStart;
           kIsConsistent = false;
-          kMipsErrors = mips.map(mipsToReasoningError);
+          kMipsErrors = mips.map((m) => mipsToReasoningError(m, workerNamespaces));
           debugLog("[VG_REASONING_WORKER] Konclude inconsistency detected, MIPS count:", mips.length);
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "inconsistent", meta: { durationMs: kReasonerDuration, explainMs: Date.now() - explainStart, mipsCount: mips.length } });
         }
@@ -3415,7 +3416,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const shaclResult = await runShaclValidation();
           if (!shaclResult.conforms) {
             for (const v of shaclResult.violations) {
-              const entry = shaclViolationToEntry(v);
+              const entry = shaclViolationToEntry(v, workerNamespaces);
               if (entry.severity === "error") {
                 kShaclErrors.push({ ...entry, severity: "error" as const });
               } else {
@@ -3890,7 +3891,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         const shaclResult = await runShaclValidation();
         if (!shaclResult.conforms) {
           for (const v of shaclResult.violations) {
-            const entry = shaclViolationToEntry(v);
+            const entry = shaclViolationToEntry(v, workerNamespaces);
             if (entry.severity === "error") {
               errors.push({ ...entry, severity: "error" as const });
             } else {

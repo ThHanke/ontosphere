@@ -18,6 +18,7 @@ const hoisted = vi.hoisted(() => ({
     error: vi.fn(),
   }),
   rdf: {
+    getNamespaces: () => [],
     explainInconsistency: vi.fn(),
     validate: vi.fn(),
     runShaclValidation: vi.fn(),

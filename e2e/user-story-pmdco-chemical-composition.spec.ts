@@ -51,6 +51,9 @@ test('PMDCO chemical composition: load, reason, find the some_silicon violation,
   const before = await callTool(page, 'validateGraph', {}, BASE_URL) as any;
   expect(before.data.conforms).toBe(false);
   expect(before.data.violations).toHaveLength(1);
+  // The reasoning error text names the path as a prefixed name or the full IRI, never a bare local name.
+  const shaclError = run.data.errors.find((e: any) => String(e.rule).startsWith('shacl:'));
+  expect(shaclError.message).toMatch(/path: (obo:RO_0000086|http:\/\/purl\.obolibrary\.org\/obo\/RO_0000086)/);
   expect(before.data.violations[0]).toMatchObject({
     focusNode: SILICON, path: HAS_QUALITY, severity: 'sh:Violation',
     constraint: 'http://www.w3.org/ns/shacl#MinCountConstraintComponent',

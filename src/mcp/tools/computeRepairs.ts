@@ -9,6 +9,8 @@
 // violation into an executable `addTriple` candidate. Every emitted `action.tool` is a tool that is
 // registered in ontosphereMcpServer.ts (guarded by shaclRepairs.test.ts).
 
+import { abbreviateIri, type NamespaceMap } from '../../utils/iriAbbreviation';
+
 import type { DiagnosticsData } from './diagnosticsBrief';
 
 /** A single RDF triple (subject/predicate/object IRIs). */
@@ -243,16 +245,6 @@ const TBOX_TYPE_OBJECTS = new Set<string>([
   `${OWL}IrreflexiveProperty`,
 ]);
 
-/** local name after the last '#' or '/', or the full string. */
-export function localName(iri: string): string {
-  if (!iri) return iri;
-  const hash = iri.lastIndexOf('#');
-  if (hash !== -1 && hash < iri.length - 1) return iri.slice(hash + 1);
-  const slash = iri.lastIndexOf('/');
-  if (slash !== -1 && slash < iri.length - 1) return iri.slice(slash + 1);
-  return iri;
-}
-
 export function axiomKey(a: Axiom): string {
   // Include graph + object term metadata so two axioms that share the same
   // s/p/o lexical form but differ in source graph (C1) or in literal
@@ -312,20 +304,22 @@ export function hasIriObject(a: Axiom): boolean {
 
 export function buildShaclRepairs(
   violations: DiagnosticsData['shaclViolations'],
+  namespaces: NamespaceMap = {},
 ): RepairSuggestion[] {
+  const name = (iri: string): string => abbreviateIri(iri, namespaces);
   const out: RepairSuggestion[] = [];
   let n = 0;
   for (const v of violations) {
     if (!v.focusNode || !v.path) continue; // can't form an actionable triple
     n += 1;
-    const constraintName = v.constraint ? localName(v.constraint) : 'shape constraint';
+    const constraintName = v.constraint ? name(v.constraint) : 'shape constraint';
     // We cannot symbolically infer the value the shape expects, so the agent
     // must supply it. We use addTriple with needsValue:true.
     const rationale =
-      `SHACL ${v.severity ?? 'violation'} on ${localName(v.focusNode)} via ` +
-      `${localName(v.path)} (${constraintName})` +
+      `SHACL ${v.severity ?? 'violation'} on ${name(v.focusNode)} via ` +
+      `${name(v.path)} (${constraintName})` +
       (v.message ? `: ${v.message}` : '') +
-      `. Add a value for ${localName(v.path)} on ${localName(v.focusNode)} to satisfy the shape.`;
+      `. Add a value for ${name(v.path)} on ${name(v.focusNode)} to satisfy the shape.`;
     out.push({
       id: `S${n}`,
       issue: 'shacl',

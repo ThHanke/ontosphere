@@ -98,4 +98,35 @@ describe("shaclViolationToEntry", () => {
     const entry = shaclViolationToEntry({ focusNode: null, sourceShape: "http://ex/AShape", message: "engine error" });
     expect(entry.nodeId).toBe("http://ex/AShape");
   });
+
+  it("names IRIs in messages as prefixed names from the namespace map, or as full IRIs", () => {
+    const ns = "http://example.com/demo#";
+    const quad = (s: string, p: string, o: string) => ({
+      subject: { termType: "NamedNode", value: s }, predicate: { termType: "NamedNode", value: p }, object: { termType: "NamedNode", value: o },
+    }) as never;
+    const mips = [
+      quad(`${ns}Contractor`, "http://www.w3.org/2002/07/owl#disjointWith", `${ns}Employee`),
+      quad(`${ns}frank`, "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", `${ns}Employee`),
+    ];
+    const withMap = mipsToReasoningError(mips, { inc: ns });
+    expect(withMap.message).toContain("Clash on inc:frank");
+    expect(withMap.message).toContain("inc:Contractor owl:disjointWith inc:Employee");
+    const withoutMap = mipsToReasoningError(mips);
+    expect(withoutMap.message).toContain(`Clash on ${ns}frank`);
+    expect(withoutMap.message).not.toMatch(/Clash on frank/);
+    expect(withoutMap.nodeId).toBe(`${ns}frank`); // the structured field is the full IRI either way
+  });
+
+  it("names the SHACL focus node, path, shape and constraint as prefixed names or full IRIs", () => {
+    const entry = shaclViolationToEntry({
+      focusNode: "http://example.com/demo#Employee", path: "http://www.w3.org/2000/01/rdf-schema#comment",
+      sourceShape: "urn:shacl:ontology-quality:ClassComment", severity: "sh:Info",
+      constraint: "http://www.w3.org/ns/shacl#MinCountConstraintComponent",
+    }, { inc: "http://example.com/demo#" });
+    expect(entry.message).toContain("path: rdfs:comment");
+    expect(entry.message).toContain("sh:MinCountConstraintComponent");
+    expect(entry.message).not.toMatch(/path: comment/);
+    expect(entry.rule).toBe("shacl:MinCountConstraintComponent"); // the rule id stays an identifier
+    expect(entry.nodeId).toBe("http://example.com/demo#Employee");
+  });
 });
