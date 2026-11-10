@@ -14,7 +14,7 @@ export const mcpServerDescription =
   '• Batch up to 5 non-dependent calls per relay message. Send discovery (getNodes, queryGraph) alone.\n' +
   '• Tool failed? Call help({tool:"<name>"}) for the exact parameter schema.\n\n' +
   'GRAPH ARCHITECTURE\n' +
-  'urn:vg:data = asserted triples (all mutations go here)\n' +
+  'urn:vg:data = the data graph: everything loaded or authored as data, TBox and ABox (all mutations go here)\n' +
   'urn:vg:inferred = DL-derived (Konclude; runReasoning writes; clearInferred removes)\n' +
   'urn:vg:shapes = SHACL constraints (loadShacl writes; validateGraph reads)\n' +
   'urn:vg:provenance = PROV-O record of agent edits (auto-written; excluded from reasoning/SHACL/export; listAgentEdits/diffAgentEdits/revertAgentBatch)\n\n' +
@@ -557,7 +557,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'validateGraph',
-    description: 'Validate the asserted graph (urn:vg:data) against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag and structured violation list.',
+    description: 'Validate the data graph (urn:vg:data: everything loaded or authored as data, TBox and ABox) plus the inferred graph (urn:vg:inferred) against SHACL shapes loaded in urn:vg:shapes. Loaded ontologies (urn:vg:ontologies) are not validated. Returns conforms flag and structured violation list.',
     inputSchema: {
       type: 'object',
       properties: {},

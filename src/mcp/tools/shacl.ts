@@ -44,7 +44,7 @@ const loadShacl: McpTool = {
 // ---------------------------------------------------------------------------
 const validateGraph: McpTool = {
   name: 'validateGraph',
-  description: 'Validate the asserted graph (urn:vg:data) plus inferred graph against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag and structured violation list.',
+  description: 'Validate the data graph (urn:vg:data: everything loaded or authored as data, TBox and ABox) plus the inferred graph against SHACL shapes loaded in urn:vg:shapes. Returns conforms flag and structured violation list.',
   inputSchema: {
     type: 'object',
     properties: {},
