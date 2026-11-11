@@ -83,6 +83,9 @@ const pendingPositions = new Map<string, Reactodia.Vector>();
  * Replaces SelectionActionRemove: marks selected entities for deletion in the
  * authoring state (entityDelete) instead of silently removing them from the
  * canvas view. Requires a Save to commit to the RDF store.
+ *
+ * The halo button is hidden (vg-selection-action--hidden): the entity's inline Delete does the same, so
+ * the two were a duplicate. The component stays mounted because it registers the Delete hotkey.
  */
 function DeleteEntityAction(props: { dock?: string; dockRow?: number }) {
   const { model, editor } = Reactodia.useWorkspace();
@@ -102,7 +105,7 @@ function DeleteEntityAction(props: { dock?: string; dockRow?: number }) {
   return (
     <Reactodia.SelectionAction
       {...(props as any)}
-      className="reactodia-selection-action__remove"
+      className="reactodia-selection-action__remove vg-selection-action--hidden"
       title={entities.length === 1 ? 'Delete entity' : 'Delete entities'}
       hotkey="None+Delete"
       disabled={entities.length === 0}

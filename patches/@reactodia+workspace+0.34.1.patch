@@ -12,7 +12,7 @@ index ee450d4..643d324 100644
      addXmlHeader?: boolean;
  }
 diff --git a/node_modules/@reactodia/workspace/dist/workspace.js b/node_modules/@reactodia/workspace/dist/workspace.js
-index 36056b7..f320554 100644
+index 36056b7..fc7f9bc 100644
 --- a/node_modules/@reactodia/workspace/dist/workspace.js
 +++ b/node_modules/@reactodia/workspace/dist/workspace.js
 @@ -6906,8 +6906,8 @@ function LinkView(props) {
@@ -116,7 +116,7 @@ index 36056b7..f320554 100644
          x: bounds.x - contentPadding.x,
          y: bounds.y - contentPadding.y,
          width: bounds.width + contentPadding.x * 2,
-@@ -23983,10 +24010,45 @@ function EntityDecoratorsInner(props) {
+@@ -23983,10 +24010,54 @@ function EntityDecoratorsInner(props) {
      () => /* @__PURE__ */ new WeakMap(),
      [inlineActions, cellsVersion]
    );
@@ -126,13 +126,22 @@ index 36056b7..f320554 100644
 +  // selected ones, and those with authoring, validation or temporary state.
 +  const [hoveredElement, setHoveredElement] = React.useState(void 0);
 +  React.useEffect(() => {
-+    const listener = new EventObserver();
-+    listener.listen(canvas.events, "pointerMove", ({ target }) => {
-+      const next = target instanceof EntityElement ? target : void 0;
++    const onMouseOver = (e) => {
++      const target = e.target;
++      if (!(target instanceof globalThis.Element)) {
++        return;
++      }
++      if (target.closest(".reactodia-element-decorations")) {
++        return;
++      }
++      const holder = target.closest("[data-element-id]");
++      const found = holder ? model.getElement(holder.getAttribute("data-element-id")) : void 0;
++      const next = found instanceof EntityElement ? found : void 0;
 +      setHoveredElement((previous) => previous === next ? previous : next);
-+    });
-+    return () => listener.stopListening();
-+  }, [canvas]);
++    };
++    document.addEventListener("mouseover", onMouseOver, { passive: true });
++    return () => document.removeEventListener("mouseover", onMouseOver);
++  }, [model]);
 +  const selectedKey = useSyncStore(
 +    useEventStore(model.events, "changeSelection"),
 +    () => model.selection.map((cell) => cell.id).join("|")

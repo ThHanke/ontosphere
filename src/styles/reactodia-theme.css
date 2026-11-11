@@ -653,3 +653,8 @@ select.glass-btn {
 .reactodia-class-tree-item__body {
   position: relative !important;
 }
+
+/* The halo's delete duplicates the entity's inline Delete; it stays mounted for the Delete hotkey. */
+.vg-selection-action--hidden {
+  display: none !important;
+}
