@@ -1,32 +1,12 @@
 # Changelog
 
-## [Unreleased]
-
-Large graphs reason and render faster: `runReasoning` returns when the reasoner is done (LUBM-1: 126 s to 12 s), and the canvas finishes loading sooner.
-
-### Changed
-
-- **`runReasoning` returns when the reasoner result is in.** The inferred triples reach the canvas afterwards, in chunks. LUBM-1 with data: 126 s to 11.4–11.7 s (reasoner 8.6–8.8 s); the canvas then settles in about 85–90 s (it was about 125 s).
-- **Canvas loads are faster and shorter-blocking.** Elements are created in chunks, the inferred refresh runs in chunks, Reactodia's per-link element scan is replaced by an index, and the authoring decorators (inline Edit/Delete) are mounted only for the hovered, selected or edited element instead of for all elements. At 8,000 individuals the load settles in 19 s instead of 31 s and the longest single task drops from 4.9 s to 3.1 s.
-- **Large canvases: relation labels show only on selection.** Above 300 links, links that are not selected are drawn as a bare line with arrowhead (no label, no per-link type subscription); selecting a link brings back its label and the full template, and links stay clickable. About 30 to 24.5 DOM nodes and 0.34 to 0.26 MB renderer memory per individual (1 element + 2 links; headless Chromium, no layout). Entity cards use shared CSS classes instead of per-node inline styles (one DOM node fewer per card). The threshold is `LEAN_LINKS_THRESHOLD` in `src/templates/RdfLinkTemplate.tsx`.
-- **The halo's delete button (×) is gone.** It duplicated the entity's inline Delete; the Delete key and the inline buttons work as before.
-- **The reasoner reads the real store** (rdf-reasoner-konclude 0.9.3, pinned): no copy, no write-back, inferences unchanged. About 1.4 s less on LUBM-1.
-
-### Fixed
-
-- **README benchmark numbers re-measured** on valid inputs with reasoner 0.9.3 (see *Performance*): the earlier LUBM-1 and GALEN figures loaded an OWL/XML TBox the RDF parser cannot read, so no inference took place. Pizza now reports 170 inferred triples (165 in 1.8.0; the change comes from the package version, the no-copy path was checked equal on the same package).
-
-### Internal
-
-`e2e/canvas-footprint.spec.ts` guards DOM nodes and listeners per element. Benchmark and profiling scripts (`scripts/bench-reasoner-phases.mjs`, `bench-canvas-links.mjs`, `profile-*.mjs`; the first refuses to run on a stale Vite pre-bundle), tests for the no-copy chain, graph counts and per-quad inferred tagging, and write-ups in `docs/solutions/` (measurement pitfalls, the live-store reasoner chain, canvas load performance).
-
 ## [1.8.0] — 2026-11-11
 
-Reasoning moves to rdf-reasoner-konclude 0.9.1: results change (see *Upgrade notes*), and repair suggestions are now computed by the reasoner. Startup is stricter: MCP tools answer only once startup loading has finished.
+Reasoning moves to rdf-reasoner-konclude 0.9.x (pinned 0.9.3): results change (see *Upgrade notes*), and repair suggestions are now computed by the reasoner. Startup is stricter: MCP tools answer only once startup loading has finished. Large graphs reason and render faster: `runReasoning` returns when the reasoner is done (LUBM-1: 126 s to 12 s), and the canvas finishes loading sooner.
 
 ### Upgrade notes
 
-- **Inferred counts change with the reasoner (0.8.0 to 0.9.x).** Pizza (`bench-pizza.owl`): 137 inferred triples with 0.8.0, 165 with 0.9.x. PMDco classification: two direct edges that 0.8.0 lost are back (`PMD_0020243 ⊑ PMD_0023003`, `PMD_0080022 ⊑ PMD_0023003`). GALEN is unchanged (1,386). Re-measure any figure you published with 1.7.x.
+- **Inferred counts change with the reasoner (0.8.0 to 0.9.x).** Pizza (`bench-pizza.owl`): 137 inferred triples with 0.8.0, 165 with 0.9.1 and 170 with 0.9.3. PMDco classification: two direct edges that 0.8.0 lost are back (`PMD_0020243 ⊑ PMD_0023003`, `PMD_0080022 ⊑ PMD_0023003`). GALEN is unchanged (1,386). Re-measure any figure you published with 1.7.x.
 - **Fewer unsound `rdf:type` assertions after materialization** (only ones the reasoner does not entail: a `someValuesFrom` filler typed from its owner, `hasSelf`, `hasValue` and `minCardinality` rules applied to `subClassOf`), and more types where the class hierarchy used to be incomplete.
 - Texts, justifications and repair suggestions changed shape; see *Breaking changes*.
 
@@ -61,7 +41,12 @@ Reasoning moves to rdf-reasoner-konclude 0.9.1: results change (see *Upgrade not
 
 ### Changes
 
-- **README performance numbers re-measured on reasoner 0.9.1** (8 cores, headless Chromium, ranges over 5 fresh runs): reasoning-demo 1.1–1.2 s, Pizza 1.4–1.5 s, PMDCO 15.2–16.0 s, GALEN 2.6–2.8 s, LUBM-1 with data 28.5–85.8 s (4 of 5 runs completed). The README had quoted 2.6 s for PMDCO, which this script does not reproduce, so that figure is corrected. The Konclude WASM table (native against WASM, in Node) is copied from the reasoner repository and still carries its 0.8.0 numbers.
+- **README performance numbers re-measured on valid inputs with reasoner 0.9.3** (8 cores, headless Chromium; see *Performance*): reasoning-demo 1.1 s, Pizza 1.3–1.4 s, PMDCO 14.8–15.3 s, GALEN 3.9–4.0 s, LUBM-1 with data 11.4–11.7 s. The earlier LUBM-1 and GALEN figures loaded an OWL/XML TBox the RDF parser cannot read, so no inference took place and they measured only the canvas; the README's 2.6 s for PMDCO is not reproduced. Pizza reports 170 inferred triples with 0.9.3 (165 with 0.9.1; the change comes from the package version, the no-copy path was checked equal on the same package). The Konclude WASM table (native against WASM, in Node) is copied from the reasoner repository and still carries its 0.8.0 numbers.
+- **`runReasoning` returns when the reasoner result is in.** The inferred triples reach the canvas afterwards, in chunks. LUBM-1 with data: 126 s to 11.4–11.7 s (reasoner 8.6–8.8 s); the canvas then settles in about 85–90 s (it was about 125 s).
+- **Canvas loads are faster and shorter-blocking.** Elements are created in chunks, the inferred refresh runs in chunks, Reactodia's per-link element scan is replaced by an index, and the authoring decorators (inline Edit/Delete) are mounted only for the hovered, selected or edited element instead of for all elements. At 8,000 individuals the load settles in 19 s instead of 31 s and the longest single task drops from 4.9 s to 3.1 s.
+- **Large canvases: relation labels show only on selection.** Above 300 links, links that are not selected are drawn as a bare line with arrowhead (no label, no per-link type subscription); selecting a link brings back its label and the full template, and links stay clickable. About 30 to 24.5 DOM nodes and 0.34 to 0.26 MB renderer memory per individual (1 element + 2 links; headless Chromium, no layout). Entity cards use shared CSS classes instead of per-node inline styles (one DOM node fewer per card). The threshold is `LEAN_LINKS_THRESHOLD` in `src/templates/RdfLinkTemplate.tsx`.
+- **The halo's delete button (×) is gone.** It duplicated the entity's inline Delete; the Delete key and the inline buttons work as before.
+- **The reasoner reads the real store** (rdf-reasoner-konclude 0.9.3, pinned): no copy, no write-back, inferences unchanged. About 1.4 s less on LUBM-1.
 
 ### Bug fixes
 
@@ -75,6 +60,7 @@ Reasoning moves to rdf-reasoner-konclude 0.9.1: results change (see *Upgrade not
 
 - New browser tests: the PMDCO chemical-composition user story (data, ontology and shapes through URL parameters, reasoning, the `some_silicon` violation and its fix), the diagnose, repair, apply and re-check loop, and startup from URL parameters. Previously skipped tests are enabled (`owl:oneOf` realization, the import and TriG round trip on PMDco); the PMDco repair check at scale runs by default.
 - The demo, relay and benchmark drivers wait for `window.__startupComplete()` before their first tool call. `scripts/bench-paper-table2.mjs` gains `--only` and `--fresh-browser`.
+- `e2e/canvas-footprint.spec.ts` guards DOM nodes and listeners per element. Benchmark and profiling scripts (`scripts/bench-reasoner-phases.mjs`, `bench-canvas-links.mjs`, `profile-*.mjs`; the first refuses to run on a stale Vite pre-bundle), tests for the no-copy chain, graph counts and per-quad inferred tagging, and write-ups in `docs/solutions/` (measurement pitfalls, the live-store reasoner chain, canvas load performance).
 
 ## [1.7.7] — 2026-10-16
 
