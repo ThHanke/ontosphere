@@ -64,7 +64,12 @@ for (const n of sizes) {
     console.log('PROFILE', n, JSON.stringify({ totalMs: Math.round(total / 1000), idleMs: Math.round(inIdle / 1000), createLinksInclusiveMs: Math.round(inCreateLinks / 1000) }));
     for (const [k, v] of Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, 8)) console.log('  ', Math.round(v / 1000), 'ms', k);
   }
-  console.log(JSON.stringify({ individuals: n, linkTriples: n * linksPer, loadRdfMs: loadMs, settledMs, longTaskMs: longMs, longTaskCount: longCount, longestTaskMs: longMaxMs }));
+  const dom = await (await ctx.newCDPSession(page)).send('Memory.getDOMCounters');
+  const bcdp = await browser.newBrowserCDPSession();
+  const { processInfo } = await bcdp.send('SystemInfo.getProcessInfo');
+  let rendererMb = null;
+  for (const { id, type } of processInfo) if (type === 'renderer') { try { rendererMb = Math.max(rendererMb ?? 0, Math.round(+/VmRSS:\s+(\d+) kB/.exec(fs.readFileSync(`/proc/${id}/status`, 'utf8'))[1] / 1024)); } catch {} }
+  console.log(JSON.stringify({ individuals: n, linkTriples: n * linksPer, loadRdfMs: loadMs, settledMs, longTaskMs: longMs, longTaskCount: longCount, longestTaskMs: longMaxMs, domNodes: dom.nodes, listeners: dom.jsEventListeners, rendererRssMb: rendererMb }));
   await ctx.close(); await browser.close();
   fs.rmSync(new URL(`../public/${file}`, import.meta.url));
 }
