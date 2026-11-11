@@ -96,4 +96,113 @@ describe('no-copy reasoner chain', () => {
     expect(keys(s)).toContain(`${M}NewInd ${TYPE} ${M}FiberReinforced`);
     r.terminate();
   }, 120_000);
+
+  // ── Gate suite for dropping the copy (plan Unit 2) ────────────────────────────────────────────
+  const ROOT = path.resolve(__dirname, '../../..');
+  const OWL = 'http://www.w3.org/2002/07/owl#';
+  const norm = (t: N3.Term) => (t.termType === 'BlankNode' || t.value.startsWith(SKOLEM) || /^sk_/.test(t.value) ? 'B'
+    : t.termType === 'Literal' ? `"${t.value}"` : t.value);
+  const normKeys = (s: N3.Store) => s.getQuads(null, null, null, nn(INFERRED))
+    .map((q) => `${norm(q.subject)} ${q.predicate.value} ${norm(q.object)}`).sort();
+  const skolemize = (quads: N3.Quad[]) => new N3.Store(quads.map((q) =>
+    quad(sk(q.subject) as N3.Quad_Subject, q.predicate, sk(q.object) as N3.Quad_Object, DATA)));
+  const opts = { includeClassHierarchy: true, inferredGraph: INFERRED, returnDelta: true } as const;
+
+  async function sameAsCopy(ctx: any, build: () => N3.Store) {
+    const r1 = await mk({ excludeGraphs: NON_AXIOM }); if (!r1) return ctx.skip();
+    const direct = build();
+    await r1.materialize(direct, opts); r1.terminate();
+    const r2 = await mk(); const copy = reasoningBase(build());
+    await r2!.materialize(copy, opts); r2!.terminate();
+    expect(normKeys(direct)).toEqual(normKeys(copy));
+    const out = direct.getQuads(null, null, null, nn(INFERRED));
+    expect(out.some((q) => q.subject.termType === 'BlankNode' || q.object.termType === 'BlankNode'), 'blank term in output').toBe(false);
+    return normKeys(direct);
+  }
+
+  it('oneOf and unionOf: same as the copy path, expected types inferred', async (ctx) => {
+    const ttl = `@prefix : <http://e/> . @prefix owl: <${OWL}> .
+      :Color a owl:Class ; owl:equivalentClass [ a owl:Class ; owl:oneOf (:red :green) ] . :red a owl:NamedIndividual . :green a owl:NamedIndividual .
+      :A a owl:Class . :B a owl:Class . :AorB a owl:Class ; owl:equivalentClass [ a owl:Class ; owl:unionOf (:A :B) ] .
+      :x a owl:NamedIndividual, :A . :y a owl:NamedIndividual, :B .`;
+    const parsed = new N3.Parser().parse(ttl);
+    const keys = await sameAsCopy(ctx, () => skolemize(parsed));
+    expect(keys).toContain('http://e/red ' + TYPE + ' http://e/Color');
+    expect(keys).toContain('http://e/x ' + TYPE + ' http://e/AorB');
+  }, 120_000);
+
+  it('blank-node individual and restriction-defined class: inference lands on the stored skolem IRI', async (ctx) => {
+    const r = await mk({ excludeGraphs: NON_AXIOM }); if (!r) return ctx.skip();
+    const ttl = `@prefix : <http://e/> . @prefix owl: <${OWL}> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+      :SubC a owl:Class ; rdfs:subClassOf :C . :C a owl:Class . :p a owl:ObjectProperty .
+      :a a owl:NamedIndividual ; :p [ a :SubC ] .
+      :D a owl:Class ; owl:equivalentClass [ a owl:Restriction ; owl:onProperty :p ; owl:someValuesFrom :SubC ] .`;
+    const s = skolemize(new N3.Parser().parse(ttl));
+    const stored = new Set(s.getQuads(null, null, null, null).flatMap((q) => [q.subject, q.object]).filter((t) => t.value.startsWith(SKOLEM)).map((t) => t.value));
+    await r.materialize(s, opts); r.terminate();
+    const inf = s.getQuads(null, null, null, nn(INFERRED));
+    expect(inf.some((q) => q.subject.value === 'http://e/a' && q.object.value === 'http://e/D')).toBe(true);
+    const bn = inf.find((q) => q.subject.value.startsWith(SKOLEM) && q.object.value === 'http://e/C');
+    expect(bn, 'blank individual typed C').toBeTruthy();
+    expect(stored.has(bn!.subject.value), 'returned skolem IRI is the stored one').toBe(true);
+    for (const q of inf) for (const t of [q.subject, q.object]) {
+      expect(t.termType === 'BlankNode' || /^sk_/.test(t.value)).toBe(false);
+      if (t.value.startsWith(SKOLEM)) expect(stored.has(t.value)).toBe(true);
+    }
+  }, 120_000);
+
+  it('pizza (RDF/XML): same as the copy path', async (ctx) => {
+    const { RdfXmlParser } = await import('rdfxml-streaming-parser');
+    const parsed: N3.Quad[] = await new Promise((resolve, reject) => {
+      const out: N3.Quad[] = []; const p = new RdfXmlParser();
+      p.on('data', (q: N3.Quad) => out.push(q)); p.on('error', reject); p.on('end', () => resolve(out));
+      p.write(fs.readFileSync(path.join(ROOT, 'public/bench-pizza.owl'), 'utf8')); p.end();
+    });
+    expect(parsed.length).toBeGreaterThan(1000);
+    await sameAsCopy(ctx, () => skolemize(parsed));
+  }, 120_000);
+
+  it('PMDco (unionOf, intersectionOf, restrictions): same as the copy path; blank labels map to distinct skolem IRIs', async (ctx) => {
+    const parsed = new N3.Parser().parse(fs.readFileSync(path.join(ROOT, 'public/bench-pmdco.ttl'), 'utf8'));
+    const labels = new Set(parsed.flatMap((q) => [q.subject, q.object]).filter((t) => t.termType === 'BlankNode').map((t) => t.value));
+    expect(labels.size).toBeGreaterThan(500);
+    // the worker skolemizes by fnv1a32(label) (rdfManager.runtime.ts); copied here, keep in sync
+    const fnv = (str: string) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, '0'); };
+    expect(new Set([...labels].map(fnv)).size, 'fnv1a32 collision among PMDco blank-node labels').toBe(labels.size);
+    const keys = await sameAsCopy(ctx, () => skolemize(parsed));
+    expect(keys.length).toBeGreaterThan(0);
+  }, 240_000);
+
+  it('explain, repair and weaken outputs carry no blank nodes and no unknown skolem IRIs', async (ctx) => {
+    const r = await mk({ excludeGraphs: NON_AXIOM }); if (!r) return ctx.skip();
+    // x is typed A; A ⊑ ∀p.B (blank restriction); x p y; y is a C; B and C disjoint: inconsistent through the restriction
+    const ttl = `@prefix : <http://e/> . @prefix owl: <${OWL}> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+      :A a owl:Class ; rdfs:subClassOf [ a owl:Restriction ; owl:onProperty :p ; owl:allValuesFrom :B ] .
+      :B a owl:Class ; owl:disjointWith :C . :C a owl:Class . :p a owl:ObjectProperty .
+      :x a owl:NamedIndividual, :A ; :p :y . :y a owl:NamedIndividual, :C .`;
+    const s = skolemize(new N3.Parser().parse(ttl));
+    const stored = new Set(s.getQuads(null, null, null, null).flatMap((q) => [q.subject, q.object]).filter((t) => t.value.startsWith(SKOLEM)).map((t) => t.value));
+    expect(stored.size).toBeGreaterThan(0);
+    const check = (what: string, quads: N3.Quad[]) => {
+      for (const q of quads) for (const t of [q.subject, q.object]) {
+        expect(t.termType === 'BlankNode', `${what}: blank node ${t.value}`).toBe(false);
+        expect(/^sk_/.test(t.value), `${what}: leaked label ${t.value}`).toBe(false);
+        if (t.value.startsWith(SKOLEM)) expect(stored.has(t.value), `${what}: unknown skolem ${t.value}`).toBe(true);
+      }
+    };
+    try {
+      expect(await r.checkConsistency(s)).toBe(false);
+      const mips = await r.explainInconsistency(s);
+      expect(mips.length).toBeGreaterThan(0);
+      check('explainInconsistency', mips.flat());
+      const axioms = await r.explainInconsistencyAxioms(s);
+      expect(axioms.length).toBeGreaterThan(0);
+      check('explainInconsistencyAxioms', axioms.flatMap((j: any) => j.axioms.flatMap((a: any) => a.quads)));
+      const rep: any = await r.repair(s);
+      const repQuads: N3.Quad[] = [];
+      const walk = (o: any) => { if (!o) return; if (Array.isArray(o)) return o.forEach(walk); if (typeof o === 'object') { if (o.termType && o.subject === undefined) return; if (o.subject && o.predicate && o.object) { repQuads.push(o); return; } Object.values(o).forEach(walk); } };
+      walk(rep);
+      check('repair', repQuads);
+    } finally { r.terminate(); }
+  }, 120_000);
 });

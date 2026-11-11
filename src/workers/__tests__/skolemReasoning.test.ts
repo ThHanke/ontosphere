@@ -1,7 +1,8 @@
 // @vitest-environment node
 //
 // The store keeps blank nodes skolemized as urn:vg:bnode:* IRIs. Class expressions built from
-// blank nodes (restrictions, intersections, lists) must reach the reasoner as blank nodes, and
+// blank nodes (restrictions, intersections, lists) reach the reasoner either as blank nodes
+// (reasoningBase) or, since rdf-reasoner-konclude 0.9.2, directly as the stored skolem IRIs;
 // reasoner output must come back in the stored form.
 //
 // OntoAuthor-Mat T2: FiberReinforced ≡ Composite ⊓ ∃hasConstituent.Fiber, and CFRP is a
@@ -74,7 +75,9 @@ describe('blank nodes around the reasoner', () => {
       return s.getQuads(nn(`${M}CFRP`), nn(TYPE), nn(`${M}FiberReinforced`), nn(INFERRED)).length > 0;
     };
 
-    expect(await infersFiberReinforced(skolemized(quads)), 'the stored form hides the intersection').toBe(false);
+    // rdf-reasoner-konclude >= 0.9.2 reads urn:vg:bnode:* IRIs as blank nodes itself, so the stored form
+    // reasons correctly without the reasoningBase copy (plan: no-copy reasoner chain).
+    expect(await infersFiberReinforced(skolemized(quads)), 'stored skolem form').toBe(true);
     expect(await infersFiberReinforced(reasoningBase(skolemized(quads))), 'blank nodes restored').toBe(true);
   }, 120_000);
 });
