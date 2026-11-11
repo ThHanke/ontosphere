@@ -8,15 +8,26 @@ import * as N3 from 'n3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { RdfReasoner } from 'rdf-reasoner-konclude';
-import { reasoningBase } from '../rdfManager.runtime.ts';
 
-const { namedNode: nn, quad } = N3.DataFactory;
+
+const { namedNode: nn, blankNode: bn, quad } = N3.DataFactory;
 const M = 'http://example.org/materials#';
 const TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
 const SKOLEM = 'urn:vg:bnode:';
 const INFERRED = 'urn:vg:inferred';
 const DATA = nn('urn:vg:data');
 const NON_AXIOM = ['urn:vg:shapes', 'urn:vg:provenance', 'urn:vg:workflows', 'urn:konclude:explanations'];
+
+/** The retired copy path, kept as the baseline: de-skolemize into blank nodes and drop non-axiom graphs. */
+function reasoningBase(store: N3.Store): N3.Store {
+  const un = (t: N3.Term) => (t.termType === 'NamedNode' && t.value.startsWith(SKOLEM) ? bn(t.value.slice(SKOLEM.length)) : t);
+  const base = new N3.Store();
+  for (const q of store.getQuads(null, null, null, null)) {
+    if (NON_AXIOM.includes(q.graph.value) || q.graph.value === INFERRED) continue;
+    base.addQuad(quad(un(q.subject) as N3.Quad_Subject, q.predicate, un(q.object) as N3.Quad_Object, q.graph));
+  }
+  return base;
+}
 
 const sk = (t: N3.Term) => (t.termType === 'BlankNode' ? nn(`${SKOLEM}${t.value}`) : t);
 function skolemStore(): N3.Store {
@@ -126,7 +137,7 @@ describe('no-copy reasoner chain', () => {
       :A a owl:Class . :B a owl:Class . :AorB a owl:Class ; owl:equivalentClass [ a owl:Class ; owl:unionOf (:A :B) ] .
       :x a owl:NamedIndividual, :A . :y a owl:NamedIndividual, :B .`;
     const parsed = new N3.Parser().parse(ttl);
-    const keys = await sameAsCopy(ctx, () => skolemize(parsed));
+    const keys = await sameAsCopy(ctx, () => skolemize(parsed as N3.Quad[]));
     expect(keys).toContain('http://e/red ' + TYPE + ' http://e/Color');
     expect(keys).toContain('http://e/x ' + TYPE + ' http://e/AorB');
   }, 120_000);
@@ -194,7 +205,7 @@ describe('no-copy reasoner chain', () => {
       expect(await r.checkConsistency(s)).toBe(false);
       const mips = await r.explainInconsistency(s);
       expect(mips.length).toBeGreaterThan(0);
-      check('explainInconsistency', mips.flat());
+      check('explainInconsistency', mips.flat() as N3.Quad[]);
       const axioms = await r.explainInconsistencyAxioms(s);
       expect(axioms.length).toBeGreaterThan(0);
       check('explainInconsistencyAxioms', axioms.flatMap((j: any) => j.axioms.flatMap((a: any) => a.quads)));

@@ -7,7 +7,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import * as N3 from 'n3';
 import { RdfReasoner } from 'rdf-reasoner-konclude';
 import {
-  createRdfWorkerRuntime, setDlReasonerFactoryForTest, reasoningBase, reskolemizeQuad,
+  createRdfWorkerRuntime, setDlReasonerFactoryForTest, NON_AXIOM_GRAPHS,
   type DlReasonerLike,
 } from '../rdfManager.runtime.ts';
 import { serializeQuad } from '../../utils/rdfSerialization.ts';
@@ -17,19 +17,16 @@ const EX = 'http://example.org/#';
 const INFERRED = 'urn:vg:inferred';
 const BNODE = 'urn:vg:bnode:b1';
 
-/** DlReasoner without the browser worker: same blank-node round trip, real Konclude. */
+/** DlReasoner without the browser worker: the real store goes to a real Konclude, as in production. */
 function nodeReasoner(r: RdfReasoner): DlReasonerLike {
   return {
     ready: r.ready,
-    async checkConsistency(store: N3.Store) { return r.checkConsistency(reasoningBase(store)); },
+    async checkConsistency(store: N3.Store) { return r.checkConsistency(store); },
     async reason(store: N3.Store) {
-      const base = reasoningBase(store);
-      const result = (await r.materialize(base, {
+      const result = (await r.materialize(store, {
         includeClassHierarchy: true, inferredGraph: INFERRED, returnDelta: true,
       })) as { delta: { added: N3.Quad[]; removed: N3.Quad[] } };
-      store.removeQuads(store.getQuads(null, null, null, nn(INFERRED)));
-      store.addQuads(base.getQuads(null, null, null, nn(INFERRED)).map(reskolemizeQuad));
-      return { delta: { added: result.delta.added.map(reskolemizeQuad), removed: result.delta.removed.map(reskolemizeQuad) } as never };
+      return { delta: result.delta as never };
     },
     async validate() { return { consistent: true, errors: [], warnings: [] } as never; },
     async explainInconsistency() { return []; },
@@ -48,7 +45,7 @@ describe('sh:class on a blank-node value after reasoning', () => {
   it('conforms when the blank node is typed by a subclass of the target', async (ctx) => {
     let reasoner: RdfReasoner;
     try {
-      reasoner = new RdfReasoner();
+      reasoner = new RdfReasoner({ excludeGraphs: NON_AXIOM_GRAPHS });
       await reasoner.ready;
     } catch (e) {
       if (process.env.REQUIRE_KONCLUDE) throw e;

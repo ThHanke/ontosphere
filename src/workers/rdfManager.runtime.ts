@@ -36,17 +36,6 @@ const INFERRED_GRAPH = KONCLUDE_INFERRED_GRAPH_IRI;
 
 const SKOLEM_PREFIX = "urn:vg:bnode:";
 
-function deskolemize(t: N3.Term): N3.Term {
-  return t.termType === "NamedNode" && t.value.startsWith(SKOLEM_PREFIX)
-    ? N3.DataFactory.blankNode(t.value.slice(SKOLEM_PREFIX.length))
-    : t;
-}
-
-/** A term's value as the store holds it. */
-function storedValue(t: { termType: string; value: string }): string {
-  return t.termType === "BlankNode" ? `${SKOLEM_PREFIX}${t.value}` : t.value;
-}
-
 function reskolemize(t: N3.Term): N3.Term {
   return t.termType === "BlankNode" ? N3.DataFactory.namedNode(`${SKOLEM_PREFIX}${t.value}`) : t;
 }
@@ -66,7 +55,7 @@ const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
  * Graphs that are not reasoning input: the reasoner's own output, SHACL shapes, the edit
  * journal and workflow state. None of them are OWL axioms about the data.
  */
-const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
+export const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
   INFERRED_GRAPH,
   "urn:konclude:explanations",
   "urn:vg:shapes",
@@ -74,35 +63,11 @@ const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
   "urn:vg:workflows",
 ]);
 
-/**
- * The reasoning input: a copy of the store without NON_AXIOM_GRAPHS, with blank nodes restored.
- *
- * The store keeps blank nodes skolemized as `urn:vg:bnode:*` IRIs. Konclude reads a class
- * expression built from blank nodes (intersectionOf, unionOf, oneOf and the RDF lists they
- * use) only in blank-node form, so the reasoner is always handed this copy.
- * Exported for tests.
- */
-export function reasoningBase(store: N3.Store): N3.Store {
-  const base = new N3.Store();
-  for (const q of store.getQuads(null, null, null, null) as N3.Quad[]) {
-    if (NON_AXIOM_GRAPHS.has(q.graph.value)) continue;
-    const s = deskolemize(q.subject);
-    const o = deskolemize(q.object);
-    base.addQuad(
-      s === q.subject && o === q.object
-        ? q
-        : N3.DataFactory.quad(s as N3.Quad_Subject, q.predicate, o as N3.Quad_Object, q.graph),
-    );
-  }
-  return base;
-}
-
-
-
 // ---------------------------------------------------------------------------
 // DlReasoner — thin pass-through to rdf-reasoner-konclude RdfReasoner.
-// Handles ontosphere-specific concerns: the INFERRED_GRAPH mapping and the blank-node
-// round trip (reasoningBase in, reskolemizeQuad out).
+// Handles ontosphere-specific concerns: the INFERRED_GRAPH mapping and stale-run handling.
+// The store keeps blank nodes skolemized (urn:vg:bnode:*); the package reads those IRIs as blank
+// nodes and returns them in the same form.
 // ---------------------------------------------------------------------------
 
 
@@ -113,70 +78,62 @@ class DlReasoner {
   constructor() {
     const base = (import.meta as any).env?.BASE_URL ?? "/";
     const workerUrl = new URL(`${base}rdf-reasoner-konclude/worker.js`, self.location.href);
-    this._reasoner = new RdfReasoner({ workerUrl });
+    // The reasoner reads the live store; graphs that are not ontology content never reach it.
+    this._reasoner = new RdfReasoner({ workerUrl, excludeGraphs: NON_AXIOM_GRAPHS });
     this.ready = this._reasoner.ready;
   }
 
   /** Worker-side phase durations of the last reason/checkConsistency call, for the stage meta. */
   readonly timings: Record<string, number> = {};
 
+  /**
+   * Reasons over the live store. The package reads it directly (skolem IRIs as blank nodes),
+   * writes the inferred graph into it and returns the delta. If the store was edited while
+   * Konclude worked, the result is stale: the inferred graph it wrote is dropped and the
+   * previous run's inferred quads, which the canvas still shows, are reported as removed.
+   */
   async reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }> {
-    // Reason over the blank-node copy, then publish its inferred graph into the store.
-    // On a cache hit the package leaves the copy's inferred graph as copied, so the
-    // store keeps what it had.
-    let t = performance.now();
-    const base = reasoningBase(store);
-    this.timings.reasonCopyMs = Math.round(performance.now() - t);
+    const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+    // Only a reference list: the package replaces the inferred graph before we can check isCurrent.
+    const previous = isCurrent ? store.getQuads(null, null, null, inferredGraph) : [];
     // The explanation graph is not requested: nothing in the app reads
     // urn:konclude:explanations, and on LUBM-1 it held 162,638 quads per run.
-    t = performance.now();
-    const result = (await this._reasoner.materialize(base, {
+    const t = performance.now();
+    const result = (await this._reasoner.materialize(store, {
       includeClassHierarchy: true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
     })) as { delta: InferenceDelta };
     this.timings.materializeMs = Math.round(performance.now() - t);
-    // The store may have been edited while Konclude worked on the copy.
-    const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
-    this.timings.inferredInCopy = base.countQuads(null, null, null, inferredGraph);
     this.timings.deltaAdded = result.delta.added.length;
-    this.timings.stale = isCurrent && !isCurrent() ? 1 : 0;
-    if (isCurrent && !isCurrent()) return { delta: { added: [], removed: [] } as InferenceDelta };
-    t = performance.now();
-    store.removeQuads(store.getQuads(null, null, null, inferredGraph));
-    store.addQuads(reskolemizeAll(base.getQuads(null, null, null, inferredGraph)));
-    this.timings.writebackMs = Math.round(performance.now() - t);
-    t = performance.now();
-    const delta = { added: reskolemizeAll(result.delta.added), removed: reskolemizeAll(result.delta.removed) } as InferenceDelta;
-    this.timings.reskolemizeDeltaMs = Math.round(performance.now() - t);
-    return { delta };
+    if (isCurrent && !isCurrent()) {
+      this.timings.stale = 1;
+      store.removeQuads(store.getQuads(null, null, null, inferredGraph));
+      return { delta: { added: [], removed: previous } as InferenceDelta };
+    }
+    this.timings.stale = 0;
+    return { delta: result.delta };
   }
 
-  async checkConsistency(store: N3.Store): Promise<boolean> {
-    let t = performance.now();
-    const base = reasoningBase(store);
-    this.timings.consistencyCopyMs = Math.round(performance.now() - t);
-    t = performance.now();
-    const ok = await this._reasoner.checkConsistency(base);
-    this.timings.consistencyMs = Math.round(performance.now() - t);
-    return ok;
+  checkConsistency(store: N3.Store): Promise<boolean> {
+    return this._reasoner.checkConsistency(store);
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
-    const result = (await this._reasoner.validate(reasoningBase(store))) as ValidationResult;
+    const result = (await this._reasoner.validate(store)) as ValidationResult;
     return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
   }
 
   async explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
-    const mips = (await this._reasoner.explainInconsistency(reasoningBase(store), {
+    const mips = (await this._reasoner.explainInconsistency(store, {
       maxJustifications, inferredGraph: INFERRED_GRAPH,
     })) as N3.Quad[][];
     return mips.map((j) => reskolemizeAll(j));
   }
 
-  /** Whole-axiom justifications (declarations in `context`), in blank-node form. */
+  /** Whole-axiom justifications (declarations in `context`); blank nodes come back as the stored skolem IRIs. */
   explainInconsistencyAxioms(store: N3.Store, maxJustifications = 1): Promise<AxiomJustification[]> {
-    return this._reasoner.explainInconsistencyAxioms(reasoningBase(store), {
+    return this._reasoner.explainInconsistencyAxioms(store, {
       maxJustifications, inferredGraph: INFERRED_GRAPH,
     });
   }
@@ -195,7 +152,7 @@ class DlReasoner {
     reason?: string;
   }> {
     const result = (await this._reasoner.explainEntailment(
-      reasoningBase(store),
+      store,
       subjectIri,
       predicateIri,
       objectIri,
@@ -210,19 +167,19 @@ class DlReasoner {
     return { ...result, justifications: (result.justifications ?? []).map((j) => reskolemizeAll(j)) };
   }
 
-  /** The library's repair search over the reasoning base. Returned quads are in blank-node form. */
+  /** The library's repair search over the live store. */
   repair(store: N3.Store, opts?: RepairOptions): Promise<RepairResult> {
-    return this._reasoner.repair(reasoningBase(store), { inferredGraph: INFERRED_GRAPH, ...opts });
+    return this._reasoner.repair(store, { inferredGraph: INFERRED_GRAPH, ...opts });
   }
 
-  /** Consistency (and disjointness) of the reasoning base after an edit given in blank-node form. */
+  /** Consistency (and disjointness) of the store after an edit given in stored form. */
   assessEdit(store: N3.Store, edit: Edit, opts?: AssessEditOptions): Promise<EditAssessment> {
-    return this._reasoner.assessEdit(reasoningBase(store), edit, { inferredGraph: INFERRED_GRAPH, ...opts });
+    return this._reasoner.assessEdit(store, edit, { inferredGraph: INFERRED_GRAPH, ...opts });
   }
 
   /** Weaker replacements for a culprit axiom taken from `repair()`. */
   weaken(store: N3.Store, culprit: LibAxiom, opts?: WeakenOptions): Promise<WeakenResult> {
-    return this._reasoner.weaken(reasoningBase(store), culprit, { inferredGraph: INFERRED_GRAPH, ...opts });
+    return this._reasoner.weaken(store, culprit, { inferredGraph: INFERRED_GRAPH, ...opts });
   }
 
   terminate(): void {
@@ -467,6 +424,19 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   }
 
   /**
+   * The package writes the graphs it manages (inferred, hypothetical, explanations) straight into
+   * the store's indexes, past the counting wrappers; recount those graphs after a reasoner call.
+   */
+  function resyncReasonerGraphCounts(store: any): void {
+    if (!store || typeof store.countQuads !== "function" || !graphCountsReady) return;
+    for (const iri of [INFERRED_GRAPH, "urn:vg:hypothetical", "urn:konclude:explanations"]) {
+      const n = store.countQuads(null, null, null, N3.DataFactory.namedNode(iri));
+      if (n > 0) graphCounts.set(iri, n);
+      else graphCounts.delete(iri);
+    }
+  }
+
+  /**
    * Wrap addQuad / removeQuad / removeQuads on a store so that every mutation
    * adjusts the incremental graph counters. N3 Store.addQuad/removeQuad return a
    * boolean indicating whether the store actually changed (dedup-aware), so the
@@ -619,7 +589,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   ]);
   let reasonerQueue: Promise<unknown> = Promise.resolve();
   function withReasoner<T>(fn: () => Promise<T>): Promise<T> {
-    const next = reasonerQueue.then(fn, fn);
+    const run = () => fn().finally(() => resyncReasonerGraphCounts(sharedStore));
+    const next = reasonerQueue.then(run, run);
     reasonerQueue = next.then(() => undefined, () => undefined);
     return next;
   }
@@ -3380,7 +3351,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         kUsedReasoner = false;
         kIsConsistent = null;
         kMipsErrors = [];
-        kDelta = { added: [], removed: [] };
+        // reason() already dropped the stale inferred graph; what it reports as removed is what the
+        // canvas still shows from the previous run.
+        kDelta = { added: [], removed: kDelta.removed };
       }
 
       // Inferences are only current after a consistent run. Otherwise the previous run's
