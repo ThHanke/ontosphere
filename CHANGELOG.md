@@ -2,12 +2,12 @@
 
 ## [Unreleased]
 
-Large graphs reason and render much faster: `runReasoning` returns when the reasoner is done (LUBM-1: 126 s to 12 s), and the canvas needs about a third less memory and finishes sooner.
+Large graphs reason and render faster: `runReasoning` returns when the reasoner is done (LUBM-1: 126 s to 12 s), and the canvas finishes loading sooner.
 
 ### Changed
 
-- **`runReasoning` returns when the reasoner result is in.** The inferred triples reach the canvas afterwards, in chunks. LUBM-1 with data: 126 s to 11.4–11.7 s (reasoner 8.6–8.8 s); the canvas then settles in about 85–90 s.
-- **Canvas loads are lighter.** Elements are created in chunks, the inferred refresh runs in chunks, Reactodia's per-link element scan is replaced by an index, and the authoring decorators (inline Edit/Delete) are mounted only for the hovered, selected or edited element instead of for all elements. LUBM-1 peak renderer memory 10.7 GB to 9.1–9.4 GB; small graphs: about 40% shorter load time at 8,000 individuals, longest single task 4.9 s to 3.1 s.
+- **`runReasoning` returns when the reasoner result is in.** The inferred triples reach the canvas afterwards, in chunks. LUBM-1 with data: 126 s to 11.4–11.7 s (reasoner 8.6–8.8 s); the canvas then settles in about 85–90 s (it was about 125 s).
+- **Canvas loads are faster and shorter-blocking.** Elements are created in chunks, the inferred refresh runs in chunks, Reactodia's per-link element scan is replaced by an index, and the authoring decorators (inline Edit/Delete) are mounted only for the hovered, selected or edited element instead of for all elements. At 8,000 individuals the load settles in 19 s instead of 31 s and the longest single task drops from 4.9 s to 3.1 s.
 - **The halo's delete button (×) is gone.** It duplicated the entity's inline Delete; the Delete key and the inline buttons work as before.
 - **The reasoner reads the real store** (rdf-reasoner-konclude 0.9.3, pinned): no copy, no write-back, inferences unchanged. About 1.4 s less on LUBM-1.
 
@@ -17,7 +17,7 @@ Large graphs reason and render much faster: `runReasoning` returns when the reas
 
 ### Internal
 
-Benchmark and profiling scripts (`scripts/bench-reasoner-phases.mjs`, `bench-canvas-links.mjs`, `profile-*.mjs`; the first refuses to run on a stale Vite pre-bundle), tests for the no-copy chain, graph counts and per-quad inferred tagging, and three write-ups in `docs/solutions/` (measurement pitfalls, the live-store reasoner chain, canvas load performance).
+Benchmark and profiling scripts (`scripts/bench-reasoner-phases.mjs`, `bench-canvas-links.mjs`, `profile-*.mjs`; the first refuses to run on a stale Vite pre-bundle), tests for the no-copy chain, graph counts and per-quad inferred tagging, and write-ups in `docs/solutions/` (measurement pitfalls, the live-store reasoner chain, canvas load performance).
 
 ## [1.8.0] — 2026-11-11
 
