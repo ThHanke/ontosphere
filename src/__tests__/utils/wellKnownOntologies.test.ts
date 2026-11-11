@@ -93,3 +93,17 @@ describe("searchOntologyPacks", () => {
     }
   });
 });
+
+describe('bundled W3C vocabularies (fallback only)', () => {
+  it.each(['rdf', 'rdfs', 'owl', 'prov'])('%s resolves to the live URL and has a bundled fallback', async (prefix) => {
+    const { resolveOntologyLoadUrl, bundledVocabularyUrl } = await import('../../utils/wellKnownOntologies');
+    const live = resolveOntologyLoadUrl(prefix);
+    expect(live).toContain('w3.org');
+    expect(bundledVocabularyUrl(live)).toContain(`w3-vocabularies/${prefix}.ttl`);
+  });
+
+  it('has no bundled copy for other vocabularies', async () => {
+    const { bundledVocabularyUrl } = await import('../../utils/wellKnownOntologies');
+    expect(bundledVocabularyUrl('https://example.org/vocab.ttl')).toBeNull();
+  });
+});

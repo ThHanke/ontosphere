@@ -5,6 +5,8 @@
 
 import * as Reactodia from '@reactodia/workspace';
 import { rdfManager } from "./rdfManager";
+import { loadWorkflowOntology } from "./workflowCatalogLoader";
+import { useAppConfigStore } from "../stores/appConfigStore";
 import { DataFactory } from "n3";
 
 const { namedNode, literal, blankNode } = DataFactory;
@@ -296,6 +298,10 @@ export async function instantiateWorkflowOnCanvas(
   ctx: Reactodia.WorkspaceContext,
 ): Promise<void> {
   const triplesToAdd: Array<{ subject: any; predicate: any; object: any }> = [];
+
+  // The workflow's own vocabulary joins the ontology graph now, not at startup.
+  const ontology = await loadWorkflowOntology(useAppConfigStore.getState().config);
+  if (!ontology.success) console.warn('[WorkflowInstantiator] workflow ontology not loaded:', ontology.error);
 
   /** Copy ALL subject-quads for an IRI from workflows graph into data graph triples buffer. */
   async function copyEntityToData(iri: string): Promise<void> {

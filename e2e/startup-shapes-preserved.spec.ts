@@ -1,5 +1,5 @@
 /**
- * Shapes loaded right after the app opens must not be replaced or mixed by the startup preset.
+ * The startup preset is applied once, untouched: MCP shape loads during startup are rejected.
  *
  * At startup the app loads the shapes URL from settings (after the ontology autoloads). That load
  * used to clear urn:vg:shapes before fetching, then add the preset. Depending on timing, shapes a
@@ -24,7 +24,7 @@ async function shapeQuads(page: Page): Promise<number> {
   return Number(res?.data?.rows?.[0]?.n ?? -1);
 }
 
-test('shapes loaded after opening survive the startup preset unchanged', async ({ page }) => {
+test('a shapes load during startup is rejected and the preset stays intact', async ({ page }) => {
   test.setTimeout(120_000);
   let presetServed = false;
   await page.route(PRESET, async (route) => {
@@ -33,14 +33,14 @@ test('shapes loaded after opening survive the startup preset unchanged', async (
     presetServed = true;
   });
 
-  await gotoAndWaitForReady(page, BASE_URL, 'loadShacl');
-  const loaded = await callTool(page, 'loadShacl', { turtle: shapesTurtle }, BASE_URL);
-  expect(loaded?.success, JSON.stringify(loaded)).toBe(true);
+  // MCP calls are rejected until startup loading is complete, so shapes cannot be loaded
+  // into the window where the preset is still on its way.
+  await gotoAndWaitForReady(page, BASE_URL, 'loadShacl', false);
+  const early = await callTool(page, 'loadShacl', { turtle: shapesTurtle }, BASE_URL);
+  expect(early?.success, 'loadShacl during startup').toBe(false);
 
   await expect.poll(() => presetServed, { timeout: 60_000 }).toBe(true);
-  await page.waitForTimeout(3_000); // let a preset load, if any, reach the store
-
-  expect(await shapeQuads(page), 'only the shapes loaded after opening remain').toBe(2);
+  await expect.poll(() => shapeQuads(page), { timeout: 15_000 }).toBe(67);
 });
 
 test('the startup preset still applies when nothing was loaded', async ({ page }) => {

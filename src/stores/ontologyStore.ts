@@ -11,7 +11,7 @@ import { RDFManager, rdfManager } from "../utils/rdfManager";
 import { useAppConfigStore } from "./appConfigStore";
 import { useSettingsStore } from "./settingsStore";
 import { debug, info, warn, error, fallback } from "../utils/startupDebug";
-import { WELL_KNOWN, WELL_KNOWN_BY_PREFIX, WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl } from "../utils/wellKnownOntologies";
+import { WELL_KNOWN, WELL_KNOWN_BY_PREFIX, WELL_KNOWN_PREFIXES, resolveOntologyLoadUrl, bundledVocabularyUrl } from "../utils/wellKnownOntologies";
 import { DataFactory, Quad } from "n3";
 import { toast } from "sonner";
 import { buildPaletteMap } from "../components/Canvas/core/namespacePalette";
@@ -675,11 +675,18 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
       try {
         const corsProxyUrl = useSettingsStore.getState().settings.corsProxyUrl;
         const loadOpts = { timeoutMs: 15000, corsProxyUrl: corsProxyUrl || undefined };
-        if (mgr && typeof (mgr as any).loadRDFFromUrl === "function") {
-          await (mgr as any).loadRDFFromUrl(fetchUrl, "urn:vg:ontologies", loadOpts);
-        } else {
-          // fallback to module-level manager
-          await (rdfManager as any).loadRDFFromUrl(fetchUrl, "urn:vg:ontologies", loadOpts);
+        const loadFrom = (u: string) =>
+          mgr && typeof (mgr as any).loadRDFFromUrl === "function"
+            ? (mgr as any).loadRDFFromUrl(u, "urn:vg:ontologies", loadOpts)
+            : (rdfManager as any).loadRDFFromUrl(u, "urn:vg:ontologies", loadOpts);
+        try {
+          await loadFrom(fetchUrl);
+        } catch (webErr) {
+          // Live copy unreachable (blocked, offline): use the vocabulary shipped with the app.
+          const bundled = bundledVocabularyUrl(fetchUrl);
+          if (!bundled) throw webErr;
+          warn("ontology.load.bundled-fallback", { url: fetchUrl, error: String(webErr) });
+          await loadFrom(bundled);
         }
       } catch (err) {
         warn(

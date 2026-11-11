@@ -1,4 +1,7 @@
 // src/mcp/tools/reasoning.ts
+import { abbreviateIri, type NamespaceMap } from '@/utils/iriAbbreviation';
+import { entriesToRecord } from '@/constants/namespaces';
+import { toast } from 'sonner';
 import type { McpTool, McpResult } from '@/mcp/types';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
 import { useAppConfigStore } from '@/stores/appConfigStore';
@@ -6,44 +9,11 @@ import { VALID_ALGORITHMS } from './layout';
 import { rdfManager } from '@/utils/rdfManager';
 import { checkOwl2Profile, detectOwl2Profiles, type ProfileTriple } from '@/utils/owlProfile';
 import { buildRepairBrief, type DiagnosticsData } from './diagnosticsBrief';
-// TODO(rdf-reasoner-konclude): replace local computeRepairs/axiomWeakening with
-// reasoner API once repair/weakening endpoints land (plan-050 deferred scope).
-import {
-  computeRepairs,
-  addWeakeningRepairs,
-  annotateDeletionMinimality,
-  type RepairSuggestion,
-  type WeakeningContext,
-  type DeletionRemoval,
-} from './computeRepairs';
-import { buildClassHierarchy, buildDirectEdgeMap } from './axiomWeakening';
-import type { VerifyRepairRemoval } from '@/utils/rdfManager';
+import { expandIri } from './iriUtils';
+import { buildShaclRepairs, type RepairSuggestion } from './computeRepairs';
 const EXPORT_FORMATS = ['turtle', 'jsonld', 'rdfxml', 'svg', 'png'];
 
 const DATA_GRAPH = 'urn:vg:data';
-
-/**
- * BUG B: project a computed repair into a verifyRepair removal, carrying the
- * object-term metadata (termType/datatype/language) and source graph that
- * computeRepairs threaded from the MIPS. This makes VERIFY exclude the IDENTICAL
- * triple the apply path (removeLink) removes — preventing a false
- * `verifiedConsistent` against a same-lexical sibling in another graph/datatype.
- * Optional fields are only set when present (back-compat: a bare s/p/o repair
- * verifies with the legacy lexical/all-graph match).
- */
-function repairToRemoval(r: RepairSuggestion): VerifyRepairRemoval {
-  const a = r.action.args;
-  return {
-    subject: a.subjectIri!,
-    predicate: a.predicateIri!,
-    object: a.objectIri!,
-    ...(a.objectTermType ? { objectTermType: a.objectTermType } : {}),
-    ...(a.objectDatatype ? { objectDatatype: a.objectDatatype } : {}),
-    ...(a.objectLanguage ? { objectLanguage: a.objectLanguage } : {}),
-    ...(a.graph ? { graph: a.graph } : {}),
-  };
-}
-
 
 async function loadDataProfileTriples(): Promise<ProfileTriple[]> {
   const page = await rdfManager.fetchQuadsPage({ graphName: DATA_GRAPH, limit: 0, serialize: true });
@@ -58,74 +28,6 @@ async function loadDataProfileTriples(): Promise<ProfileTriple[]> {
     object: q.object.value,
     objectIsLiteral: q.object.termType === 'Literal',
   }));
-}
-
-const RDFS_SUBCLASS_OF = 'http://www.w3.org/2000/01/rdf-schema#subClassOf';
-const OWL_INTERSECTION_OF = 'http://www.w3.org/2002/07/owl#intersectionOf';
-const RDF_FIRST = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#first';
-const RDF_REST = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#rest';
-const RDF_NIL = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#nil';
-
-/**
- * Read the classified class subsumption hierarchy (asserted + inferred
- * rdfs:subClassOf) plus any owl:intersectionOf definitions, to drive axiom
- * weakening. sparqlQuery runs with unionDefaultGraph:true so a plain BGP matches
- * urn:vg:data + urn:vg:ontologies + urn:vg:inferred — i.e. the FULL classified
- * hierarchy after reasoning. Returns the WeakeningContext computeRepairs needs.
- *
- * Best-effort: on any query failure returns an empty hierarchy (weakening simply
- * yields no candidates and the agent still gets the deletion repairs).
- */
-async function loadWeakeningContext(): Promise<WeakeningContext> {
-  const empty: WeakeningContext = { hierarchy: buildClassHierarchy([]) };
-  try {
-    // 1. All subClassOf edges with NAMED (IRI) super- and sub-classes.
-    const subRes = await rdfManager.sparqlQuery(
-      `SELECT ?sub ?sup WHERE { ?sub <${RDFS_SUBCLASS_OF}> ?sup . FILTER(isIRI(?sub) && isIRI(?sup)) }`,
-      { limit: 5000 },
-    );
-    const edges: Array<{ sub: string; sup: string }> = [];
-    if (subRes?.type === 'select' && Array.isArray(subRes.rows)) {
-      for (const row of subRes.rows as Array<Record<string, string>>) {
-        if (row.sub && row.sup) edges.push({ sub: row.sub, sup: row.sup });
-      }
-    }
-
-    // 2. owl:intersectionOf definitions: map the class/intersection node to its
-    //    resolved NAMED conjunct members (RDF list walk). Only named members are
-    //    usable as drop-conjunct weakening targets.
-    const intersections = new Map<string, string[]>();
-    try {
-      const intRes = await rdfManager.sparqlQuery(
-        `SELECT ?node ?member WHERE {
-           ?node <${OWL_INTERSECTION_OF}> ?list .
-           ?list <${RDF_FIRST}>* /  <${RDF_REST}>* ?cell .
-           ?cell <${RDF_FIRST}> ?member .
-           FILTER(isIRI(?member))
-         }`,
-        { limit: 5000 },
-      );
-      if (intRes?.type === 'select' && Array.isArray(intRes.rows)) {
-        for (const row of intRes.rows as Array<Record<string, string>>) {
-          if (!row.node || !row.member) continue;
-          if (row.member === RDF_NIL) continue;
-          const arr = intersections.get(row.node) ?? [];
-          if (!arr.includes(row.member)) arr.push(row.member);
-          intersections.set(row.node, arr);
-        }
-      }
-    } catch {
-      // intersection resolution is optional — generalise-only weakening still works.
-    }
-
-    return {
-      hierarchy: buildClassHierarchy(edges),
-      direct: buildDirectEdgeMap(edges),
-      ...(intersections.size > 0 ? { intersections } : {}),
-    };
-  } catch {
-    return empty;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -168,6 +70,11 @@ const runReasoning: McpTool = {
         if (shaclValidation !== prevShaclEnabled) {
           useAppConfigStore.getState().setShaclEnabled(prevShaclEnabled);
         }
+      }
+      const runErrors: any[] = (result as any)?.errors ?? [];
+      const stall = runErrors.find((e) => e?.rule === 'reasoner-error');
+      if (stall) {
+        return { success: false, error: `Reasoning did not complete: ${stall.message ?? 'reasoner error'}` };
       }
       const inferredTriples = (result as any)?.meta?.addedCount ?? (result as any)?.inferences?.length ?? 0;
 
@@ -246,10 +153,9 @@ const explainDiagnostics: McpTool = {
   name: 'explainDiagnostics',
   description:
     "Run the full symbolic verifier (OWL 2 DL reasoning + SHACL) and return ONE structured, actionable diagnosis of everything wrong with the current graph. " +
-    "Use this to decide what to fix after authoring. Response: { isConsistent, justifications, laconicJustifications, unsatisfiableClasses, profile, shaclViolations, repairBrief, suggestedRepairs }. " +
-    "isConsistent=false means a logical contradiction: `justifications` lists each minimal set of axioms (MIPS) causing it — remove or revise one axiom per set. " +
-    "`laconicJustifications` (Horridge, Parsia & Sattler, ISWC 2008) is the superfluous-part-free refinement of `justifications`, aligned by index: each entry pinpoints the precise culprit axiom PART (e.g. the `A ⊑ B` part of `A ⊑ B ⊓ C`) via parts[] (each part carrying its source axiom as sourceSubject/sourcePredicate/sourceObject), with `sharpened` (a superfluous part was dropped) and `skipped` (a cost cap suppressed laconic for that MIPS — parts then equal the whole axioms). The repairBrief surfaces the precise culprit and the axiom-weakening repairs prefer dropping exactly the laconic culprit conjunct. " +
-    "`unsatisfiableClasses` are classes that can never have instances (best-effort). `profile` reports OWL 2 profile analysis: the legacy DL sanity check (owl2dl + violations, e.g. a literal on an object property) PLUS structural EL/QL/RL detection (el/ql/rl each { valid, violations:[{construct,axiom,reason}] }) and `mostRestrictive` (EL|QL|RL|DL|Full) — the tightest profile the ontology fits, indicating whether a cheaper profile-specific reasoner suffices. " +
+    "Use this to decide what to fix after authoring. Response: { isConsistent, justifications, unsatisfiableClasses, profile, shaclViolations, repairBrief, suggestedRepairs }. " +
+    "isConsistent=false means a logical contradiction: `justifications` lists the minimal sets of axioms (MIPS) the reasoner used to compute the repairs — remove or revise one axiom per set. Declarations (`C a owl:Class`) are not part of a justification, and the count follows the reasoner's repair search, so it can exceed `maxJustifications`. " +
+    "`unsatisfiableClasses` are classes that can never have instances (best-effort); it is not computed for an inconsistent ontology (every class is unsatisfiable there), and `unsatisfiableClassesSkipped: 'ontology-inconsistent'` says so.  `profile` reports OWL 2 profile analysis: the legacy DL sanity check (owl2dl + violations, e.g. a literal on an object property) PLUS structural EL/QL/RL detection (el/ql/rl each { valid, violations:[{construct,axiom,reason}] }) and `mostRestrictive` (EL|QL|RL|DL|Full) — the tightest profile the ontology fits, indicating whether a cheaper profile-specific reasoner suffices. " +
     "`shaclViolations` are data-shape conformance failures. `repairBrief` is a ranked plain-language summary you can act on directly. " +
     "`suggestedRepairs` is a ranked list of EXECUTABLE reasoner-computed fixes, each { id, issue, kind?, action:{tool,args}, batch?, weakerThan?, alternativeTo?, weakeningVerified?, rationale, verifiedConsistent?, verifiedSet?, justificationsCovered?, needsValue?, needsManualReview? }: " +
     "for inconsistencies the DELETION repairs (kind:'delete') form a minimal hitting set over the MIPS — removing the WHOLE set restores consistency. AXIOM WEAKENING repairs (kind:'weaken', ids W1,W2,…) are a LESS-destructive alternative (Troquard et al. AAAI 2018; Li & Lambrix ISWC 2024): for an rdfs:subClassOf culprit A ⊑ D they replace it with a weaker A ⊑ D′ (D′ ⊒ D) or drop a conjunct — apply via batch:{removes,adds}; prefer weakening over deletion to preserve more knowledge. verifiedConsistent:true ⇒ removing that ONE axiom alone restores consistency; with multiple independent contradictions it is commonly false for every repair (means 'not ALONE', not 'wrong'). " +
@@ -263,44 +169,52 @@ const explainDiagnostics: McpTool = {
         default: 3,
         description: 'Maximum number of independent inconsistency justifications (MIPS) to return when inconsistent.',
       },
+      includeTimings: {
+        type: 'boolean',
+        default: false,
+        description: 'Add timingsMs: wall time in milliseconds of each stage and of each reasoner call. For diagnosing slow runs.',
+      },
     },
   },
   async handler(params): Promise<McpResult> {
     try {
-      const { maxJustifications = 3 } = (params ?? {}) as { maxJustifications?: number };
+      const { maxJustifications = 3, includeTimings = false } = (params ?? {}) as { maxJustifications?: number; includeTimings?: boolean };
+      const stagesMs: Record<string, number> = {};
+      const stage = async <T>(name: string, run: () => Promise<T>): Promise<T> => {
+        const t0 = Date.now();
+        try { return await run(); } finally { stagesMs[name] = Date.now() - t0; }
+      };
+      const startedAt = Date.now();
 
       // 1. Run reasoning to compute consistency, classify, and run SHACL.
-      const reasoning = await rdfManager.runReasoning();
+      // The worker reports its own stage durations (consistency check, explain, ...) while it runs.
+      const workerStages: { stage: string; meta?: Record<string, unknown> }[] = [];
+      const stopStages = includeTimings
+        ? rdfManager.onReasoningStage((e) => workerStages.push({ stage: e.stage, meta: e.meta }))
+        : () => {};
+      let reasoning: unknown;
+      try {
+        reasoning = await stage('runReasoning', () => rdfManager.runReasoning());
+      } finally {
+        stopStages();
+      }
       const isConsistent = (reasoning as { isConsistent?: boolean | null })?.isConsistent ?? null;
 
-      // 2. Inconsistency justifications (only meaningful when inconsistent). We
-      //    request the LACONIC refinement alongside the regular MIPS (Horridge
-      //    et al. ISWC 2008): each laconic entry pinpoints the superfluous-part-
-      //    free culprit PART (e.g. the `A ⊑ B` part of `A ⊑ B ⊓ C`), aligned by
-      //    index with `justifications`. Non-breaking: `justifications` keeps its
-      //    existing whole-axiom shape; `laconicJustifications` is purely additive.
-      let justifications: DiagnosticsData['justifications'] = [];
-      let laconicJustifications: DiagnosticsData['laconicJustifications'] = [];
-      if (isConsistent === false) {
-        // Prefer the laconic-enriched call (returns the regular MIPS PLUS the
-        // superfluous-part-free refinement). Fall back to plain explainInconsistency
-        // when the manager build / a test double does not expose the laconic method
-        // (defensive: laconic is purely additive).
-        if (typeof rdfManager.explainInconsistencyWithLaconic === 'function') {
-          const incon = await rdfManager.explainInconsistencyWithLaconic(maxJustifications);
-          justifications = incon.justifications;
-          laconicJustifications = incon.laconicJustifications;
-        } else {
-          justifications = await rdfManager.explainInconsistency(maxJustifications);
-        }
+      // 2. Unsatisfiable classes (Konclude classification — classes equivalent to owl:Nothing).
+      //    Skipped for an inconsistent ontology: there every class is unsatisfiable, so the list says
+      //    nothing, and the classification cost 52 s on PMDCO in the browser. The user is told.
+      let unsatisfiableClasses: string[] = [];
+      const unsatisfiableClassesSkipped = isConsistent === false;
+      if (unsatisfiableClassesSkipped) {
+        toast.info('Unsatisfiable classes not computed', {
+          description: 'The ontology is inconsistent, so every class is unsatisfiable. Repair the inconsistency first.',
+        });
+      } else {
+        try { unsatisfiableClasses = (await stage('validate', () => rdfManager.validate())).unsatisfiable; } catch { unsatisfiableClasses = []; }
       }
 
-      // 3. Unsatisfiable classes (Konclude classification — classes equivalent to owl:Nothing).
-      let unsatisfiableClasses: string[] = [];
-      try { unsatisfiableClasses = (await rdfManager.validate()).unsatisfiable; } catch { unsatisfiableClasses = []; }
-
-      // 4. OWL 2 profile detection over the asserted data graph.
-      const profileTriples = await loadDataProfileTriples();
+      // 3. OWL 2 profile detection over the asserted data graph.
+      const profileTriples = await stage('profileTriples', () => loadDataProfileTriples());
       const dlReport = checkOwl2Profile(profileTriples);
       const profiles = detectOwl2Profiles(profileTriples);
       const profile = {
@@ -312,164 +226,51 @@ const explainDiagnostics: McpTool = {
         mostRestrictive: profiles.mostRestrictive,
       };
 
-      // 5. SHACL conformance.
-      const shacl = await rdfManager.runShaclValidation();
+      // 4. SHACL conformance.
+      const shacl = await stage('shacl', () => rdfManager.runShaclValidation());
       const shaclViolations = (shacl?.violations ?? []) as DiagnosticsData['shaclViolations'];
+
+      // 5. Repair suggestions, and with them the justifications. The reasoner computes both in one
+      //    search (rdf-reasoner-konclude repair() and weaken(): the justifications it found, minimal
+      //    axiom sets whose removal restores consistency, verified, plus weaker replacements for
+      //    rdfs:subClassOf culprits); the worker maps them onto RepairSuggestion. It reuses the
+      //    explanation runReasoning already made for this graph state. SHACL repairs restore
+      //    conformance, not consistency, and stay a separate pipeline.
+      let justifications: DiagnosticsData['justifications'] = [];
+      let repairSetVerifiedConsistent: boolean | null = null;
+      let repairSetMatchWarning: string | undefined;
+      let libTimingsMs: { call: string; ms: number }[] | undefined;
+      const namespaces = entriesToRecord(rdfManager.getNamespaces());
+      const shaclRepairs = buildShaclRepairs(shaclViolations, namespaces);
+      let suggestedRepairs: RepairSuggestion[] = shaclRepairs;
+
+      if (isConsistent === false) {
+        const suggested = await stage('suggestRepairs', () => rdfManager.suggestRepairs({
+          unsatisfiableClasses,
+          maxJustifications,
+        }));
+        libTimingsMs = suggested.libTimingsMs;
+        justifications = suggested.justifications;
+        repairSetVerifiedConsistent = suggested.repairSetVerifiedConsistent;
+        repairSetMatchWarning = suggested.repairSetMatchWarning;
+        // Deletions first, then SHACL, then weakening alternatives (the order the list always had).
+        suggestedRepairs = [
+          ...suggested.repairs.filter((r) => r.kind !== 'weaken'),
+          ...shaclRepairs,
+          ...suggested.repairs.filter((r) => r.kind === 'weaken'),
+        ];
+      }
 
       const data: DiagnosticsData = {
         isConsistent,
         justifications,
-        ...(laconicJustifications && laconicJustifications.length > 0
-          ? { laconicJustifications }
-          : {}),
         unsatisfiableClasses,
         profile,
         shaclViolations,
       };
 
-      // R1 — reasoner-computed repair suggestions. Compute ranked, executable
-      // candidates from the symbolic diagnostics (minimal hitting set over the
-      // MIPS + SHACL candidates), then symbolically VERIFY the inconsistency
-      // candidates by re-running the consistency oracle on a store copy without
-      // the removed axioms. Verification is read-only (operates on a copy).
-      let suggestedRepairs: RepairSuggestion[] = computeRepairs(data);
-
-      // R-weaken — AXIOM WEAKENING (Troquard et al. AAAI 2018; Li & Lambrix ISWC
-      // 2024). For every deletion repair that targets an `A rdfs:subClassOf D`
-      // axiom, ALSO offer logically-weaker replacements `A ⊑ D′` (D′ ⊒ D) or
-      // drop-conjunct alternatives — less destructive than deletion. Reads the
-      // classified hierarchy via sparqlQuery (urn:vg:inferred + asserted).
-      if (isConsistent === false) {
-        const wctx = await loadWeakeningContext();
-        suggestedRepairs = addWeakeningRepairs(suggestedRepairs, {
-          ...wctx,
-          justifications,
-          // LACONIC culprit hints (Horridge et al. ISWC 2008): let the weakening
-          // enumerator prefer dropping the precise offending conjunct.
-          ...(laconicJustifications && laconicJustifications.length > 0
-            ? { laconicJustifications }
-            : {}),
-        });
-      }
-
-      // `repairSetVerifiedConsistent` is the paper-critical signal: does removing
-      // the FULL hitting set at once restore global consistency? With multiple
-      // disjoint contradictions no single removal does, so per-axiom checks are
-      // all false even though the union IS valid (M2). null = not verified.
-      let repairSetVerifiedConsistent: boolean | null = null;
-      let repairSetMatchWarning: string | undefined;
-
-      if (isConsistent === false) {
-        // Executable inconsistency repairs (skip needsManualReview markers,
-        // which have no axiom to remove).
-        const actionable = suggestedRepairs.filter(
-          (r) =>
-            r.issue === 'inconsistency' &&
-            !r.needsManualReview &&
-            r.action.args.subjectIri &&
-            r.action.args.predicateIri &&
-            r.action.args.objectIri,
-        );
-
-        // 1. Per-axiom verification — meaning: does removing THIS axiom ALONE
-        //    restore consistency? Commonly false with disjoint contradictions;
-        //    it does NOT mean the repair is wrong (cross-ref verifiedSet).
-        await Promise.all(
-          actionable.map(async (r) => {
-            try {
-              // BUG B: thread the object-term + source graph so VERIFY targets the
-              // IDENTICAL triple APPLY (removeLink) removes — not a same-lexical
-              // sibling in another graph / with another datatype.
-              r.verifiedConsistent = await rdfManager.verifyRepair([repairToRemoval(r)]);
-            } catch {
-              // Leave verifiedConsistent undefined when the oracle is unavailable.
-            }
-          }),
-        );
-
-        // 1b. WEAKENING verification (Troquard et al. 2018; Li & Lambrix 2024).
-        //     A weakening repair removes `A ⊑ D` and ADDS the weaker `A ⊑ D′`
-        //     (D′ ⊒ D). verifyRepair only takes REMOVALS, so we verify the
-        //     removal side directly (does removing `A ⊑ D` restore consistency —
-        //     reused from the per-axiom pass above). The ADD side is sound WITHOUT
-        //     a separate oracle call: because D ⊑ D′, the added `A ⊑ D′` is
-        //     ENTAILED by the very axiom we removed, so it introduces NO new
-        //     constraint over the post-removal ontology — re-adding an entailment
-        //     of a removed axiom cannot re-break a model that satisfied the
-        //     removal. We record this as weakeningVerified with an honest note.
-        //     LIMITATION: this is a *monotonicity* argument, not a full whatIf(add)
-        //     re-classification (the worker exposes no add-side consistency oracle
-        //     without mutating urn:vg:data); a fuller check is documented follow-up.
-        for (const r of actionable) {
-          if (r.kind !== 'weaken') continue;
-          // verifiedConsistent here = "removing the culprit A⊑D alone restores
-          // consistency". When true, the weakening (which keeps A⊑D′ ⊒ A⊑D) is
-          // sound by the entailment-monotonicity argument above.
-          r.weakeningVerified = r.verifiedConsistent === true;
-          r.weakeningNote = r.weakeningVerified
-            ? 'Removal of the original axiom restores consistency; the weaker A ⊑ D′ ' +
-              'is entailed by the removed A ⊑ D (D ⊑ D′), so re-adding it cannot ' +
-              're-introduce the contradiction — weakening is sound and preserves A ⊑ D′.'
-            : 'Removing the original axiom alone does not restore consistency (other ' +
-              'contradictions remain); apply with the full repair set. The weaker ' +
-              'A ⊑ D′ is still entailed by the removed axiom (add-side is monotone).';
-        }
-
-        // 2. Full-set verification — remove EVERY inconsistency repair at once.
-        //    This is the hitting-set guarantee: their union restores consistency
-        //    even when each individual removal does not.
-        // The full hitting set is the set of DELETION repairs (weakenings are
-        // per-axiom ALTERNATIVES to a deletion, not additional set members — they
-        // share the same culprit, so including them would double-count).
-        const deletionSet = actionable.filter((r) => r.kind !== 'weaken');
-        if (deletionSet.length > 0) {
-          // BUG B: each removal carries its object-term + source graph so the
-          // full-set VERIFY removes exactly what the apply path would.
-          const removals = deletionSet.map(repairToRemoval);
-          try {
-            const detailed = await rdfManager.verifyRepairDetailed(removals);
-            repairSetVerifiedConsistent = detailed.verifiedConsistent;
-            // L2: warn when some removals matched nothing — a false verdict then
-            // means "the store was not actually changed", not "repair failed".
-            if (detailed.matchedCount < detailed.requestedCount) {
-              repairSetMatchWarning =
-                `Only ${detailed.matchedCount} of ${detailed.requestedCount} repair ` +
-                `axioms matched a triple in the store; the consistency verdict may ` +
-                `reflect an unchanged store rather than the repair's effect ` +
-                `(check for serialization mismatches).`;
-            }
-            // Annotate each deletion repair with the shared full-set verdict.
-            for (const r of deletionSet) r.verifiedSet = detailed.verifiedConsistent;
-          } catch {
-            // Oracle unavailable — leave repairSetVerifiedConsistent null.
-          }
-
-          // 3. BOUNDED subset-minimality verification (live wiring of
-          //    annotateDeletionMinimality). The greedy/irredundant hitting set
-          //    above is minimal-by-heuristic (no single member redundant) but NOT
-          //    proven minimum-cardinality; a genuinely smaller sub-collection may
-          //    still restore consistency once the REAL reasoner is consulted. We
-          //    run the bounded smallest-first subset search using the SAME
-          //    store-copy oracle (verifyRepairDetailed) the full-set check uses —
-          //    each invocation operates on a store COPY and never mutates the
-          //    author's graph. The search annotates each verified deletion repair
-          //    with `minimalityVerified`. Above the bound the search is skipped
-          //    (minimalityVerified:false, irredundant fallback). Guarded so it is
-          //    a no-op when no reasoner is available and NEVER throws into the
-          //    diagnosis path (matches current best-effort verification behaviour).
-          try {
-            const reasonerCheck = async (removals: DeletionRemoval[]): Promise<boolean> =>
-              (await rdfManager.verifyRepairDetailed(removals as VerifyRepairRemoval[]))
-                .verifiedConsistent;
-            await annotateDeletionMinimality(suggestedRepairs, reasonerCheck);
-          } catch {
-            // Oracle unavailable or search failed — leave minimalityVerified
-            // undefined on the repairs (unchanged pure-path behaviour).
-          }
-        }
-      }
-
       const repairBrief = buildRepairBrief(data, suggestedRepairs, {
+        namespaces,
         repairSetVerifiedConsistent,
         repairSetMatchWarning,
       });
@@ -481,7 +282,11 @@ const explainDiagnostics: McpTool = {
           repairBrief,
           suggestedRepairs,
           repairSetVerifiedConsistent,
+          ...(unsatisfiableClassesSkipped ? { unsatisfiableClassesSkipped: 'ontology-inconsistent' } : {}),
           ...(repairSetMatchWarning ? { repairSetMatchWarning } : {}),
+          ...(includeTimings
+            ? { timingsMs: { total: Date.now() - startedAt, stages: stagesMs, workerStages, reasonerCalls: libTimingsMs ?? [] } }
+            : {}),
         },
       };
     } catch (e) {
@@ -494,16 +299,8 @@ const explainDiagnostics: McpTool = {
 // explainEntailment
 // ---------------------------------------------------------------------------
 
-/** Local name of an IRI for compact, human-readable summaries. */
-function localName(iri: string): string {
-  const hash = iri.lastIndexOf('#');
-  const slash = iri.lastIndexOf('/');
-  const cut = Math.max(hash, slash);
-  return cut >= 0 && cut < iri.length - 1 ? iri.slice(cut + 1) : iri;
-}
-
-function axiomToText(a: { subject: string; predicate: string; object: string }): string {
-  return `${localName(a.subject)} ${localName(a.predicate)} ${localName(a.object)}`;
+function axiomToText(a: { subject: string; predicate: string; object: string }, namespaces: NamespaceMap): string {
+  return `${abbreviateIri(a.subject, namespaces)} ${abbreviateIri(a.predicate, namespaces)} ${abbreviateIri(a.object, namespaces)}`;
 }
 
 const explainEntailment: McpTool = {
@@ -525,22 +322,32 @@ const explainEntailment: McpTool = {
     type: 'object',
     required: ['subjectIri', 'predicateIri', 'objectIri'],
     properties: {
-      subjectIri: { type: 'string', description: 'IRI of the axiom subject (e.g. the subclass, or the individual).' },
-      predicateIri: { type: 'string', description: 'IRI of the predicate — rdfs:subClassOf or rdf:type.' },
-      objectIri: { type: 'string', description: 'IRI of the axiom object (e.g. the superclass, or the class).' },
+      subjectIri: { type: 'string', description: 'Full IRI, or a prefixed name resolved through the namespace map (e.g. inc:frank): the axiom subject (the subclass, or the individual).' },
+      predicateIri: { type: 'string', description: 'Full IRI or prefixed name: rdfs:subClassOf or rdf:type.' },
+      objectIri: { type: 'string', description: 'Full IRI or prefixed name: the axiom object (the superclass, or the class).' },
       maxJustifications: { type: 'number', default: 1, description: 'Maximum number of independent justifications to return.' },
     },
   },
   async handler(params): Promise<McpResult> {
     try {
-      const { subjectIri, predicateIri, objectIri, maxJustifications = 1 } = (params ?? {}) as {
+      const { subjectIri: rawSubject, predicateIri: rawPredicate, objectIri: rawObject, maxJustifications = 1 } = (params ?? {}) as {
         subjectIri?: string;
         predicateIri?: string;
         objectIri?: string;
         maxJustifications?: number;
       };
-      if (!subjectIri || !predicateIri || !objectIri) {
+      if (!rawSubject || !rawPredicate || !rawObject) {
         return { success: false, error: 'explainEntailment requires subjectIri, predicateIri and objectIri.' };
+      }
+      // Like every other tool: a prefixed name is expanded through the namespace map, a full IRI passes
+      // through, anything else is an error. An unresolved name must never reach the reasoner, where it
+      // would just be "not entailed".
+      const [subjectIri, predicateIri, objectIri] = [rawSubject, rawPredicate, rawObject].map(expandIri);
+      const expandError = [subjectIri, predicateIri, objectIri].find((v) => v.startsWith('Unknown prefix:'));
+      if (expandError) return { success: false, error: expandError };
+      const notIri = [rawSubject, rawPredicate, rawObject].find((raw, i) => !/^[A-Za-z][A-Za-z0-9+.-]*:/.test([subjectIri, predicateIri, objectIri][i]));
+      if (notIri !== undefined) {
+        return { success: false, error: `"${notIri}" is neither a full IRI nor a prefixed name (such as rdf:type or inc:Employee).` };
       }
 
       // Ensure the reasoner has the current asserted graph (read-only).
@@ -552,7 +359,8 @@ const explainEntailment: McpTool = {
           { maxJustifications },
         );
 
-      const axiomText = axiomToText({ subject: subjectIri, predicate: predicateIri, object: objectIri });
+      const entailmentNamespaces = entriesToRecord(rdfManager.getNamespaces());
+      const axiomText = axiomToText({ subject: subjectIri, predicate: predicateIri, object: objectIri }, entailmentNamespaces);
       let summary: string;
       if (ontologyInconsistent) {
         // C1: the ontology is already inconsistent, so the entailment reduction is
@@ -584,7 +392,7 @@ const explainEntailment: McpTool = {
       } else {
         const sets = justifications
           .map((j, i) => {
-            const axioms = j.map(axiomToText).join('; ');
+            const axioms = j.map((a) => axiomToText(a, entailmentNamespaces)).join('; ');
             return justifications.length > 1 ? `[${i + 1}] ${axioms}` : axioms;
           })
           .join(' | ');

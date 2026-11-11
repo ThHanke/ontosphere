@@ -53,7 +53,7 @@ async function openOntosphereApp(context: BrowserContext): Promise<Page> {
   await appPage.goto(DEV_URL);
   // Wait for __mcpTools to be registered (app initialises async)
   await appPage.waitForFunction(
-    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
+    () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function' && ((window as any).__startupComplete?.() ?? true),
     { timeout: 20_000 },
   );
   return appPage;

@@ -5,58 +5,26 @@
 // loop for HUMANS: instead of an agent calling `removeLink`, a person clicks
 // "Apply fix" in the Reasoning Report.
 //
-// It reuses the SAME pure repair logic the agent path uses — `computeRepairs`
-// from src/mcp/tools/computeRepairs.ts — so the suggestions a human sees are
-// byte-for-byte the suggestions an agent would receive. Verification
-// (`verifyRepair` / full-set check) is delegated to rdfManager, exactly as in
-// reasoning.ts's explainDiagnostics handler. The component is presentational +
+// It uses the SAME reasoner-computed repairs the agent path uses — rdfManager.suggestRepairs
+// (the library's repair() and weaken(), mapped by
+// src/mcp/tools/repairAdapter.ts), so the suggestions a human sees are the suggestions an
+// agent would receive. The reasoner verifies them; explainDiagnostics in reasoning.ts makes the same call. The component is presentational +
 // orchestration only; no repair selection lives here.
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { rdfManager, type VerifyRepairRemoval } from '../../utils/rdfManager';
+import { rdfManager } from '../../utils/rdfManager';
+import { entriesToRecord } from '../../constants/namespaces';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { CheckCircle2, Wrench, ShieldQuestion, AlertTriangle, Sparkles } from 'lucide-react';
 import { toPrefixed } from '../../utils/termUtils';
-import {
-  computeRepairs,
-  addWeakeningRepairs,
-  type RepairSuggestion,
-  type WeakeningContext,
-} from '../../mcp/tools/computeRepairs';
-import { buildClassHierarchy, buildDirectEdgeMap } from '../../mcp/tools/axiomWeakening';
+import { buildShaclRepairs, type RepairSuggestion } from '../../mcp/tools/computeRepairs';
 import type { DiagnosticsData } from '../../mcp/tools/diagnosticsBrief';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
 
 const DATA_GRAPH = 'urn:vg:data';
-const RDFS_SUBCLASS_OF = 'http://www.w3.org/2000/01/rdf-schema#subClassOf';
-
-/**
- * Read the classified subClassOf hierarchy (asserted + inferred) for axiom
- * weakening, mirroring reasoning.ts's loadWeakeningContext so the human UI offers
- * the SAME weakening alternatives an agent receives. Best-effort: an empty
- * hierarchy simply yields no weakenings.
- */
-async function loadWeakeningContext(): Promise<WeakeningContext> {
-  try {
-    const res = await rdfManager.sparqlQuery(
-      `SELECT ?sub ?sup WHERE { ?sub <${RDFS_SUBCLASS_OF}> ?sup . FILTER(isIRI(?sub) && isIRI(?sup)) }`,
-      { limit: 5000 },
-    );
-    const edges: Array<{ sub: string; sup: string }> = [];
-    if (res?.type === 'select' && Array.isArray(res.rows)) {
-      for (const row of res.rows as Array<Record<string, string>>) {
-        if (row.sub && row.sup) edges.push({ sub: row.sub, sup: row.sup });
-      }
-    }
-    return { hierarchy: buildClassHierarchy(edges), direct: buildDirectEdgeMap(edges) };
-  } catch {
-    return { hierarchy: buildClassHierarchy([]) };
-  }
-}
-
 /**
  * C1: pick the graph a repair must be applied in. The MIPS axiom may physically
  * live in `urn:vg:ontologies` (an imported schema axiom) rather than the data
@@ -89,34 +57,6 @@ function repairObjectTerm(
     return term;
   }
   return value;
-}
-
-/**
- * BUG B + BUG C: project a repair into a verifyRepair removal carrying the
- * object-term metadata + source graph so VERIFY excludes the IDENTICAL triple the
- * apply path removes — not a same-lexical sibling in another graph / with another
- * datatype (which would yield a false 'verifiedConsistent').
- *
- * BUG C — VERIFY and APPLY MUST use the SAME graph. The apply path resolves the
- * graph via `repairGraph` (which DEFAULTS to urn:vg:data when the MIPS axiom has
- * no graph metadata). If VERIFY instead omitted the graph it would do an all-graph
- * match, targeting a DIFFERENT quad set than apply → a false `verifiedConsistent`
- * or an apply no-op. So we pin VERIFY to the IDENTICAL `repairGraph(a)` value the
- * apply path uses — verify and apply always target the same triple+graph.
- */
-function repairToRemoval(r: RepairSuggestion): VerifyRepairRemoval {
-  const a = r.action.args;
-  return {
-    subject: a.subjectIri!,
-    predicate: a.predicateIri!,
-    object: a.objectIri!,
-    ...(a.objectTermType ? { objectTermType: a.objectTermType } : {}),
-    ...(a.objectDatatype ? { objectDatatype: a.objectDatatype } : {}),
-    ...(a.objectLanguage ? { objectLanguage: a.objectLanguage } : {}),
-    // BUG C: same graph resolution as the apply path (never absent) so verify
-    // and apply agree on the exact quad set.
-    graph: repairGraph(a),
-  };
 }
 
 interface RepairSuggestionsProps {
@@ -175,59 +115,23 @@ export const RepairSuggestions = memo(({ reasoningId, isConsistent }: RepairSugg
         const shacl = await rdfManager.runShaclValidation();
         const shaclViolations = (shacl?.violations ?? []) as DiagnosticsData['shaclViolations'];
 
-        const diagnostics: DiagnosticsData = {
-          isConsistent: isConsistent ?? null,
-          justifications,
-          unsatisfiableClasses,
-          // profile is not surfaced in the UI repair list; computeRepairs ignores it.
-          profile: { owl2dl: true, violations: [] },
-          shaclViolations,
-        };
-
-        // 2. Shared, deterministic repair computation — identical to the agent path.
-        let repairs = computeRepairs(diagnostics);
-
-        // 2b. AXIOM WEAKENING alternatives (Troquard et al. 2018; Li & Lambrix
-        //     2024) for subClassOf culprits — the SAME augmentation explainDiagnostics
-        //     applies, so the human UI shows the same delete-vs-weaken choice.
-        if (isConsistent === false) {
-          const wctx = await loadWeakeningContext();
-          repairs = addWeakeningRepairs(repairs, { ...wctx, justifications });
-        }
-
-        // 3. Symbolic verification (read-only, on a store copy) — per-axiom and full set.
+        // 2. The reasoner computes the repairs and weakenings (the same call the agent path makes);
+        //    SHACL repairs are a separate pipeline.
+        const shaclRepairs = buildShaclRepairs(shaclViolations, entriesToRecord(rdfManager.getNamespaces()));
+        let repairs: RepairSuggestion[] = shaclRepairs;
         let repairSetVerifiedConsistent: boolean | null = null;
         if (isConsistent === false) {
-          const actionable = repairs.filter(
-            (r) =>
-              r.issue === 'inconsistency' &&
-              !r.needsManualReview &&
-              r.action.args.subjectIri &&
-              r.action.args.predicateIri &&
-              r.action.args.objectIri,
-          );
-          await Promise.all(
-            actionable.map(async (r) => {
-              try {
-                // BUG B: VERIFY the SAME triple APPLY removes (graph + exact
-                // typed/lang literal), not a bare lexical/all-graph match.
-                r.verifiedConsistent = await rdfManager.verifyRepair([repairToRemoval(r)]);
-                // Weakening soundness transfers from the removal verdict: the
-                // weaker A ⊑ D′ is entailed by the removed A ⊑ D (D ⊑ D′).
-                if (r.kind === 'weaken') r.weakeningVerified = r.verifiedConsistent === true;
-              } catch { /* oracle unavailable — leave undefined */ }
-            }),
-          );
-          // Full-set verification uses DELETION repairs only (weakenings are
-          // alternatives to a deletion, not extra hitting-set members).
-          const deletionSet = actionable.filter((r) => r.kind !== 'weaken');
-          if (deletionSet.length > 0) {
-            const removals: VerifyRepairRemoval[] = deletionSet.map(repairToRemoval);
-            try {
-              repairSetVerifiedConsistent = await rdfManager.verifyRepair(removals);
-              for (const r of deletionSet) r.verifiedSet = repairSetVerifiedConsistent ?? undefined;
-            } catch { /* oracle unavailable */ }
-          }
+          const suggested = await rdfManager.suggestRepairs({
+            justifications,
+            unsatisfiableClasses,
+            maxJustifications: 3,
+          });
+          repairSetVerifiedConsistent = suggested.repairSetVerifiedConsistent;
+          repairs = [
+            ...suggested.repairs.filter((r) => r.kind !== 'weaken'),
+            ...shaclRepairs,
+            ...suggested.repairs.filter((r) => r.kind === 'weaken'),
+          ];
         }
 
         if (!cancelled) {

@@ -19,69 +19,22 @@ import type {
 import type { ReasoningResult } from "../utils/reasoningTypes.ts";
 import { deserializeQuad, deserializeTerm, serializeQuad } from "../utils/rdfSerialization.ts";
 import type { WorkerQuad } from "../utils/rdfSerialization.ts";
-import { quadMatchesRemoval, type MatchQuad } from "./verifyRepairMatch.ts";
 import { WELL_KNOWN } from "../utils/wellKnownOntologies.ts";
 import { ensureDefaultNamespaceMap } from "../constants/namespaces.ts";
 import { RDF_TYPE, RDFS_LABEL, SHACL } from "../constants/vocabularies.ts";
 import { OWL_SCHEMA_AXIOMS } from "../constants/owlSchemaData.ts";
 import { mipsToReasoningError, shaclViolationToEntry } from "./reasoningDiagnostics.ts";
-import { RdfReasoner, type LaconicJustification, type LaconicPart, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta } from "rdf-reasoner-konclude";
+import { suggestDeletionRepairs } from "../mcp/tools/repairAdapter.ts";
+import { REPAIR_ACCEPTS_JUSTIFICATIONS } from "../utils/reasonerCapabilities.ts";
+import { GenerationCache } from "./generationCache.ts";
+import { RdfReasoner, type AxiomJustification, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta, type Axiom as LibAxiom, type RepairOptions, type RepairResult, type Edit, type AssessEditOptions, type EditAssessment, type WeakenOptions, type WeakenResult } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
 const KONCLUDE_INFERRED_GRAPH_IRI = "urn:vg:inferred";
 
-/**
- * Serialize a package LaconicJustification (Quad-based) into the string-based
- * format the worker→main boundary uses.
- */
-type SerializedLaconicPart = {
-  subject: string;
-  predicate: string;
-  object: string;
-  objectIsLiteral?: boolean;
-  sourceSubject: string;
-  sourcePredicate: string;
-  sourceObject: string;
-  isPartOf: boolean;
-};
-
-type SerializedLaconicJustification = {
-  parts: SerializedLaconicPart[];
-  sharpened: boolean;
-  skipped: boolean;
-};
-
-function serializeLaconicJustification(lj: LaconicJustification): SerializedLaconicJustification {
-  return {
-    parts: lj.parts.map((p: LaconicPart) => ({
-      subject: storedValue(p.quad.subject),
-      predicate: p.quad.predicate.value,
-      object: storedValue(p.quad.object),
-      ...(p.quad.object.termType === "Literal" ? { objectIsLiteral: true } : {}),
-      sourceSubject: storedValue(p.sourceQuad.subject),
-      sourcePredicate: p.sourceQuad.predicate.value,
-      sourceObject: storedValue(p.sourceQuad.object),
-      isPartOf: p.isPartOf,
-    })),
-    sharpened: lj.sharpened,
-    skipped: lj.skipped,
-  };
-}
-
 const INFERRED_GRAPH = KONCLUDE_INFERRED_GRAPH_IRI;
 
 const SKOLEM_PREFIX = "urn:vg:bnode:";
-
-function deskolemize(t: N3.Term): N3.Term {
-  return t.termType === "NamedNode" && t.value.startsWith(SKOLEM_PREFIX)
-    ? N3.DataFactory.blankNode(t.value.slice(SKOLEM_PREFIX.length))
-    : t;
-}
-
-/** A term's value as the store holds it. */
-function storedValue(t: { termType: string; value: string }): string {
-  return t.termType === "BlankNode" ? `${SKOLEM_PREFIX}${t.value}` : t.value;
-}
 
 function reskolemize(t: N3.Term): N3.Term {
   return t.termType === "BlankNode" ? N3.DataFactory.namedNode(`${SKOLEM_PREFIX}${t.value}`) : t;
@@ -102,7 +55,7 @@ const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
  * Graphs that are not reasoning input: the reasoner's own output, SHACL shapes, the edit
  * journal and workflow state. None of them are OWL axioms about the data.
  */
-const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
+export const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
   INFERRED_GRAPH,
   "urn:konclude:explanations",
   "urn:vg:shapes",
@@ -110,35 +63,11 @@ const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
   "urn:vg:workflows",
 ]);
 
-/**
- * The reasoning input: a copy of the store without NON_AXIOM_GRAPHS, with blank nodes restored.
- *
- * The store keeps blank nodes skolemized as `urn:vg:bnode:*` IRIs. Konclude reads a class
- * expression built from blank nodes (intersectionOf, unionOf, oneOf and the RDF lists they
- * use) only in blank-node form, so the reasoner is always handed this copy.
- * Exported for tests.
- */
-export function reasoningBase(store: N3.Store): N3.Store {
-  const base = new N3.Store();
-  for (const q of store.getQuads(null, null, null, null) as N3.Quad[]) {
-    if (NON_AXIOM_GRAPHS.has(q.graph.value)) continue;
-    const s = deskolemize(q.subject);
-    const o = deskolemize(q.object);
-    base.addQuad(
-      s === q.subject && o === q.object
-        ? q
-        : N3.DataFactory.quad(s as N3.Quad_Subject, q.predicate, o as N3.Quad_Object, q.graph),
-    );
-  }
-  return base;
-}
-
-
-
 // ---------------------------------------------------------------------------
 // DlReasoner — thin pass-through to rdf-reasoner-konclude RdfReasoner.
-// Handles ontosphere-specific concerns: INFERRED_GRAPH mapping and
-// SerializedLaconicJustification format conversion for the worker boundary.
+// Handles ontosphere-specific concerns: the INFERRED_GRAPH mapping and stale-run handling.
+// The store keeps blank nodes skolemized (urn:vg:bnode:*); the package reads those IRIs as blank
+// nodes and returns them in the same form.
 // ---------------------------------------------------------------------------
 
 
@@ -149,64 +78,64 @@ class DlReasoner {
   constructor() {
     const base = (import.meta as any).env?.BASE_URL ?? "/";
     const workerUrl = new URL(`${base}rdf-reasoner-konclude/worker.js`, self.location.href);
-    this._reasoner = new RdfReasoner({ workerUrl });
+    // The reasoner reads the live store; graphs that are not ontology content never reach it.
+    this._reasoner = new RdfReasoner({ workerUrl, excludeGraphs: NON_AXIOM_GRAPHS });
     this.ready = this._reasoner.ready;
   }
 
+  /** Worker-side phase durations of the last reason/checkConsistency call, for the stage meta. */
+  readonly timings: Record<string, number> = {};
+
+  /**
+   * Reasons over the live store. The package reads it directly (skolem IRIs as blank nodes),
+   * writes the inferred graph into it and returns the delta. If the store was edited while
+   * Konclude worked, the result is stale: the inferred graph it wrote is dropped and the
+   * previous run's inferred quads, which the canvas still shows, are reported as removed.
+   */
   async reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }> {
-    // Reason over the blank-node copy, then publish its inferred graph into the store.
-    // On a cache hit the package leaves the copy's inferred graph as copied, so the
-    // store keeps what it had.
-    const base = reasoningBase(store);
+    const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+    // Only a reference list: the package replaces the inferred graph before we can check isCurrent.
+    const previous = isCurrent ? store.getQuads(null, null, null, inferredGraph) : [];
     // The explanation graph is not requested: nothing in the app reads
     // urn:konclude:explanations, and on LUBM-1 it held 162,638 quads per run.
-    const result = (await this._reasoner.materialize(base, {
+    const t = performance.now();
+    const result = (await this._reasoner.materialize(store, {
       includeClassHierarchy: true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
     })) as { delta: InferenceDelta };
-    // The store may have been edited while Konclude worked on the copy.
-    if (isCurrent && !isCurrent()) return { delta: { added: [], removed: [] } as InferenceDelta };
-    const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
-    store.removeQuads(store.getQuads(null, null, null, inferredGraph));
-    store.addQuads(reskolemizeAll(base.getQuads(null, null, null, inferredGraph)));
-    return {
-      delta: { added: reskolemizeAll(result.delta.added), removed: reskolemizeAll(result.delta.removed) } as InferenceDelta,
-    };
+    this.timings.materializeMs = Math.round(performance.now() - t);
+    this.timings.deltaAdded = result.delta.added.length;
+    if (isCurrent && !isCurrent()) {
+      this.timings.stale = 1;
+      store.removeQuads(store.getQuads(null, null, null, inferredGraph));
+      return { delta: { added: [], removed: previous } as InferenceDelta };
+    }
+    this.timings.stale = 0;
+    return { delta: result.delta };
   }
 
   checkConsistency(store: N3.Store): Promise<boolean> {
-    return this._reasoner.checkConsistency(reasoningBase(store));
+    return this._reasoner.checkConsistency(store);
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
-    const result = (await this._reasoner.validate(reasoningBase(store))) as ValidationResult;
+    const result = (await this._reasoner.validate(store)) as ValidationResult;
     return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
   }
 
   async explainInconsistency(store: N3.Store, maxJustifications = 1): Promise<N3.Quad[][]> {
-    const mips = (await this._reasoner.explainInconsistency(reasoningBase(store), {
+    const mips = (await this._reasoner.explainInconsistency(store, {
       maxJustifications, inferredGraph: INFERRED_GRAPH,
     })) as N3.Quad[][];
     return mips.map((j) => reskolemizeAll(j));
   }
 
-  explainInconsistencyLaconic(
-    store: N3.Store,
-    maxJustifications = 1,
-  ): Promise<
-    Array<{
-      justification: N3.Quad[];
-      laconic: SerializedLaconicJustification;
-    }>
-  > {
-    return (async () => {
-      const results = await this._reasoner.explainInconsistencyLaconic(reasoningBase(store), { maxJustifications, inferredGraph: INFERRED_GRAPH });
-      return (results as Array<{ justification: N3.Quad[]; laconic: LaconicJustification }>).map((r) => ({
-        justification: reskolemizeAll(r.justification),
-        laconic: serializeLaconicJustification(r.laconic),
-      }));
-    })();
+  /** Whole-axiom justifications (declarations in `context`); blank nodes come back as the stored skolem IRIs. */
+  explainInconsistencyAxioms(store: N3.Store, maxJustifications = 1): Promise<AxiomJustification[]> {
+    return this._reasoner.explainInconsistencyAxioms(store, {
+      maxJustifications, inferredGraph: INFERRED_GRAPH,
+    });
   }
 
   async explainEntailment(
@@ -223,7 +152,7 @@ class DlReasoner {
     reason?: string;
   }> {
     const result = (await this._reasoner.explainEntailment(
-      reasoningBase(store),
+      store,
       subjectIri,
       predicateIri,
       objectIri,
@@ -236,6 +165,21 @@ class DlReasoner {
       reason?: string;
     };
     return { ...result, justifications: (result.justifications ?? []).map((j) => reskolemizeAll(j)) };
+  }
+
+  /** The library's repair search over the live store. */
+  repair(store: N3.Store, opts?: RepairOptions): Promise<RepairResult> {
+    return this._reasoner.repair(store, { inferredGraph: INFERRED_GRAPH, ...opts });
+  }
+
+  /** Consistency (and disjointness) of the store after an edit given in stored form. */
+  assessEdit(store: N3.Store, edit: Edit, opts?: AssessEditOptions): Promise<EditAssessment> {
+    return this._reasoner.assessEdit(store, edit, { inferredGraph: INFERRED_GRAPH, ...opts });
+  }
+
+  /** Weaker replacements for a culprit axiom taken from `repair()`. */
+  weaken(store: N3.Store, culprit: LibAxiom, opts?: WeakenOptions): Promise<WeakenResult> {
+    return this._reasoner.weaken(store, culprit, { inferredGraph: INFERRED_GRAPH, ...opts });
   }
 
   terminate(): void {
@@ -255,26 +199,18 @@ let _cachedQueryEngine: QueryEngine | null = null;
  */
 export interface DlReasonerLike {
   readonly ready: Promise<void>;
+  /** Worker-side phase durations of the last call (optional; test doubles omit it). */
+  readonly timings?: Record<string, number>;
   checkConsistency(store: N3.Store): Promise<boolean>;
   /** Publishes into `store` only while `isCurrent()` holds, when given. */
   reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }>;
   validate(store: N3.Store): Promise<ValidationResult>;
   explainInconsistency(store: N3.Store, maxJustifications?: number): Promise<N3.Quad[][]>;
   /**
-   * LACONIC inconsistency explanation (Horridge et al. ISWC 2008). OPTIONAL —
-   * the production DlReasoner implements it; the test node adapter may omit
-   * it (the worker handler guards on its presence and falls back to the plain
-   * MIPS-only result).
+   * Whole-axiom justifications in blank-node form (rdf-reasoner-konclude >= 0.9.0). OPTIONAL: a
+   * test adapter may omit it; the worker then falls back to explainInconsistency.
    */
-  explainInconsistencyLaconic?(
-    store: N3.Store,
-    maxJustifications?: number,
-  ): Promise<
-    Array<{
-      justification: N3.Quad[];
-      laconic: SerializedLaconicJustification;
-    }>
-  >;
+  explainInconsistencyAxioms?(store: N3.Store, maxJustifications?: number): Promise<AxiomJustification[]>;
   explainEntailment(
     store: N3.Store,
     subjectIri: string,
@@ -288,6 +224,14 @@ export interface DlReasonerLike {
     vacuous?: boolean;
     reason?: string;
   }>;
+  /**
+   * Repair, assessment and weakening (rdf-reasoner-konclude >= 0.9.0). OPTIONAL like
+   * explainInconsistencyAxioms: the production DlReasoner implements them; a test adapter may omit them, and
+   * `suggestRepairs` then fails with a clear message. Quads in and out are in blank-node form.
+   */
+  repair?(store: N3.Store, opts?: RepairOptions): Promise<RepairResult>;
+  assessEdit?(store: N3.Store, edit: Edit, opts?: AssessEditOptions): Promise<EditAssessment>;
+  weaken?(store: N3.Store, culprit: LibAxiom, opts?: WeakenOptions): Promise<WeakenResult>;
   terminate(): void;
 }
 
@@ -313,18 +257,12 @@ function getDlReasoner(): DlReasonerLike {
   return _dlReasoner;
 }
 
-// Explanations are keyed on the reasoning input they were computed from; the runtime clears the
-// cache when reasoningInputGeneration moves on.
-const _entailmentCache = new Map<string, unknown>();
-let _entailmentCacheGeneration = -1;
-
 /** Terminates the reasoner Worker (rejecting in-flight calls); the next call starts a fresh one. */
 function resetDlReasoner(): void {
   if (_dlReasoner) {
     _dlReasoner.terminate();
     _dlReasoner = null;
   }
-  _entailmentCache.clear();
 }
 
 /**
@@ -452,6 +390,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   // Incremented on every change to the reasoning input (see NON_AXIOM_GRAPHS), so a reasoning
   // run can tell whether the data it reasoned over is still the data in the store.
   let reasoningInputGeneration = 0;
+  // Explanations are valid for the reasoning input they were computed from (see GenerationCache):
+  // one explain per input state, dropped when reasoningInputGeneration moves on. Per runtime,
+  // because the generation counter is.
+  const entailmentCache = new GenerationCache<unknown>();
+  /** Whole-axiom justifications of the current inconsistency, keyed by how many were requested. */
+  const axiomJustifications = new GenerationCache<Promise<AxiomJustification[]>>();
 
   const DEFAULT_GRAPH_KEY = "urn:vg:default";
 
@@ -477,6 +421,19 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       debugLog("[VG_REASONING_WORKER] recomputeGraphCounts failed", err);
     }
     graphCountsReady = true;
+  }
+
+  /**
+   * The package writes the graphs it manages (inferred, hypothetical, explanations) straight into
+   * the store's indexes, past the counting wrappers; recount those graphs after a reasoner call.
+   */
+  function resyncReasonerGraphCounts(store: any): void {
+    if (!store || typeof store.countQuads !== "function" || !graphCountsReady) return;
+    for (const iri of [INFERRED_GRAPH, "urn:vg:hypothetical", "urn:konclude:explanations"]) {
+      const n = store.countQuads(null, null, null, N3.DataFactory.namedNode(iri));
+      if (n > 0) graphCounts.set(iri, n);
+      else graphCounts.delete(iri);
+    }
   }
 
   /**
@@ -628,11 +585,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
   // Reasoner work runs one call at a time. terminate() rejects every pending reasoner call,
   // so a reset from a graph removal waits in this queue until the current call is done.
   const REASONER_COMMANDS: ReadonlySet<string> = new Set([
-    "runReasoning", "explainInconsistency", "validate", "verifyRepair", "explainEntailment",
+    "runReasoning", "explainInconsistency", "validate", "explainEntailment", "suggestRepairs",
   ]);
   let reasonerQueue: Promise<unknown> = Promise.resolve();
   function withReasoner<T>(fn: () => Promise<T>): Promise<T> {
-    const next = reasonerQueue.then(fn, fn);
+    const run = () => fn().finally(() => resyncReasonerGraphCounts(sharedStore));
+    const next = reasonerQueue.then(run, run);
     reasonerQueue = next.then(() => undefined, () => undefined);
     return next;
   }
@@ -795,7 +753,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     try {
       const s = q.subject && q.subject.value ? String(q.subject.value) : "";
       const p = q.predicate && q.predicate.value ? String(q.predicate.value) : "";
-      const o = q.object && q.object.value ? String(q.object.value) : "";
+      // A literal is its text plus language and datatype: "chair", "chair"@en and "chair"^^xsd:token
+      // are three different objects. Keying on the text alone silently dropped all but one of them.
+      const obj = q.object;
+      const o = obj && obj.termType === "Literal"
+        ? `"${String(obj.value ?? "")}"@${obj.language ?? ""}^^${obj.datatype && obj.datatype.value ? String(obj.datatype.value) : ""}`
+        : obj && obj.value ? String(obj.value) : "";
       const g = q.graph && q.graph.value ? String(q.graph.value) : "";
       return `${s}|${p}|${o}|${g}`;
     } catch (_) {
@@ -1027,6 +990,33 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
    * Inferences were derived from axioms that are now gone, so they are dropped with them.
    * Adds the subjects of the dropped quads to `touched`, so the emission refreshes them.
    */
+  /**
+   * Whole-axiom justifications of an inconsistent store, one explain per input state: the result
+   * is cached against reasoningInputGeneration, which moves on with every write to an axiom graph,
+   * so it can never describe an earlier graph. Only the shared store is cached (a copy has no
+   * generation). Undefined when the reasoner cannot explain by axiom (test adapters).
+   */
+  function axiomJustificationsOf(
+    store: any,
+    konclude: DlReasonerLike,
+    maxJustifications: number,
+  ): Promise<AxiomJustification[]> | undefined {
+    if (!konclude.explainInconsistencyAxioms) return undefined;
+    const shared = store === sharedStore;
+    const key = String(maxJustifications);
+    const computedAt = reasoningInputGeneration;
+    if (shared) {
+      const cached = axiomJustifications.get(key, computedAt);
+      if (cached) return cached;
+    }
+    const pending = konclude.explainInconsistencyAxioms(store, maxJustifications);
+    if (shared) {
+      axiomJustifications.set(key, pending, computedAt, reasoningInputGeneration);
+      pending.catch(() => axiomJustifications.delete(key));
+    }
+    return pending;
+  }
+
   function dropInferredGraph(store: any, DataFactory: any, touched: Set<string>): number {
     const stale = store.getQuads(null, null, null, DataFactory.namedNode(INFERRED_GRAPH)) || [];
     if (stale.length === 0) return 0;
@@ -2889,16 +2879,14 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                   handled = true;
                   touchedSubjects.add(subjectTermToString(q.subject));
                 }
-                // BUG D (alignment with verifyRepairMatch): the lexical fallback
-                // removes a literal by lexical value when the exact-term match found
-                // nothing. It MUST only fire for a PLAIN literal removal (no datatype,
-                // no language). When the removal specifies a datatype/language, apply
-                // must match EXACTLY (s,p,o,datatype,language,graph) — the exact match
-                // above already enforces that — and must NOT fall back to removing a
-                // same-lexical literal of a DIFFERENT datatype/language. Otherwise
-                // apply would remove a triple verifyRepairMatch (which checks
-                // datatype/language exactly) would NOT consider the repaired axiom,
-                // and the two would disagree.
+                // The lexical fallback removes a literal by lexical value when the
+                // exact-term match found nothing. It MUST only fire for a PLAIN literal
+                // removal (no datatype, no language). When the removal specifies a
+                // datatype/language, apply must match EXACTLY (s,p,o,datatype,language,
+                // graph) — the exact match above already enforces that — and must NOT
+                // fall back to removing a same-lexical literal of a DIFFERENT
+                // datatype/language, which the reasoner never considered part of the
+                // repair.
                 const remObjHasType =
                   !!(rem.object as { datatype?: unknown }).datatype ||
                   !!(rem.object as { language?: unknown }).language;
@@ -3075,6 +3063,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         }
         case "stopReasoning": {
           resetDlReasoner();
+          entailmentCache.clear();
+          axiomJustifications.clear();
           result = true;
           break;
         }
@@ -3121,28 +3111,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             return out;
           };
 
-          // Prefer the LACONIC path (Horridge et al. ISWC 2008): it returns the
-          // SAME MIPS plus the superfluous-part-free laconic axiom PARTS and their
-          // source mapping. The test node adapter may not implement it — fall back
-          // to the plain MIPS-only result (laconicJustifications stays absent).
-          if (typeof konclude.explainInconsistencyLaconic === "function") {
-            const enriched = await konclude.explainInconsistencyLaconic(store, n);
-            result = {
-              count: enriched.length,
-              mips: enriched.map((e) => e.justification.map(serializeQuadAxiom)),
-              // NON-BREAKING: the laconic field is aligned by index with `mips`.
-              // Each entry has `parts` (the precise culprit axiom parts, each with
-              // its source axiom principal triple), `sharpened` (laconic dropped a
-              // superfluous part), and `skipped` (the cost cap suppressed laconic).
-              laconicJustifications: enriched.map((e) => e.laconic),
-            };
-          } else {
-            const mips = await konclude.explainInconsistency(store, n);
-            result = {
-              count: mips.length,
-              mips: mips.map((m) => m.map(serializeQuadAxiom)),
-            };
-          }
+          const mips = await konclude.explainInconsistency(store, n);
+          result = {
+            count: mips.length,
+            mips: mips.map((m) => m.map(serializeQuadAxiom)),
+          };
           break;
         }
         case "validate": {
@@ -3155,73 +3128,46 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           };
           break;
         }
-        case "verifyRepair": {
-          // R1 — symbolic verification of a repair candidate.
-          //
-          // Build a working store COPY of the shared store with the candidate's
-          // axioms removed, then run the SAME Konclude consistency oracle that
-          // explainInconsistency() / validate() use. The shared urn:vg:data
-          // store is never mutated.
-          //
-          // verifyRepair accepts an ARRAY of removals: callers verify a single
-          // axiom (per-repair check) OR the full hitting set at once (the union
-          // is the valid fix even when no single removal restores consistency).
-          const p = (msg.payload ?? { removals: [] }) as {
-            removals: {
-              subject: string;
-              predicate: string;
-              object: string;
-              objectTermType?: string;
-              objectDatatype?: string;
-              objectLanguage?: string;
-              graph?: string;
-            }[];
-          };
-          const { StoreCls } = resolveN3();
-          if (!StoreCls) throw new Error("n3-store-unavailable");
+        case "suggestRepairs": {
+          // The reasoner's repair() and weaken(), mapped onto RepairSuggestion by the adapter.
+          // The store is never mutated: the library works on copies of the reasoning base.
+          const p = (msg.payload ?? {}) as RDFWorkerCommandPayloads["suggestRepairs"];
           const konclude = getDlReasoner();
           await konclude.ready;
-          const source = getSharedStore();
-          const removals = p.removals ?? [];
-
-          // BUG B: VERIFY must exclude the IDENTICAL triple that APPLY removes.
-          // When a removal carries object-term metadata (objectTermType +
-          // datatype/language) and/or a source graph, those must MATCH the quad —
-          // so a same-lexical "42" string in a different graph or with a different
-          // datatype is NOT treated as the repaired axiom (which would yield a
-          // false `verifiedConsistent`). Absent metadata ⇒ legacy bare-lexical,
-          // all-graph match (back-compat). The predicate is the SHARED, pure
-          // `quadMatchesRemoval` so the apply and verify notions of "same triple"
-          // cannot drift apart.
-
-          // Track which requested removals actually matched a quad so the caller
-          // can distinguish "removed but still inconsistent" from "nothing
-          // matched" (L2). A removal that matches zero quads (e.g. a serialization
-          // or graph mismatch) would otherwise leave the store unchanged and
-          // report verifiedConsistent:false as if the repair had failed.
-          const matchedIdx = new Set<number>();
-          const copy = new (StoreCls as any)();
-          const allQuads: Quad[] = source.getQuads(null, null, null, null);
-          for (const q of allQuads) {
-            let drop = false;
-            for (let i = 0; i < removals.length; i++) {
-              if (quadMatchesRemoval(q as unknown as MatchQuad, removals[i])) {
-                matchedIdx.add(i);
-                drop = true;
-                break;
-              }
-            }
-            if (drop) continue;
-            copy.addQuad(q);
+          const { repair, assessEdit, weaken } = konclude;
+          if (!repair || !assessEdit || !weaken) {
+            throw new Error("reasoner-lacks-repair-api: rdf-reasoner-konclude 0.9.0 or newer is required for repair suggestions");
           }
-          const removedCount = allQuads.length - copy.size;
-          const verifiedConsistent = await konclude.checkConsistency(copy);
-          result = {
-            verifiedConsistent,
-            removedCount,
-            requestedCount: removals.length,
-            matchedCount: matchedIdx.size,
+          const store = getSharedStore();
+          // Seed repair() with the justifications runReasoning already explained for this exact
+          // input state; the cache returns nothing once any axiom graph has been written to.
+          let seed: AxiomJustification[] | undefined;
+          if (REPAIR_ACCEPTS_JUSTIFICATIONS) {
+            const pending = axiomJustifications.get(String(p.maxJustifications ?? 3), reasoningInputGeneration);
+            seed = await pending?.catch(() => undefined);
+          }
+          // Wall time of every reasoner call, so a slow run says which call is slow.
+          const libTimingsMs: { call: string; ms: number }[] = [];
+          const timedCall = async <T>(call: string, run: () => Promise<T>): Promise<T> => {
+            const t0 = Date.now();
+            try { return await run(); } finally { libTimingsMs.push({ call, ms: Date.now() - t0 }); }
           };
+          const suggested = await suggestDeletionRepairs({
+            lib: {
+              repair: (o) => timedCall("repair", () => repair.call(konclude, store, o)),
+              assessEdit: (e, o) => timedCall("assessEdit", () => assessEdit.call(konclude, store, e, o)),
+              weaken: (c, o) => timedCall("weaken", () => weaken.call(konclude, store, c, o)),
+            },
+            reskolemize: reskolemizeQuad,
+            seed,
+            justifications: p.justifications,
+            unsatisfiableClasses: p.unsatisfiableClasses,
+            namespaces: workerNamespaces,
+            maxJustifications: p.maxJustifications,
+            timeoutMs: p.timeoutMs,
+            weaken: p.weaken,
+          });
+          result = { ...suggested, libTimingsMs };
           break;
         }
         case "searchTerms": {
@@ -3240,12 +3186,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             objectIri: "",
           }) as RDFWorkerCommandPayloads["explainEntailment"];
           const n = typeof p.maxJustifications === "number" ? p.maxJustifications : 1;
-          if (_entailmentCacheGeneration !== reasoningInputGeneration) {
-            _entailmentCache.clear();
-            _entailmentCacheGeneration = reasoningInputGeneration;
-          }
           const cacheKey = `${p.subjectIri}\0${p.predicateIri}\0${p.objectIri}\0${p.objectIsLiteral}\0${n}`;
-          const cached = _entailmentCache.get(cacheKey);
+          const computedAt = reasoningInputGeneration;
+          const cached = entailmentCache.get(cacheKey, computedAt);
           if (cached) {
             result = cached;
             break;
@@ -3272,7 +3215,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             ...(vacuous ? { vacuous: true } : {}),
             ...(reason ? { reason } : {}),
           };
-          _entailmentCache.set(cacheKey, result);
+          entailmentCache.set(cacheKey, result, computedAt, reasoningInputGeneration);
           break;
         }
         default:
@@ -3347,6 +3290,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       let kMipsErrors: ReasoningError[] = [];
       let kDelta: InferenceDelta = { added: [], removed: [] };
       let kInputGeneration = reasoningInputGeneration;
+      let kFailed = false;
 
       try {
         const sabAvailable = typeof SharedArrayBuffer !== 'undefined';
@@ -3371,21 +3315,28 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           kReasonerDuration = Date.now() - kStart;
           kUsedReasoner = true;
           kIsConsistent = true;
-          reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-complete", meta: { durationMs: kReasonerDuration, backend: 'konclude' } });
+          reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-complete", meta: { durationMs: kReasonerDuration, backend: 'konclude', ...konclude.timings } });
         } else {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "inconsistent-detected", meta: { durationMs: Date.now() - kStart } });
           const DEFAULT_UI_MAX_JUSTIFICATIONS = 3;
-          const mips = await konclude.explainInconsistency(kStore, DEFAULT_UI_MAX_JUSTIFICATIONS);
+          const explainStart = Date.now();
+          // Whole axioms, from the per-input cache that suggestRepairs also reads; declarations are
+          // not part of a justification here, so the clash individual still comes from the rdf:type axioms.
+          const axiomJustifications = axiomJustificationsOf(kStore, konclude, DEFAULT_UI_MAX_JUSTIFICATIONS);
+          const mips = axiomJustifications
+            ? (await axiomJustifications).map((j) => reskolemizeAll(j.axioms.flatMap((a) => a.quads)))
+            : await konclude.explainInconsistency(kStore, DEFAULT_UI_MAX_JUSTIFICATIONS);
           kReasonerDuration = Date.now() - kStart;
           kIsConsistent = false;
-          kMipsErrors = mips.map(mipsToReasoningError);
+          kMipsErrors = mips.map((m) => mipsToReasoningError(m, workerNamespaces));
           debugLog("[VG_REASONING_WORKER] Konclude inconsistency detected, MIPS count:", mips.length);
-          reasoningStage({ type: "reasoningStage", id: msg.id, stage: "inconsistent", meta: { durationMs: kReasonerDuration, mipsCount: mips.length } });
+          reasoningStage({ type: "reasoningStage", id: msg.id, stage: "inconsistent", meta: { durationMs: kReasonerDuration, explainMs: Date.now() - explainStart, mipsCount: mips.length } });
         }
       } catch (err) {
         const errMsg = String((err as Error).message || err);
         console.error("[VG_REASONING_WORKER] Konclude failed:", errMsg);
         reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-error", meta: { error: errMsg } });
+        kFailed = true;
         kMipsErrors.push({
           rule: "reasoner-error",
           severity: "error",
@@ -3400,7 +3351,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         kUsedReasoner = false;
         kIsConsistent = null;
         kMipsErrors = [];
-        kDelta = { added: [], removed: [] };
+        // reason() already dropped the stale inferred graph; what it reports as removed is what the
+        // canvas still shows from the previous run.
+        kDelta = { added: [], removed: kDelta.removed };
       }
 
       // Inferences are only current after a consistent run. Otherwise the previous run's
@@ -3414,6 +3367,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         }
       }
 
+      const kPost: Record<string, number> = {};
+      let kT = performance.now();
+      const kMark = (name: string) => { const n = performance.now(); kPost[name] = Math.round(n - kT); kT = n; };
       const kAddedQuads = kUsedReasoner ? kDelta.added : [];
       const kTouchedSubjects = new Set<string>();
       for (const q of kAddedQuads) {
@@ -3426,6 +3382,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (sv) kRemovedSubjects.add(sv);
       }
 
+      kMark("touchedSubjectsMs");
       if (mutateSharedStore) {
         if (emitChangeFlag && (kAddedQuads.length > 0 || kDelta.removed.length > 0)) {
           emitChange({ reason: "reasoning", addedCount: kAddedQuads.length, removedCount: kDelta.removed.length });
@@ -3433,9 +3390,16 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (emitSubjectsFlag && (kAddedQuads.length > 0 || kRemovedSubjects.size > 0)) {
           const emitSet = new Set(kTouchedSubjects);
           for (const s of kRemovedSubjects) emitSet.add(s);
+          kMark("emitChangeMs");
           const emission = prepareSubjectEmissionFromSet(emitSet, kStore, DataFactory);
+          kMark("prepareEmissionMs");
           if (emission.subjects.length > 0) {
-            emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "reasoning", graphName: "urn:vg:inferred" });
+            // Posted after the reasoning result: the page handles the emission with long synchronous work
+            // (links, rendering), and the result must not queue behind it. Messages arrive in post order.
+            setTimeout(() => {
+              emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "reasoning", graphName: "urn:vg:inferred" });
+            }, 0);
+            kMark("emitSubjectsMs");
           }
         }
       }
@@ -3450,12 +3414,14 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       }
 
       // Run SHACL validation against urn:vg:shapes if shapes are loaded
-      if (msg.shaclEnabled !== false) {
+      // A failed run (stall, crash) skips SHACL: the inferred graph is empty, so a "conforms"
+      // verdict would look like a successful run.
+      if (msg.shaclEnabled !== false && !kFailed) {
         try {
           const shaclResult = await runShaclValidation();
           if (!shaclResult.conforms) {
             for (const v of shaclResult.violations) {
-              const entry = shaclViolationToEntry(v);
+              const entry = shaclViolationToEntry(v, workerNamespaces);
               if (entry.severity === "error") {
                 kShaclErrors.push({ ...entry, severity: "error" as const });
               } else {
@@ -3475,6 +3441,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         }
       }
 
+      kMark("shaclMs");
       const kErrors: ReasoningError[] = [...kMipsErrors, ...kShaclErrors];
       if (!kUsedReasoner && kIsConsistent === null) {
         kWarnings.push({
@@ -3496,6 +3463,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         })
         .filter((e): e is ReasoningInference => Boolean(e));
 
+      kMark("inferencesBuildMs");
       const kDurationMs = Date.now() - startedAt;
       const kResult: ReasoningResultMessage = {
         type: "reasoningResult",
@@ -3517,7 +3485,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         const eventPayload: ReasoningResult = {
           id: msg.id,
           timestamp: startedAt,
-          status: "completed",
+          status: kFailed ? "error" : "completed",
           duration: kDurationMs,
           errors: kErrors,
           warnings: kWarnings,
@@ -3535,7 +3503,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
       reasoningStage({ type: "reasoningStage", id: msg.id, stage: "complete", meta: {
         durationMs: kDurationMs, addedCount: kResult.addedCount, usedReasoner: kUsedReasoner,
-        inferenceCount: kInferences.length, ruleQuadCount: 0,
+        inferenceCount: kInferences.length, ruleQuadCount: 0, ...kPost,
       }});
 
       return kResult;
@@ -3930,7 +3898,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         const shaclResult = await runShaclValidation();
         if (!shaclResult.conforms) {
           for (const v of shaclResult.violations) {
-            const entry = shaclViolationToEntry(v);
+            const entry = shaclViolationToEntry(v, workerNamespaces);
             if (entry.severity === "error") {
               errors.push({ ...entry, severity: "error" as const });
             } else {

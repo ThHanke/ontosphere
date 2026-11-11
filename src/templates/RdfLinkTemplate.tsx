@@ -12,6 +12,11 @@ function isInferred(link: Reactodia.Link): boolean {
   return graphName?.termType === 'NamedNode' && graphName.value === 'urn:vg:inferred';
 }
 
+// Above this many links on the canvas, links that are not selected render as a bare path: no label
+// (an HTML label layer node, measured and positioned per link), no per-link type subscription.
+// Selecting a link shows the full template. See docs/solutions/performance-issues/.
+const LEAN_LINKS_THRESHOLD = 300;
+
 interface RdfLinkBodyProps extends Reactodia.LinkTemplateProps {
   inferred: boolean;
 }
@@ -20,6 +25,23 @@ interface RdfLinkBodyProps extends Reactodia.LinkTemplateProps {
 // function, not a component; the body component is intentionally co-located here.
 // eslint-disable-next-line react-refresh/only-export-components
 function RdfLinkBody({ inferred, ...rest }: RdfLinkBodyProps) {
+  const { model } = Reactodia.useWorkspace();
+  if (!rest.onlySelected && model.links.length > LEAN_LINKS_THRESHOLD) {
+    return (
+      <g className="reactodia-standard-link">
+        <Reactodia.LinkPath
+          path={rest.path}
+          pathProps={{
+            fill: 'none',
+            className: 'reactodia-standard-link__path',
+            ...(inferred ? { strokeDasharray: '6 3', stroke: 'var(--vg-inferred-color)' } : {}),
+          }}
+          markerSource={rest.markerSource}
+          markerTarget={rest.markerTarget}
+        />
+      </g>
+    );
+  }
   const typeId = String(rest.link.typeId);
   const prefixed = toPrefixed(typeId);
   const baseTitle = prefixed !== typeId ? `${prefixed} <${typeId}>` : typeId;

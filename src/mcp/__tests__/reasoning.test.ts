@@ -4,26 +4,27 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   mockClearInferred, mockClearInferredCallback, mockRunReasoning, mockSetShaclEnabled,
-  mockExplainEntailment, mockExplainInconsistency, mockExplainInconsistencyWithLaconic,
+  mockExplainEntailment, mockReasonerJustifications,
   mockValidate, mockFetchQuadsPage, mockRunShaclValidation, mockSparqlQuery,
-  mockVerifyRepair, mockVerifyRepairDetailed, mockRunReasoningRdf,
+  mockRunReasoningRdf, mockSuggestRepairs,
 } = vi.hoisted(() => ({
   mockClearInferred: vi.fn(),
   mockClearInferredCallback: vi.fn(),
   mockRunReasoning: vi.fn(),
   mockSetShaclEnabled: vi.fn(),
   mockExplainEntailment: vi.fn(),
-  mockExplainInconsistency: vi.fn(),
-  mockExplainInconsistencyWithLaconic: vi.fn(),
+  mockReasonerJustifications: vi.fn(),
   mockValidate: vi.fn(),
   mockFetchQuadsPage: vi.fn(),
   mockRunShaclValidation: vi.fn(),
   mockSparqlQuery: vi.fn(),
-  mockVerifyRepair: vi.fn(),
-  mockVerifyRepairDetailed: vi.fn(),
   mockRunReasoningRdf: vi.fn(),
+  mockSuggestRepairs: vi.fn(),
 }));
 
+const mockToastInfo = vi.hoisted(() => vi.fn());
+const mockGetNamespaces = vi.hoisted(() => vi.fn(() => [] as { prefix: string; uri: string }[]));
+vi.mock('sonner', () => ({ toast: { info: mockToastInfo } }));
 vi.mock('@/mcp/workspaceContext', () => {
   const dataProvider = { clearInferred: mockClearInferred };
   return {
@@ -47,20 +48,20 @@ vi.mock('@/stores/appConfigStore', () => ({
 
 vi.mock('@/utils/rdfManager', () => ({
   rdfManager: {
+    getNamespaces: () => mockGetNamespaces(),
     explainEntailment: mockExplainEntailment,
-    explainInconsistency: mockExplainInconsistency,
-    explainInconsistencyWithLaconic: mockExplainInconsistencyWithLaconic,
     validate: mockValidate,
     fetchQuadsPage: mockFetchQuadsPage,
     runShaclValidation: mockRunShaclValidation,
     sparqlQuery: mockSparqlQuery,
-    verifyRepair: mockVerifyRepair,
-    verifyRepairDetailed: mockVerifyRepairDetailed,
+    suggestRepairs: mockSuggestRepairs,
     runReasoning: mockRunReasoningRdf,
   },
 }));
 
 import { reasoningTools } from '../tools/reasoning';
+import { suggestDeletionRepairs } from '../tools/repairAdapter';
+import { fakeRepairLibrary, type FakeRepairOptions } from './helpers/fakeRepairLibrary';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
 
 const tool = (name: string) => {
@@ -69,8 +70,11 @@ const tool = (name: string) => {
   return t;
 };
 
+let fakeReasoner: FakeRepairOptions = {};
+
 beforeEach(() => {
   vi.clearAllMocks();
+  fakeReasoner = {};
 });
 
 // ---------------------------------------------------------------------------
@@ -217,6 +221,41 @@ describe('explainEntailment', () => {
     expect(result).toMatchObject({ success: false, error: expect.stringContaining('requires') });
   });
 
+  describe('IRIs: prefixed names go through the namespace map, full IRIs pass, anything else is an error', () => {
+    beforeEach(() => {
+      mockExplainEntailment.mockReset();
+      mockExplainEntailment.mockResolvedValue({ isEntailed: false, justifications: [] });
+    });
+
+    it('expands prefixed names before asking the reasoner', async () => {
+      const result = await tool('explainEntailment').handler({ subjectIri: 'ex:A', predicateIri: 'rdfs:subClassOf', objectIri: 'owl:Thing' });
+      expect(result).toMatchObject({ success: true });
+      expect(mockExplainEntailment).toHaveBeenCalledWith(
+        'http://example.org/A',
+        'http://www.w3.org/2000/01/rdf-schema#subClassOf',
+        'http://www.w3.org/2002/07/owl#Thing',
+        expect.anything(),
+      );
+    });
+
+    it('passes full IRIs unchanged', async () => {
+      await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
+      expect(mockExplainEntailment).toHaveBeenCalledWith(SUB, PRED, OBJ, expect.anything());
+    });
+
+    it('rejects an unknown prefix instead of reporting "not entailed"', async () => {
+      const result = await tool('explainEntailment').handler({ subjectIri: 'nope:A', predicateIri: PRED, objectIri: OBJ });
+      expect(result).toMatchObject({ success: false, error: expect.stringContaining('Unknown prefix: nope:') });
+      expect(mockExplainEntailment).not.toHaveBeenCalled();
+    });
+
+    it('rejects a bare name that is neither a prefixed name nor a full IRI', async () => {
+      const result = await tool('explainEntailment').handler({ subjectIri: 'frank', predicateIri: PRED, objectIri: OBJ });
+      expect(result).toMatchObject({ success: false, error: expect.stringContaining('"frank"') });
+      expect(mockExplainEntailment).not.toHaveBeenCalled();
+    });
+  });
+
   it('returns ontologyInconsistent when the ontology has a contradiction', async () => {
     mockExplainEntailment.mockResolvedValueOnce({
       isEntailed: null,
@@ -293,6 +332,19 @@ describe('explainEntailment', () => {
     expect((result as any).data.justifications[0]).toHaveLength(2);
   });
 
+  it('names the axioms of the summary as prefixed names from the namespace map, else as full IRIs', async () => {
+    const ax = { subject: 'http://ex.org/X', predicate: 'http://ex.org/p', object: 'http://ex.org/Y' };
+    mockExplainEntailment.mockResolvedValue({ isEntailed: true, justifications: [[ax]] });
+    const plain = await tool('explainEntailment').handler({ subjectIri: 'http://ex.org/X', predicateIri: 'http://ex.org/p', objectIri: 'http://ex.org/Y' });
+    expect((plain as any).data.summary).toContain('http://ex.org/X http://ex.org/p http://ex.org/Y');
+    expect((plain as any).data.summary).not.toMatch(/inferred because: X p Y/);
+
+    mockGetNamespaces.mockReturnValueOnce([{ prefix: 'exo', uri: 'http://ex.org/' }]);
+    const prefixed = await tool('explainEntailment').handler({ subjectIri: 'http://ex.org/X', predicateIri: 'http://ex.org/p', objectIri: 'http://ex.org/Y' });
+    expect((prefixed as any).data.summary).toContain('exo:X exo:p exo:Y');
+    mockExplainEntailment.mockReset();
+  });
+
   it('numbers multiple justification sets', async () => {
     const ax = { subject: 'http://ex.org/X', predicate: 'http://ex.org/p', object: 'http://ex.org/Y' };
     mockExplainEntailment.mockResolvedValueOnce({
@@ -322,9 +374,9 @@ describe('explainEntailment', () => {
 //
 // Pipeline correctness (MIPS → repairs → weakening → verification →
 // minimality → brief) is tested with REAL Konclude in
-// explainDiagnostics.integration.test.ts. These tests cover handler-specific
-// dispatch logic that requires mocking rdfManager: laconic API fallback,
-// matchWarning from verifyRepairDetailed, SHACL threading, error wrapping,
+// repairAdapter.integration.test.ts. These tests cover handler-specific
+// dispatch logic that requires mocking rdfManager: where the justifications come from,
+// matchWarning from the reasoner's assessEdit, SHACL threading, error wrapping,
 // and arg passthrough.
 // ---------------------------------------------------------------------------
 
@@ -340,32 +392,61 @@ function setupConsistentMocks() {
 
 function setupInconsistentMocks() {
   mockRunReasoningRdf.mockResolvedValue({ isConsistent: false });
-  mockExplainInconsistencyWithLaconic.mockResolvedValue({
-    justifications: [[MIPS_AXIOM_1, MIPS_AXIOM_2]],
-    laconicJustifications: [],
-  });
+  mockReasonerJustifications.mockResolvedValue([[MIPS_AXIOM_1, MIPS_AXIOM_2]]);
   mockValidate.mockResolvedValue({ unsatisfiable: [] });
   mockFetchQuadsPage.mockResolvedValue({ items: [] });
   mockRunShaclValidation.mockResolvedValue({ violations: [] });
   mockSparqlQuery.mockResolvedValue({ type: 'select', rows: [] });
-  mockVerifyRepair.mockResolvedValue(false);
-  mockVerifyRepairDetailed.mockResolvedValue({ verifiedConsistent: true, matchedCount: 1, requestedCount: 1 });
+  // The reasoner's repair() / assessEdit() / weaken() are scripted (the justifications it finds are
+  // mockReasonerJustifications); the adapter that maps them is the real one.
+  mockSuggestRepairs.mockImplementation(async (payload: object) =>
+    suggestDeletionRepairs({
+      lib: fakeRepairLibrary(await mockReasonerJustifications(), fakeReasoner),
+      reskolemize: (q) => q,
+      ...payload,
+    }));
 }
 
 describe('explainDiagnostics — handler wiring', () => {
-  it('laconic fallback: uses explainInconsistency when laconic method absent', async () => {
+  it('takes the justifications from the reasoner\'s repair search, with no explain call of its own', async () => {
     setupInconsistentMocks();
-    const { rdfManager } = await import('@/utils/rdfManager');
-    const original = rdfManager.explainInconsistencyWithLaconic;
-    (rdfManager as any).explainInconsistencyWithLaconic = undefined;
-    mockExplainInconsistency.mockResolvedValue([[MIPS_AXIOM_1, MIPS_AXIOM_2]]);
 
     const result = await tool('explainDiagnostics').handler({});
 
-    (rdfManager as any).explainInconsistencyWithLaconic = original;
     expect(result).toMatchObject({ success: true });
-    expect(mockExplainInconsistency).toHaveBeenCalled();
+    expect(mockSuggestRepairs).toHaveBeenCalledTimes(1);
+    expect(mockSuggestRepairs.mock.calls[0][0]).not.toHaveProperty('justifications');
     expect((result as any).data.justifications).toHaveLength(1);
+    expect((result as any).data.justifications[0]).toHaveLength(2);
+    expect((result as any).data).not.toHaveProperty('laconicJustifications');
+  });
+
+  it('skips the unsatisfiable-class classification for an inconsistent ontology and tells the user', async () => {
+    setupInconsistentMocks();
+    mockToastInfo.mockClear();
+    mockValidate.mockClear();
+
+    const result = await tool('explainDiagnostics').handler({});
+
+    expect(mockValidate).not.toHaveBeenCalled();
+    expect((result as any).data.unsatisfiableClasses).toEqual([]);
+    expect((result as any).data.unsatisfiableClassesSkipped).toBe('ontology-inconsistent');
+    expect(mockToastInfo).toHaveBeenCalledTimes(1);
+    expect(mockToastInfo.mock.calls[0][0]).toMatch(/Unsatisfiable classes not computed/);
+  });
+
+  it('computes unsatisfiable classes for a consistent ontology, with no notice', async () => {
+    setupConsistentMocks();
+    mockToastInfo.mockClear();
+    mockValidate.mockClear();
+    mockValidate.mockResolvedValue({ unsatisfiable: ['http://ex.org/Dead'] });
+
+    const result = await tool('explainDiagnostics').handler({});
+
+    expect(mockValidate).toHaveBeenCalledTimes(1);
+    expect((result as any).data.unsatisfiableClasses).toEqual(['http://ex.org/Dead']);
+    expect((result as any).data).not.toHaveProperty('unsatisfiableClassesSkipped');
+    expect(mockToastInfo).not.toHaveBeenCalled();
   });
 
   it('consistent ontology skips MIPS and verification calls', async () => {
@@ -379,18 +460,14 @@ describe('explainDiagnostics — handler wiring', () => {
         repairSetVerifiedConsistent: null,
       },
     });
-    expect(mockExplainInconsistency).not.toHaveBeenCalled();
-    expect(mockExplainInconsistencyWithLaconic).not.toHaveBeenCalled();
-    expect(mockVerifyRepair).not.toHaveBeenCalled();
+    expect(mockReasonerJustifications).not.toHaveBeenCalled();
+    expect(mockSuggestRepairs).not.toHaveBeenCalled();
   });
 
   it('surfaces repairSetMatchWarning when matchedCount < requestedCount', async () => {
     setupInconsistentMocks();
-    mockVerifyRepairDetailed.mockResolvedValue({
-      verifiedConsistent: false,
-      matchedCount: 0,
-      requestedCount: 1,
-    });
+    // The reasoner reports the requested removal matched no quad of the store.
+    fakeReasoner = { unmatchedRemovals: true };
     const result = await tool('explainDiagnostics').handler({});
     expect(result).toMatchObject({ success: true });
     expect((result as any).data.repairSetMatchWarning).toContain('0 of 1');
@@ -415,9 +492,9 @@ describe('explainDiagnostics — handler wiring', () => {
     });
   });
 
-  it('passes maxJustifications to the inconsistency explainer', async () => {
+  it('passes maxJustifications to the repair search', async () => {
     setupInconsistentMocks();
     await tool('explainDiagnostics').handler({ maxJustifications: 7 });
-    expect(mockExplainInconsistencyWithLaconic).toHaveBeenCalledWith(7);
+    expect(mockSuggestRepairs).toHaveBeenCalledWith(expect.objectContaining({ maxJustifications: 7 }));
   });
 });

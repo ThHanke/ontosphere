@@ -89,7 +89,7 @@ async function freshPage(browser) {
 
   // Wait until tools are actually available (guards against Vite transform lag)
   await page.waitForFunction(
-    () => window.__mcpTools && Object.keys(window.__mcpTools).length > 30,
+    () => window.__mcpTools && Object.keys(window.__mcpTools).length > 30 && (window.__startupComplete?.() ?? true),
     { timeout: 15000 },
   );
 

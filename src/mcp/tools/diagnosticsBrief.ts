@@ -2,6 +2,8 @@
 // Pure function: turns structured diagnostics into a ranked, plain-language,
 // agent-actionable repair brief.
 
+import { abbreviateIri, type NamespaceMap } from '../../utils/iriAbbreviation';
+
 export interface DiagnosticsData {
   isConsistent: boolean | null;
   /**
@@ -21,31 +23,6 @@ export interface DiagnosticsData {
     objectLanguage?: string;
     graph?: string;
   }[][];
-  /**
-   * LACONIC justifications (Horridge, Parsia, Sattler, ISWC 2008) — the
-   * superfluous-part-free refinement of `justifications`, aligned BY INDEX:
-   * entry i sharpens justification i. Each `part` is the precise culprit axiom
-   * PART (e.g. the `A ⊑ B` part of `A ⊑ B ⊓ C`) and carries its source axiom's
-   * principal triple (sourceSubject/sourcePredicate/sourceObject) so the brief
-   * can attribute "the `A ⊑ B` part of axiom `A ⊑ B ⊓ C` is the culprit".
-   * `sharpened` ⇒ laconic dropped a superfluous part; `skipped` ⇒ the worker's
-   * cost cap suppressed laconic for this MIPS (parts == the regular axioms).
-   * OPTIONAL: absent on older worker builds / non-inconsistency diagnostics.
-   */
-  laconicJustifications?: {
-    parts: {
-      subject: string;
-      predicate: string;
-      object: string;
-      objectIsLiteral?: boolean;
-      sourceSubject: string;
-      sourcePredicate: string;
-      sourceObject: string;
-      isPartOf: boolean;
-    }[];
-    sharpened: boolean;
-    skipped: boolean;
-  }[];
   unsatisfiableClasses: string[];
   profile: {
     owl2dl: boolean;
@@ -65,28 +42,21 @@ export interface DiagnosticsData {
   }[];
 }
 
-// ---------------------------------------------------------------------------
-// IRI → local name helper
+// IRI naming: a prefixed name from the namespace map, or the full IRI; never a bare local name
 // ---------------------------------------------------------------------------
 
-/** Returns the local name after the last '#' or '/', or the full string if neither. */
-function localName(iri: string): string {
-  if (!iri) return iri;
-  const hashIdx = iri.lastIndexOf('#');
-  if (hashIdx !== -1 && hashIdx < iri.length - 1) return iri.slice(hashIdx + 1);
-  const slashIdx = iri.lastIndexOf('/');
-  if (slashIdx !== -1 && slashIdx < iri.length - 1) return iri.slice(slashIdx + 1);
-  return iri;
+/** The namespace map of the brief being built (buildRepairBrief is synchronous, so one slot is safe). */
+let briefNamespaces: NamespaceMap = {};
+
+function nameOf(iri: string): string {
+  return abbreviateIri(iri, briefNamespaces);
 }
 
 // ---------------------------------------------------------------------------
 // Section builders
 // ---------------------------------------------------------------------------
 
-function buildInconsistencySection(
-  justifications: DiagnosticsData['justifications'],
-  laconic?: DiagnosticsData['laconicJustifications'],
-): string {
+function buildInconsistencySection(justifications: DiagnosticsData['justifications']): string {
   const lines: string[] = ['1. INCONSISTENCY (most severe)'];
 
   if (justifications.length > 1) {
@@ -99,31 +69,8 @@ function buildInconsistencySection(
     lines.push(`   Justification ${idx + 1}:`);
     for (const ax of axiomSet) {
       lines.push(
-        `     - ${localName(ax.subject)} ${localName(ax.predicate)} ${localName(ax.object)}`,
+        `     - ${nameOf(ax.subject)} ${nameOf(ax.predicate)} ${nameOf(ax.object)}`,
       );
-    }
-
-    // LACONIC sharpening (Horridge et al. ISWC 2008): when the laconic
-    // refinement of THIS justification dropped a superfluous axiom part, surface
-    // the precise culprit PART and the axiom it came from, so the agent removes/
-    // weakens the minimal thing rather than the whole conjunction.
-    const lac = laconic?.[idx];
-    if (lac && lac.sharpened && lac.parts.length > 0) {
-      lines.push('   Precise culprit (laconic — superfluous parts removed):');
-      for (const part of lac.parts) {
-        const partText = `${localName(part.subject)} ${localName(part.predicate)} ${localName(part.object)}`;
-        if (
-          part.isPartOf &&
-          (part.sourceSubject !== part.subject ||
-            part.sourcePredicate !== part.predicate ||
-            part.sourceObject !== part.object)
-        ) {
-          const srcText = `${localName(part.sourceSubject)} ${localName(part.sourcePredicate)} ${localName(part.sourceObject)}`;
-          lines.push(`     • ${partText} (part of ${srcText})`);
-        } else {
-          lines.push(`     • ${partText}`);
-        }
-      }
     }
 
     lines.push(
@@ -140,7 +87,7 @@ function buildProfileSection(
 ): string {
   const lines: string[] = [`${num}. OWL 2 DL PROFILE VIOLATIONS`];
   for (const v of profile.violations) {
-    lines.push(`   - Axiom: ${localName(v.axiom)}`);
+    lines.push(`   - Axiom: ${nameOf(v.axiom)}`);
     lines.push(`     Reason: ${v.reason}`);
   }
   if (profile.mostRestrictive) {
@@ -170,8 +117,8 @@ function buildShaclSection(
   for (const [severity, group] of bySeverity.entries()) {
     lines.push(`   [${severity}]`);
     for (const v of group) {
-      const focus = v.focusNode ? localName(v.focusNode) : '(unknown)';
-      const path = v.path ? localName(v.path) : '(no path)';
+      const focus = v.focusNode ? nameOf(v.focusNode) : '(unknown)';
+      const path = v.path ? nameOf(v.path) : '(no path)';
       const msg = v.message ?? '(no message)';
       lines.push(`   - Focus: ${focus} | Path: ${path}`);
       lines.push(`     Message: ${msg}`);
@@ -230,6 +177,8 @@ export interface RepairBriefOptions {
   repairSetVerifiedConsistent?: boolean | null;
   /** Warning when some repair axioms matched no triple during verification. */
   repairSetMatchWarning?: string;
+  /** prefix to namespace IRI: IRIs in the brief are prefixed names from it, else full IRIs. */
+  namespaces?: NamespaceMap;
 }
 
 function buildSuggestedRepairsSection(
@@ -254,7 +203,7 @@ function buildSuggestedRepairsSection(
     if (r.kind === 'weaken') {
       const wv =
         r.weakeningVerified === true
-          ? ' [verified: removal restores consistency; weaker axiom is entailed by it]'
+          ? ' [verified: removing the original and adding the weaker axiom leaves the ontology consistent]'
           : '';
       const alt = r.alternativeTo ? ` (alternative to deletion ${r.alternativeTo})` : '';
       lines.push(`   ${r.id}. [weaken]${alt} — ${r.rationale}${wv}`);
@@ -311,6 +260,7 @@ export function buildRepairBrief(
   repairs: BriefRepair[] = [],
   options: RepairBriefOptions = {},
 ): string {
+  briefNamespaces = options.namespaces ?? {};
   const hasInconsistency = d.isConsistent === false;
   const hasUnsatisfiable = d.unsatisfiableClasses.length > 0;
   const hasProfileViolations = d.profile?.owl2dl === false && (d.profile?.violations.length ?? 0) > 0;
@@ -331,7 +281,7 @@ export function buildRepairBrief(
   let num = 1;
 
   if (hasInconsistency) {
-    sections.push(buildInconsistencySection(d.justifications, d.laconicJustifications));
+    sections.push(buildInconsistencySection(d.justifications));
     num++;
   }
 
@@ -339,7 +289,7 @@ export function buildRepairBrief(
     const lines: string[] = [`${num}. UNSATISFIABLE CLASSES`];
     for (const cls of d.unsatisfiableClasses) {
       lines.push(
-        `   - ${localName(cls)}: This class can never have instances — relax its definition` +
+        `   - ${nameOf(cls)}: This class can never have instances — relax its definition` +
           ' (e.g. remove a disjointness or an over-constraining restriction).',
       );
     }

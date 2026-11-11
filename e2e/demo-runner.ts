@@ -87,7 +87,7 @@ export class DemoRunner {
     );
 
     await this.appFrameHandle.waitForFunction(
-      () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
+      () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function' && ((window as any).__startupComplete?.() ?? true),
       { timeout: 20_000 },
     );
   }
@@ -150,7 +150,7 @@ export class DemoRunner {
     await this.page.goto(this.baseURL);
     this.cursorReady = false;
     await this.page.waitForFunction(
-      () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function',
+      () => !!(window as any).__mcpTools && typeof (window as any).__mcpTools['addNode'] === 'function' && ((window as any).__startupComplete?.() ?? true),
       { timeout: 20_000 },
     );
   }

@@ -41,7 +41,7 @@ const { chromium } = require('@playwright/test');
   try {
     await page.goto('http://localhost:8080');
     await page.waitForFunction(
-      () => !!(window).__mcpTools && typeof (window).__mcpTools.addNode === 'function',
+      () => !!(window).__mcpTools && typeof (window).__mcpTools.addNode === 'function' && (window.__startupComplete?.() ?? true),
       { timeout: 60000 }
     );
     console.log('Warmup: MCP tools ready.');

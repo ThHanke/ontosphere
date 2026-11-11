@@ -7,7 +7,11 @@
  * classification, and measures classification time + peak memory.
  *
  * Usage:
- *   node scripts/bench-paper-table2.mjs [--url http://localhost:8080] [--runs 3]
+ *   node scripts/bench-paper-table2.mjs [--url http://localhost:8080] [--runs 3] [--only <id>] [--fresh-browser]
+ *
+ *   --only <id>       benchmark one ontology (ids: see ONTOLOGIES below) instead of all
+ *   --fresh-browser   launch a new browser process for every run (default: one browser, a fresh
+ *                     context and page per run) to rule out state shared between runs
  *
  * Requires: dev server running, Playwright installed.
  *
@@ -32,6 +36,9 @@ function argVal(flag) {
 const baseUrl = argVal('--url') ?? 'http://localhost:8080/';
 const REPEAT = argVal('--repeat') ? parseInt(argVal('--repeat'), 10) : 0;
 const NUM_RUNS = parseInt(argVal('--runs') ?? '3', 10);
+const ONLY = argVal('--only');
+const FRESH_BROWSER = argv.includes('--fresh-browser');
+const launchOptions = { headless: true, args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'] };
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -102,7 +109,7 @@ async function freshPage(browser) {
   // Absorb the cross-origin-isolation service-worker reload.
   try { await page.waitForNavigation({ timeout: 3000, waitUntil: 'load' }); } catch { /* no reload */ }
   await page.waitForFunction(
-    () => window.crossOriginIsolated && !!window.__mcpTools?.loadRdf,
+    () => window.crossOriginIsolated && !!window.__mcpTools?.loadRdf && (window.__startupComplete?.() ?? true),
     { timeout: 30000 },
   );
   return { page, ctx };
@@ -231,10 +238,7 @@ async function benchmarkRepeated(browser, onto, n) {
 }
 
 async function main() {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--js-flags=--expose-gc', '--enable-precise-memory-info'],
-  });
+  const browser = await chromium.launch(launchOptions);
 
   if (REPEAT > 0) {
     const onto = ONTOLOGIES.find(o => o.id === 'pmdco');
@@ -249,19 +253,21 @@ async function main() {
 
   console.log('# Paper Table 2 — Reasoning Performance Benchmarks\n');
   console.log(`Date: ${new Date().toISOString().split('T')[0]}`);
-  console.log(`Runs per ontology: ${NUM_RUNS}`);
+  console.log(`Runs per ontology: ${NUM_RUNS}${FRESH_BROWSER ? ' (new browser process per run)' : ''}`);
   console.log(`Browser: Chromium (Playwright headless)`);
   console.log(`Base URL: ${baseUrl}\n`);
 
   const allResults = [];
 
-  for (const onto of ONTOLOGIES) {
+  for (const onto of ONTOLOGIES.filter((o) => !ONLY || o.id === ONLY)) {
     process.stderr.write(`\nBenchmarking ${onto.label} (${NUM_RUNS} runs)…\n`);
     const runs = [];
 
     for (let i = 0; i < NUM_RUNS; i++) {
       process.stderr.write(`  Run ${i + 1}/${NUM_RUNS}… `);
-      const r = await benchmarkOntology(browser, onto);
+      const runBrowser = FRESH_BROWSER ? await chromium.launch(launchOptions) : browser;
+      const r = await benchmarkOntology(runBrowser, onto);
+      if (FRESH_BROWSER) await runBrowser.close().catch(() => {});
       runs.push(r);
       if (r.error) {
         process.stderr.write(`ERROR: ${r.error}\n`);

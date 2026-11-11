@@ -5,7 +5,7 @@
 **Browser-based RDF knowledge-graph editor with client-side OWL 2 DL reasoning, reasoner-verified repair, and a Model Context Protocol server for AI agents.**
 
 [![Live demo](https://img.shields.io/badge/Live_demo-open_app-2ea44f?style=for-the-badge&logo=googlechrome&logoColor=white)](https://thhanke.github.io/ontosphere)
-&nbsp;[![MCP](https://img.shields.io/badge/MCP-43_tools-ff6f00?style=for-the-badge&logo=robotframework&logoColor=white)](#ai--mcp-integration)
+&nbsp;[![MCP](https://img.shields.io/badge/MCP-42_tools-ff6f00?style=for-the-badge&logo=robotframework&logoColor=white)](#ai--mcp-integration)
 
 [![DOI](https://zenodo.org/badge/1049705027.svg)](https://doi.org/10.5281/zenodo.19605270)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
@@ -74,10 +74,10 @@ flowchart LR
     Store["RDF store<br/>named graphs · Web Workers"]
     Reason["OWL 2 DL reasoner<br/>Konclude · WebAssembly"]
     Check["OWL 2 profile + SHACL"]
-    Repair["Repair engine<br/>deletion · weakening · laconic"]
+    Repair["Repair engine<br/>deletion · weakening"]
     Diag["Diagnosis object<br/>verdict · justifications · verified repairs"]
     Prov["PROV-O provenance + reversal"]
-    MCP["MCP server · 43 tools"]
+    MCP["MCP server · 42 tools"]
   end
   Agent -->|"author / select a verified repair"| MCP
   MCP --> Store
@@ -112,17 +112,17 @@ Everything below runs in the browser tab, against an in-memory RDF store backed 
 
 #### 🧠 Reason
 - **Complete OWL 2 DL inference** in the browser via **Konclude (WebAssembly)**; inferred triples render as amber dashed edges and inferred types/annotations in amber italic, with a full inference report and one-click clearing that never touches asserted data.
-- Automatic **consistency checking** with per-entity clash details in the Errors tab, **justifications** (MIPS) with laconic targeting, **OWL 2 profile** detection (EL/QL/RL/DL), and **locality-module** scoping for incremental/modular verification.
+- Automatic **consistency checking** with per-entity clash details in the Errors tab, **justifications** (MIPS), **OWL 2 profile** detection (EL/QL/RL/DL), and **locality-module** scoping for incremental/modular verification.
 
 #### 🔧 Repair — reasoner-verified
 - When the reasoner finds a contradiction (or SHACL reports a violation), a **Repairs** tab shows reasoner-computed, ranked, verified fixes — the same repairs the `explainDiagnostics` MCP tool hands an agent.
-- Minimal hitting-set **deletion** plus, for `rdfs:subClassOf` culprits, **axiom weakening** that replaces `A ⊑ D` with a logically weaker `A ⊑ D′` to preserve more knowledge than deletion (Troquard et al. AAAI 2018; Li & Lambrix ISWC 2024). Each suggestion shows its rationale and the exact triples it adds/removes, with a "verified consistent" badge and a bounded **minimality** check. Apply a single deletion, **Apply weakening** as one undoable remove+add batch, or **Apply all verified** in one batch — then re-run reasoning to confirm.
+- Minimal hitting-set **deletion** plus, for `rdfs:subClassOf` culprits, **axiom weakening** that replaces `A ⊑ D` with a logically weaker `A ⊑ D′` to preserve more knowledge than deletion (Troquard et al. AAAI 2018; Li & Lambrix ISWC 2024). Each suggestion shows its rationale and the exact triples it adds/removes, with a "verified consistent" badge and the reasoner's minimality verdict. The reasoner (rdf-reasoner-konclude `repair()` and `weaken()`) finds and verifies the repair sets; weakenings are offered only when removing the culprit alone restores consistency, i.e. with a single independent contradiction. Apply a single deletion, **Apply weakening** as one undoable remove+add batch, or **Apply all verified** in one batch — then re-run reasoning to confirm.
 
 #### ✅ Validate & track
 - **SHACL validation** with focus node / path / constraint / severity reporting.
 - **PROV-O provenance** of every agent edit, with diff and one-click **reversal** of a batch (faithful to typed and language-tagged literals), and a warning when retention truncates reversible history.
 
-#### 🤖 AI / MCP integration — 43 tools
+#### 🤖 AI / MCP integration — 42 tools
 Exposes a [Model Context Protocol](https://modelcontextprotocol.io) tool surface via the browser's [`document.modelContext` WebMCP API](https://webmachinelearning.github.io/webmcp/) (W3C CG, native in Chrome 153+; polyfill included for all other browsers), across nine categories (manifest at `/.well-known/mcp.json`):
 
 | Category | Tools |
@@ -136,6 +136,11 @@ Exposes a [Model Context Protocol](https://modelcontextprotocol.io) tool surface
 | SHACL validation | `loadShacl` · `validateGraph` · `loadShaclFromUrl` |
 | Edit provenance / undo | `listAgentEdits` · `diffAgentEdits` · `revertAgentBatch` |
 | Dataset metadata | `generateDatasetMetadata` (VoID + DCAT with triple/class/property counts, partitions and vocabularies, for FAIR publishing) |
+
+**Notes for agents**
+- **Startup:** every tool call is rejected ("still loading…") until startup loading (ontologies, `?rdfUrl=` data, shapes) has finished. In a browser console `window.__startupComplete()` turns `true`; retry after a few seconds.
+- **IRIs:** tools accept full IRIs or prefixed names resolved through the namespace map (`listNamespaces`); an unknown prefix or a bare name is an error. Text in results (briefs, rationales, summaries, error messages) names IRIs as prefixed names, or as full IRIs when no prefix is registered, never as bare local names. Structured fields are full IRIs. `queryGraph` rows use prefixed names.
+- **`explainDiagnostics`:** `justifications` are the axiom sets from the reasoner's repair search (declarations are not part of them). Deletion repairs have `kind: "delete"`, weakenings `kind: "weaken"`. For an inconsistent ontology `unsatisfiableClasses` is not computed (every class is unsatisfiable there) and `unsatisfiableClassesSkipped: "ontology-inconsistent"` says so. `includeTimings: true` adds `timingsMs` (stage and reasoner-call durations) for diagnosing slow runs.
 
 Video tutorials
 ---------------
@@ -217,7 +222,7 @@ The annotated diagram below identifies the numbered UI elements described in thi
 
 **18** **Agent Edits** — open the provenance inspector (see [Agent edit provenance](#agent-edit-provenance)). Lists edit batches, shows diffs, and offers one-click revert.
 
-**19** **SPARQL** — open the SPARQL query editor (the same engine the `queryGraph` MCP tool uses). Prefills registered namespace `PREFIX` declarations, runs on **Run** or **Ctrl/⌘+Enter**, and renders results by type: SELECT bindings as a table, CONSTRUCT/DESCRIBE as triples, ASK as true/false, INSERT/DELETE with a success toast.
+**19** **SPARQL** — open the SPARQL query editor (the same engine the `queryGraph` MCP tool uses). A SPARQL `UPDATE` without a `GRAPH` clause writes to `urn:vg:data`; an explicit `GRAPH <…>` clause is honoured, including `urn:vg:ontologies` and `urn:vg:inferred`, so be deliberate when writing into those graphs. Prefills registered namespace `PREFIX` declarations, runs on **Run** or **Ctrl/⌘+Enter**, and renders results by type: SELECT bindings as a table, CONSTRUCT/DESCRIBE as triples, ASK as true/false, INSERT/DELETE with a success toast.
 
 **20** **Metrics** — open the ontology metrics dashboard. Structural counts (triples, subjects, classes, properties, individuals) as stat cards, subjects-by-namespace breakdown, and OQuaRE-flavoured quality heuristics (properties per class, label coverage, inferred:asserted ratio).
 
@@ -256,7 +261,7 @@ Hover over any node to reveal the authoring halo with these controls:
 
 **29** **Individual node** — represents an RDF subject. The header shows the local name, a coloured namespace badge, and the OWL class. Properties (IRI, annotations, custom fields) are shown in an editable table on selection.
 
-**30** **Edge / predicate** — labelled arrow between two nodes. Amber dashed edges are inferred triples. Double-click to open the link property editor (scored autocomplete from ontologies).
+**30** **Edge / predicate** — labelled arrow between two nodes. Amber dashed edges are inferred triples. Double-click to open the link property editor (scored autocomplete from ontologies). On large canvases (more than 300 links) the relation label of a link is shown only while the link is selected; unselected links stay clickable.
 
 **31** **Minimap** — overview panel at bottom-right. Click to jump to a region, drag to pan.
 
@@ -300,6 +305,12 @@ Both property-based constraints (`sh:property`) and SPARQL-based constraints (`s
 
 Affected nodes display validation badges directly on the canvas — red for errors, amber for warnings. Clicking a finding in the reasoning report navigates to the affected node.
 
+### What is validated
+
+Validation checks the data graph (`urn:vg:data`: everything loaded or authored as data, TBox and ABox alike) **together with the inferred triples** (`urn:vg:inferred`) of the last reasoning run, so constraints such as `sh:class` see types the reasoner derived (a blank node typed by a subclass of the target class conforms). Loaded ontologies (`urn:vg:ontologies`), shapes and provenance are not validated. A violation is reported only for a focus node that is a subject in the data graph, so ontology classes that appear in the inferred graph through reasoning are not flagged.
+
+Consequence for `sh:closed` shapes: inferred triples count as data. A closed shape that does not list an inferred property (for example the inverse of an `owl:inverseOf` property) reports a violation after reasoning, as HermiT with pySHACL would. To validate the data graph alone, run `validateGraph` before reasoning or after `clearInferred`.
+
 ### Loading shapes
 
 | Method | Description |
@@ -307,6 +318,8 @@ Affected nodes display validation badges directly on the canvas — red for erro
 | `?shaclShapes=` URL parameter | Direct `.ttl` URL, GitHub folder URL, or comma-separated list |
 | Settings → SHACL tab | Persistent shapes URL with bundled presets |
 | MCP tool `loadShaclFromUrl` | AI-agent-driven shape loading |
+
+When neither `?shaclShapes=` nor the Settings URL names shapes, the built-in ontology-quality shapes load at startup. Shapes loaded any other way are never mixed with them.
 
 Shapes are loaded into the `urn:vg:shapes` named graph, which is excluded from OWL reasoning. The sidebar **SHACL Shapes** panel shows loaded shapes with their target classes, constraint messages, and severity levels.
 
@@ -419,6 +432,7 @@ The API key is sent only with the RDF fetch request. CORS: the server must allow
 | Parameter      | Description |
 |----------------|-------------|
 | `shaclShapes`  | URL of SHACL shapes to load on startup. Accepts a direct `.ttl` URL, a GitHub folder URL, or a comma-separated list. Overrides the configured shapes URL for this session. |
+| `workflowCatalog` | `off` skips the startup load of the PyodideSemanticWorkflow catalog, so `urn:vg:workflows` stays empty and its ontology stays out of the reasoning input. For headless runs and evaluations. |
 
 ```text
 ?rdfUrl=https://example.org/data.ttl&shaclShapes=/shacl-shapes/ontology-quality.shacl.ttl
@@ -440,6 +454,9 @@ All startup mechanisms are additive and run in this order:
 2. RDF data graph (`rdfUrl` / `url` / `vg_url`)
 3. Ontologies from `?ontology=` URL parameter
 4. `owl:imports` discovery (runs after each load unless `?loadImports=false`)
+5. SHACL shapes: `?shaclShapes=`, else the Settings shapes URL, else the built-in ontology-quality shapes (written only into an empty shapes graph)
+
+MCP tool calls are rejected until all of this has finished (`window.__startupComplete()` is `true`).
 
 AI / MCP Integration
 --------------------
@@ -508,7 +525,7 @@ Ontosphere exposes its full tool surface through several transport paths. Choose
 | [AI Relay Bridge](#chatgpt-gemini-claudeai--ai-relay-bridge) | ChatGPT, Claude.ai, Gemini chat | None | One bookmarklet drag |
 | [WebMCP native](#webmcp-native-chrome-153) | Chrome 153+ AI-aware browser | None | None (built-in) |
 
-All paths share the same 43 tools and the same `McpResult` return shape — the transport is the only difference.
+All paths share the same 42 tools and the same `McpResult` return shape — the transport is the only difference.
 
 ---
 
@@ -637,7 +654,7 @@ Developer
 
 **Deployment requirement:** Konclude's WASM binary uses `SharedArrayBuffer` (pthreads). The server must send `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless` headers. Localhost deployments have `SharedArrayBuffer` available without headers. Ontosphere's `server.js` sets these headers automatically.
 
-**Performance:** Konclude, end to end in headless Chromium (load + consistency check + materialization, median of 3): reasoning-demo 1.1 s, Pizza 1.4 s, PMDCO 2.6 s, GALEN 3.4 s, LUBM-1 with data about 66 s. Small ontologies are dominated by reasoner start-up (about 1 s). See [Konclude WASM reasoning performance](#konclude-wasm-reasoning-performance) for reasoner-only numbers. N3: under 2 seconds for typical ontologies (hundreds to a few thousand triples).
+**Performance:** Konclude (rdf-reasoner-konclude 0.9.3), headless Chromium on 8 cores, canvas idle before the run, 3 runs each (`scripts/bench-reasoner-phases.mjs`; time from the `runReasoning` call to its return, worker = the reasoner's own time): reasoning-demo 1.1 s (worker 1.0 s, 53 inferred), Pizza 1.3–1.4 s (170 inferred), PMDCO 14.8–15.3 s (worker 14.7–15.2 s, 289 inferred), GALEN 3.9–4.0 s (1,386 inferred; `public/bench-galen.nt`), LUBM-1 with data 11.4–11.7 s (worker 8.6–8.8 s: consistency check about 3.4 s, materialization about 4.5 s; 71,025 inferred). Small ontologies are dominated by reasoner start-up (about 1 s). The reasoner is the whole cost for everything except LUBM-1: there, rendering the 17,174 individuals and the inferred triples on the canvas keeps the page busy for about 85–90 s after `runReasoning` has returned, in chunks (single main-thread tasks of 11–13 s at most). Earlier LUBM-1 timings in this README (28.5–85.8 s, 65.6 s) loaded `bench-lubm-tbox.owl.xml`, which is OWL/XML and cannot be read by the RDF/XML parser, so the reasoner saw no TBox and inferred nothing; they measured only the canvas. Earlier GALEN timings used the same kind of file (`bench-galen.owl.xml`) and are superseded. Earlier releases quoted 2.6 s for PMDCO; 0.9.x does not reproduce that and the time is the reasoner's, not the canvas's. See [Konclude WASM reasoning performance](#konclude-wasm-reasoning-performance) for reasoner-only numbers. N3: under 2 seconds for typical ontologies (hundreds to a few thousand triples). Try LUBM-1 in the browser (dev server): `/?ontologies=&rdfUrl=<origin>/bench-lubm-full.ttl` after `cat public/bench-lubm-tbox.nt public/bench-lubm-abox.ttl > public/bench-lubm-full.ttl`.
 
 ### Other startup mechanisms
 

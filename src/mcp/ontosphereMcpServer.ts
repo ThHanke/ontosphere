@@ -1,4 +1,5 @@
 // src/mcp/ontosphereMcpServer.ts
+import { isStartupPending } from '@/utils/startupReady';
 import { mcpManifest } from './manifest';
 import { graphTools } from './tools/graph';
 import { nodeTools } from './tools/nodes';
@@ -29,6 +30,12 @@ const allTools: McpTool[] = [
 
 function withSchemaValidation(tool: McpTool): (params: unknown) => Promise<import('./types').McpResult> {
   return (params: unknown) => {
+    if (isStartupPending()) {
+      return Promise.resolve({
+        success: false,
+        error: `"${tool.name}" rejected: Ontosphere is still loading its startup ontologies, data and shapes. Retry in a few seconds.`,
+      } as import('./types').McpResult);
+    }
     const required = (tool.inputSchema?.required as string[]) ?? [];
     const properties = (tool.inputSchema?.properties ?? {}) as Record<string, unknown>;
     const provided = Object.keys((params as Record<string, unknown>) ?? {});

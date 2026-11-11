@@ -1,7 +1,7 @@
 // src/components/Canvas/__tests__/RepairSuggestions.test.tsx
 //
-// Verifies the human "Apply repair" UI: it computes suggestions via the SAME
-// pure `computeRepairs` function the agent path uses, renders the rationale +
+// Verifies the human "Apply repair" UI: it gets suggestions via the SAME
+// rdfManager.suggestRepairs the agent path uses, renders the rationale +
 // triple, and that clicking "Apply fix" performs the correct rdfManager
 // mutation and surfaces an undoable toast. Also covers "Apply all verified".
 
@@ -18,16 +18,18 @@ const hoisted = vi.hoisted(() => ({
     error: vi.fn(),
   }),
   rdf: {
+    getNamespaces: () => [],
     explainInconsistency: vi.fn(),
     validate: vi.fn(),
     runShaclValidation: vi.fn(),
-    verifyRepair: vi.fn(),
+    suggestRepairs: vi.fn(),
     removeTriple: vi.fn(),
     addTriple: vi.fn(),
     applyBatch: vi.fn(),
-    sparqlQuery: vi.fn(),
   },
   runReasoning: vi.fn(),
+  // What the scripted reasoner behind rdfManager.suggestRepairs does, and the last instance of it.
+  fake: { opts: {} as Record<string, unknown>, lib: undefined as unknown },
 }));
 
 vi.mock('sonner', () => ({ toast: hoisted.toast }));
@@ -45,8 +47,20 @@ vi.mock('@/mcp/workspaceContext', () => ({
   getWorkspaceRefs: () => ({ runReasoning: hoisted.runReasoning }),
 }));
 
+import * as N3 from 'n3';
 import { RepairSuggestions } from '../RepairSuggestions';
-import { computeRepairs } from '../../../mcp/tools/computeRepairs';
+import type { RepairSuggestion } from '../../../mcp/tools/computeRepairs';
+import { suggestDeletionRepairs } from '../../../mcp/tools/repairAdapter';
+import { fakeRepairLibrary, type FakeRepairLibrary, type FakeRepairOptions } from '../../../mcp/__tests__/helpers/fakeRepairLibrary';
+
+// The reasoner's repair() / assessEdit() / weaken() are scripted from the justifications the
+// panel passes to suggestRepairs; the adapter that maps them is the real one.
+const fakeLib = () => hoisted.fake.lib as FakeRepairLibrary;
+
+/** What the shared repair computation returns for these justifications (the suggestions the panel must show). */
+async function expectedRepairs(justifications: unknown[][]): Promise<RepairSuggestion[]> {
+  return (await hoisted.rdf.suggestRepairs({ justifications })).repairs;
+}
 
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
 const OWL_DISJOINT = 'http://www.w3.org/2002/07/owl#disjointWith';
@@ -68,34 +82,31 @@ function primeConsistentInconsistency() {
   hoisted.rdf.explainInconsistency.mockResolvedValue(JUSTIFICATION);
   hoisted.rdf.validate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
   hoisted.rdf.runShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
-  // Removing the single repair restores consistency.
-  hoisted.rdf.verifyRepair.mockResolvedValue(true);
+  // Removing the single repair restores consistency (the scripted reasoner's default).
   hoisted.rdf.applyBatch.mockResolvedValue({ added: 0, removed: 1 });
-  // No subClassOf hierarchy → no weakenings (default for ABox-only justifications).
-  hoisted.rdf.sparqlQuery.mockResolvedValue({ type: 'select', rows: [] });
+  // The scripted reasoner offers no weakenings unless a test configures them.
 }
 
 describe('RepairSuggestions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Default: empty hierarchy (no weakenings) unless a test overrides it.
-    hoisted.rdf.sparqlQuery.mockResolvedValue({ type: 'select', rows: [] });
+    hoisted.fake.opts = {};
+    hoisted.fake.lib = undefined;
+    hoisted.rdf.suggestRepairs.mockImplementation(async (payload: { justifications?: never[] }) => {
+      const lib = fakeRepairLibrary(payload.justifications ?? [], hoisted.fake.opts as FakeRepairOptions);
+      hoisted.fake.lib = lib;
+      return suggestDeletionRepairs({ lib, reskolemize: (q) => q, ...payload });
+    });
   });
 
   afterEach(() => {
     cleanup();
   });
 
-  it('renders the suggestion with its rationale (same as computeRepairs)', async () => {
+  it('renders the suggestion with its rationale (as the shared repair computation returns it)', async () => {
     primeConsistentInconsistency();
-    // The UI must surface exactly what the shared pure function produces.
-    const expected = computeRepairs({
-      isConsistent: false,
-      justifications: JUSTIFICATION,
-      unsatisfiableClasses: [],
-      profile: { owl2dl: true, violations: [] },
-      shaclViolations: [],
-    });
+    // The UI must surface exactly what the shared computation produces.
+    const expected = await expectedRepairs(JUSTIFICATION);
     expect(expected.length).toBeGreaterThan(0);
 
     render(<RepairSuggestions reasoningId="r1" isConsistent={false} />);
@@ -109,13 +120,7 @@ describe('RepairSuggestions', () => {
 
   it('Apply fix routes the removal through applyBatch (confirming the delta) and shows an undoable toast', async () => {
     primeConsistentInconsistency();
-    const expected = computeRepairs({
-      isConsistent: false,
-      justifications: JUSTIFICATION,
-      unsatisfiableClasses: [],
-      profile: { owl2dl: true, violations: [] },
-      shaclViolations: [],
-    });
+    const expected = await expectedRepairs(JUSTIFICATION);
     const repair = expected[0];
 
     render(<RepairSuggestions reasoningId="r1" isConsistent={false} />);
@@ -171,7 +176,6 @@ describe('RepairSuggestions', () => {
     hoisted.rdf.explainInconsistency.mockResolvedValue(ontologyGraphJustif);
     hoisted.rdf.validate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
     hoisted.rdf.runShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
-    hoisted.rdf.verifyRepair.mockResolvedValue(true);
     // Simulate a store where the quad EXISTS in urn:vg:ontologies: a data-graph
     // removal returns {removed:0}; an ontologies-graph removal returns {removed:1}.
     hoisted.rdf.applyBatch.mockImplementation((changes: { removes?: { graph?: string }[] }, fallback: string) => {
@@ -179,14 +183,8 @@ describe('RepairSuggestions', () => {
       return Promise.resolve({ added: 0, removed: g === 'urn:vg:ontologies' ? 1 : 0 });
     });
 
-    // Confirm computeRepairs threads the graph into action.args.graph.
-    const expected = computeRepairs({
-      isConsistent: false,
-      justifications: ontologyGraphJustif,
-      unsatisfiableClasses: [],
-      profile: { owl2dl: true, violations: [] },
-      shaclViolations: [],
-    });
+    // Confirm the computation threads the graph into action.args.
+    const expected = await expectedRepairs(ontologyGraphJustif);
     expect(expected[0].action.args.graph).toBe('urn:vg:ontologies');
 
     render(<RepairSuggestions reasoningId="rc1" isConsistent={false} />);
@@ -204,27 +202,17 @@ describe('RepairSuggestions', () => {
   });
 
   it('BUG C: a graphless repair makes VERIFY and APPLY target the IDENTICAL graph', async () => {
-    // The justification axiom carries NO graph metadata. Previously VERIFY did an
-    // all-graph match (graph field omitted) while APPLY defaulted to urn:vg:data —
-    // they targeted different quad sets → false verifiedConsistent / apply no-op.
-    // After the fix BOTH resolve to the SAME default graph (urn:vg:data).
+    // The justification axiom carries NO graph metadata. Stored data always has a graph (the
+    // scripted reasoner puts such triples in urn:vg:data). The reasoner verifies removing that exact
+    // quad, and APPLY must remove it from the same graph.
     primeConsistentInconsistency(); // JUSTIFICATION has no graph metadata
-    const expected = computeRepairs({
-      isConsistent: false,
-      justifications: JUSTIFICATION,
-      unsatisfiableClasses: [],
-      profile: { owl2dl: true, violations: [] },
-      shaclViolations: [],
-    });
-    // Sanity: computeRepairs left graph undefined (genuinely graphless axiom).
-    expect(expected[0].action.args.graph).toBeUndefined();
 
     render(<RepairSuggestions reasoningId="rbc" isConsistent={false} />);
 
-    // VERIFY (fired on load) must pin the SAME default graph the apply path uses.
-    await waitFor(() => expect(hoisted.rdf.verifyRepair).toHaveBeenCalled());
-    const verifyRemovals = hoisted.rdf.verifyRepair.mock.calls[0][0];
-    expect(verifyRemovals[0].graph).toBe('urn:vg:data');
+    // VERIFY (fired on load): the quad the reasoner was asked to remove.
+    await waitFor(() => expect(fakeLib()?.calls.assessEdit.length).toBeGreaterThan(0));
+    const verifyGraph = fakeLib().calls.assessEdit[0].remove[0].graph.value;
+    expect(verifyGraph).toBe('urn:vg:data');
 
     // APPLY must target the IDENTICAL graph.
     const applyBtn = await screen.findByRole('button', { name: /Apply repair/i });
@@ -234,7 +222,7 @@ describe('RepairSuggestions', () => {
     expect(applyGraph).toBe('urn:vg:data');
     expect(changes.removes[0].graph).toBe('urn:vg:data');
     // The invariant: verify graph === apply graph for this repair.
-    expect(verifyRemovals[0].graph).toBe(changes.removes[0].graph);
+    expect(verifyGraph).toBe(changes.removes[0].graph);
   });
 
   it('BUG C: a graph-bearing repair makes VERIFY and APPLY both target THAT graph', async () => {
@@ -254,7 +242,6 @@ describe('RepairSuggestions', () => {
     hoisted.rdf.explainInconsistency.mockResolvedValue(ontologyGraphJustif);
     hoisted.rdf.validate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
     hoisted.rdf.runShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
-    hoisted.rdf.verifyRepair.mockResolvedValue(true);
     hoisted.rdf.applyBatch.mockImplementation((changes: { removes?: { graph?: string }[] }, fallback: string) => {
       const g = changes.removes?.[0]?.graph ?? fallback;
       return Promise.resolve({ added: 0, removed: g === 'urn:vg:ontologies' ? 1 : 0 });
@@ -262,16 +249,16 @@ describe('RepairSuggestions', () => {
 
     render(<RepairSuggestions reasoningId="rbc2" isConsistent={false} />);
 
-    await waitFor(() => expect(hoisted.rdf.verifyRepair).toHaveBeenCalled());
-    const verifyRemovals = hoisted.rdf.verifyRepair.mock.calls[0][0];
-    expect(verifyRemovals[0].graph).toBe('urn:vg:ontologies');
+    await waitFor(() => expect(fakeLib()?.calls.assessEdit.length).toBeGreaterThan(0));
+    const verifyGraph = fakeLib().calls.assessEdit[0].remove[0].graph.value;
+    expect(verifyGraph).toBe('urn:vg:ontologies');
 
     const applyBtn = await screen.findByRole('button', { name: /Apply repair/i });
     fireEvent.click(applyBtn);
     await waitFor(() => expect(hoisted.rdf.applyBatch).toHaveBeenCalled());
     const [changes] = hoisted.rdf.applyBatch.mock.calls[0];
     expect(changes.removes[0].graph).toBe('urn:vg:ontologies');
-    expect(verifyRemovals[0].graph).toBe(changes.removes[0].graph);
+    expect(verifyGraph).toBe(changes.removes[0].graph);
   });
 
   it('H1: a repair that matches 0 triples shows a warning and does NOT mark applied', async () => {
@@ -310,35 +297,25 @@ describe('RepairSuggestions', () => {
     hoisted.rdf.explainInconsistency.mockResolvedValue(literalJustif);
     hoisted.rdf.validate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
     hoisted.rdf.runShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
-    hoisted.rdf.verifyRepair.mockResolvedValue(true);
     hoisted.rdf.applyBatch.mockResolvedValue({ added: 0, removed: 1 });
 
-    // computeRepairs threads the datatype/termType into action.args.
-    const expected = computeRepairs({
-      isConsistent: false,
-      justifications: literalJustif,
-      unsatisfiableClasses: [],
-      profile: { owl2dl: true, violations: [] },
-      shaclViolations: [],
-    });
+    // The computation threads the datatype/termType into action.args.
+    const expected = await expectedRepairs(literalJustif);
     expect(expected[0].action.args.objectTermType).toBe('Literal');
     expect(expected[0].action.args.objectDatatype).toBe(XSD_INT);
 
     render(<RepairSuggestions reasoningId="rh2" isConsistent={false} />);
 
-    // BUG B: VERIFY must target the SAME typed-literal triple APPLY removes. The
-    // verifyRepair call (fired on load) carries objectTermType + datatype + graph,
-    // so it cannot "succeed" against a same-lexical "42" string sibling.
-    await waitFor(() => expect(hoisted.rdf.verifyRepair).toHaveBeenCalled());
-    const verifyRemovals = hoisted.rdf.verifyRepair.mock.calls[0][0];
-    expect(verifyRemovals[0]).toMatchObject({
-      subject: `${EX}i`,
-      predicate: EX_AGE,
-      object: '42',
-      objectTermType: 'Literal',
-      objectDatatype: XSD_INT,
-      graph: 'urn:vg:data',
-    });
+    // BUG B: VERIFY must target the SAME typed-literal triple APPLY removes. The quad the
+    // reasoner was asked to remove (on load) is the typed literal in urn:vg:data, so it cannot
+    // "succeed" against a same-lexical "42" string sibling.
+    await waitFor(() => expect(fakeLib()?.calls.assessEdit.length).toBeGreaterThan(0));
+    const verified = fakeLib().calls.assessEdit[0].remove[0];
+    expect(verified.subject.value).toBe(`${EX}i`);
+    expect(verified.predicate.value).toBe(EX_AGE);
+    expect(verified.object.value).toBe('42');
+    expect((verified.object as { datatype?: { value: string } }).datatype?.value).toBe(XSD_INT);
+    expect(verified.graph.value).toBe('urn:vg:data');
 
     const applyBtn = await screen.findByRole('button', { name: /Apply repair/i });
     fireEvent.click(applyBtn);
@@ -371,10 +348,7 @@ describe('RepairSuggestions', () => {
     hoisted.rdf.explainInconsistency.mockResolvedValue(twoJustifs);
     hoisted.rdf.validate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
     hoisted.rdf.runShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
-    // Each single removal does NOT restore consistency, but the full set does.
-    hoisted.rdf.verifyRepair.mockImplementation((removals: { subject: string }[]) =>
-      Promise.resolve(removals.length > 1),
-    );
+    // Each single removal does NOT restore consistency, but the full set does (the scripted reasoner's default).
     hoisted.rdf.applyBatch.mockResolvedValue({ added: 0, removed: 2 });
 
     render(<RepairSuggestions reasoningId="r2" isConsistent={false} />);
@@ -436,9 +410,6 @@ describe('RepairSuggestions', () => {
     hoisted.rdf.explainInconsistency.mockResolvedValue(twoJustifs);
     hoisted.rdf.validate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
     hoisted.rdf.runShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
-    hoisted.rdf.verifyRepair.mockImplementation((removals: { subject: string }[]) =>
-      Promise.resolve(removals.length > 1),
-    );
     let resolveApply: (v: { added: number; removed: number }) => void = () => {};
     const applyPromise = new Promise<{ added: number; removed: number }>((res) => {
       resolveApply = res;
@@ -462,34 +433,43 @@ describe('RepairSuggestions', () => {
     // Inject a mixed repair set: one real removeLink repair (in the batch) and
     // one inconsistency+!needsManualReview repair that lacks an objectIri (so it
     // is excluded from `removals` and must NOT be marked Applied).
-    const computeMod = await import('../../../mcp/tools/computeRepairs');
-    const spy = vi.spyOn(computeMod, 'computeRepairs').mockReturnValue([
-      {
-        id: 'R1',
-        issue: 'inconsistency',
-        action: {
-          tool: 'removeLink',
-          args: { subjectIri: `${EX}i`, predicateIri: RDF_TYPE, objectIri: `${EX}A` },
+    hoisted.rdf.suggestRepairs.mockResolvedValue({
+      consistent: false,
+      repairSetVerifiedConsistent: true,
+      minimal: true,
+      alternativeSets: 0,
+      incomplete: false,
+      weakenIncomplete: false,
+      justifications: [],
+      repairs: [
+        {
+          id: 'R1',
+          issue: 'inconsistency',
+          action: {
+            tool: 'removeLink',
+            args: { subjectIri: `${EX}i`, predicateIri: RDF_TYPE, objectIri: `${EX}A` },
+          },
+          rationale: 'Real repair included in the batch',
+          verifiedConsistent: true,
+          verifiedSet: true,
         },
-        rationale: 'Real repair included in the batch',
-      },
-      {
-        id: 'R2',
-        issue: 'inconsistency',
-        // inconsistency + !needsManualReview but missing objectIri ⇒ excluded
-        // from removals. Under the old broad filter this was wrongly marked Applied.
-        action: {
-          tool: 'removeLink',
-          args: { subjectIri: `${EX}j`, predicateIri: RDF_TYPE },
+        {
+          id: 'R2',
+          issue: 'inconsistency',
+          // inconsistency + !needsManualReview but missing objectIri ⇒ excluded
+          // from removals. Under the old broad filter this was wrongly marked Applied.
+          action: {
+            tool: 'removeLink',
+            args: { subjectIri: `${EX}j`, predicateIri: RDF_TYPE },
+          },
+          rationale: 'Repair NOT applied (missing object)',
         },
-        rationale: 'Repair NOT applied (missing object)',
-      },
-    ] as ReturnType<typeof computeMod.computeRepairs>);
+      ],
+    });
 
     hoisted.rdf.explainInconsistency.mockResolvedValue([[{ subject: `${EX}i`, predicate: RDF_TYPE, object: `${EX}A` }]]);
     hoisted.rdf.validate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
     hoisted.rdf.runShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
-    hoisted.rdf.verifyRepair.mockResolvedValue(true);
     // Only the single valid removal is in the batch.
     hoisted.rdf.applyBatch.mockResolvedValue({ added: 0, removed: 1 });
 
@@ -510,8 +490,6 @@ describe('RepairSuggestions', () => {
     });
     expect(screen.getByRole('button', { name: /Apply repair R2/i }).textContent).toMatch(/Apply fix/);
     expect(screen.getByRole('button', { name: /Apply repair R2/i }).textContent).not.toMatch(/Applied/);
-
-    spy.mockRestore();
   });
 
   it('shows the consistent/conformant empty state when there are no issues', async () => {
@@ -536,12 +514,17 @@ describe('RepairSuggestions', () => {
     hoisted.rdf.explainInconsistency.mockResolvedValue(subClassJustif);
     hoisted.rdf.validate.mockResolvedValue({ consistent: true, unsatisfiable: [] });
     hoisted.rdf.runShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 0 });
-    hoisted.rdf.verifyRepair.mockResolvedValue(true);
-    // Hierarchy: B ⊑ C → A ⊑ B can weaken to A ⊑ C.
-    hoisted.rdf.sparqlQuery.mockResolvedValue({
-      type: 'select',
-      rows: [{ sub: `${EX}B`, sup: `${EX}C` }],
-    });
+    // The reasoner offers A ⊑ C (C a superclass of B) as a verified weakening of the culprit A ⊑ B.
+    const { namedNode, quad } = N3.DataFactory;
+    hoisted.fake.opts = {
+      weakenings: (culprit) => [{
+        strategy: 'generalize',
+        remove: culprit.quads,
+        add: [quad(namedNode(`${EX}A`), namedNode(RDFS_SUBCLASS), namedNode(`${EX}C`), namedNode('urn:vg:data'))],
+        verifiedConsistent: true,
+        change: { from: `${EX}B`, to: `${EX}C` },
+      }],
+    } satisfies FakeRepairOptions;
     // The weakening batch removes A⊑B and adds A⊑C.
     hoisted.rdf.applyBatch.mockResolvedValue({ added: 1, removed: 1 });
 

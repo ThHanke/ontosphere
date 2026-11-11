@@ -1,0 +1,87 @@
+<http://www.w3.org/2000/01/rdf-schema#> a <http://www.w3.org/2002/07/owl#Ontology>;
+    <http://purl.org/dc/elements/1.1/title> "The RDF Schema vocabulary (RDFS)".
+<http://www.w3.org/2000/01/rdf-schema#Resource> a <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "Resource";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The class resource, everything.".
+<http://www.w3.org/2000/01/rdf-schema#Class> a <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "Class";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The class of classes.";
+    <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://www.w3.org/2000/01/rdf-schema#Resource>.
+<http://www.w3.org/2000/01/rdf-schema#subClassOf> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "subClassOf";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The subject is a subclass of a class.";
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/2000/01/rdf-schema#Class>.
+<http://www.w3.org/2000/01/rdf-schema#subPropertyOf> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "subPropertyOf";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The subject is a subproperty of a property.";
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>.
+<http://www.w3.org/2000/01/rdf-schema#comment> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "comment";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "A description of the subject resource.";
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/2000/01/rdf-schema#Resource>;
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Literal>.
+<http://www.w3.org/2000/01/rdf-schema#label> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "label";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "A human-readable name for the subject.";
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/2000/01/rdf-schema#Resource>;
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Literal>.
+<http://www.w3.org/2000/01/rdf-schema#domain> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "domain";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "A domain of the subject property.";
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>.
+<http://www.w3.org/2000/01/rdf-schema#range> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "range";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "A range of the subject property.";
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>.
+<http://www.w3.org/2000/01/rdf-schema#seeAlso> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "seeAlso";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "Further information about the subject resource.";
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Resource>;
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/2000/01/rdf-schema#Resource>.
+<http://www.w3.org/2000/01/rdf-schema#isDefinedBy> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <http://www.w3.org/2000/01/rdf-schema#seeAlso>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "isDefinedBy";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The definition of the subject resource.";
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Resource>;
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/2000/01/rdf-schema#Resource>.
+<http://www.w3.org/2000/01/rdf-schema#Literal> a <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "Literal";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The class of literal values, eg. textual strings and integers.";
+    <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://www.w3.org/2000/01/rdf-schema#Resource>.
+<http://www.w3.org/2000/01/rdf-schema#Container> a <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "Container";
+    <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://www.w3.org/2000/01/rdf-schema#Resource>;
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The class of RDF containers.".
+<http://www.w3.org/2000/01/rdf-schema#ContainerMembershipProperty> a <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "ContainerMembershipProperty";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The class of container membership properties, rdf:_1, rdf:_2, ..., all of which are sub-properties of 'member'.";
+    <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>.
+<http://www.w3.org/2000/01/rdf-schema#member> a <http://www.w3.org/1999/02/22-rdf-syntax-ns#Property>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "member";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "A member of the subject resource.";
+    <http://www.w3.org/2000/01/rdf-schema#domain> <http://www.w3.org/2000/01/rdf-schema#Resource>;
+    <http://www.w3.org/2000/01/rdf-schema#range> <http://www.w3.org/2000/01/rdf-schema#Resource>.
+<http://www.w3.org/2000/01/rdf-schema#Datatype> a <http://www.w3.org/2000/01/rdf-schema#Class>;
+    <http://www.w3.org/2000/01/rdf-schema#isDefinedBy> <http://www.w3.org/2000/01/rdf-schema#>;
+    <http://www.w3.org/2000/01/rdf-schema#label> "Datatype";
+    <http://www.w3.org/2000/01/rdf-schema#comment> "The class of RDF datatypes.";
+    <http://www.w3.org/2000/01/rdf-schema#subClassOf> <http://www.w3.org/2000/01/rdf-schema#Class>.
+<http://www.w3.org/2000/01/rdf-schema#> <http://www.w3.org/2000/01/rdf-schema#seeAlso> <http://www.w3.org/2000/01/rdf-schema-more>.

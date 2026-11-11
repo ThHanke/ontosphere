@@ -144,48 +144,11 @@ function RdfElementBody({ props }: { props: Reactodia.TemplateProps }) {
   return (
     <div
       onDoubleClick={onDoubleClick}
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        minWidth: 180,
-        maxWidth: 320,
-        background: 'var(--reactodia-paper-bg)',
-        borderRadius: 6,
-        border: onlySelected
-          ? '2px solid var(--reactodia-selection-color, #3b82f6)'
-          : '1px solid var(--reactodia-paper-border, #d1d5db)',
-        overflow: 'hidden',
-        boxShadow: onlySelected
-          ? '0 0 0 2px rgba(59,130,246,0.25)'
-          : '0 1px 3px rgba(0,0,0,0.1)',
-        fontSize: 12,
-        fontFamily: 'inherit',
-        cursor: 'default',
-        userSelect: 'none',
-      }}
+      className={onlySelected ? 'vg-card vg-card--selected' : 'vg-card'}
+      style={{ '--vg-ns': nsColor } as React.CSSProperties}
     >
-      {/* Left namespace color bar */}
-      <div style={{
-        width: 6,
-        flexShrink: 0,
-        background: nsColor,
-      }} />
-
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-
-        {/* Types row */}
         {typeChips.length > 0 && (
-          <div
-            style={{
-              padding: '3px 8px 0',
-              fontSize: 10,
-              color: 'var(--reactodia-paper-fg-muted, #6b7280)',
-              ...(isExpanded
-                ? { whiteSpace: 'normal', wordBreak: 'break-word' }
-                : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }),
-            }}
-          >
+          <div className={isExpanded ? 'vg-card__types vg-card__types--expanded' : 'vg-card__types'}>
             {typeChips.map(({ display, hover }, i) => {
               const typeIri = displayTypes[i];
               const isInferredType = inferredTypesSet.has(typeIri);
@@ -193,12 +156,8 @@ function RdfElementBody({ props }: { props: Reactodia.TemplateProps }) {
                 <span
                   key={typeIri}
                   title={hover}
-                  style={{
-                    marginRight: i < typeChips.length - 1 ? 4 : 0,
-                    ...(isInferredType
-                      ? { fontStyle: 'italic', color: 'var(--vg-inferred-color)', opacity: 0.9 }
-                      : {}),
-                  }}
+                  className={isInferredType ? 'vg-card__type--inferred' : undefined}
+                  style={i < typeChips.length - 1 ? { marginRight: 4 } : undefined}
                 >
                   {i > 0 ? ', ' : ''}{display}
                   {isInferredType && (
@@ -213,37 +172,9 @@ function RdfElementBody({ props }: { props: Reactodia.TemplateProps }) {
           </div>
         )}
 
-        {/* Main row: icon + label */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 4px' }}>
-          <div style={{
-            flexShrink: 0,
-            width: 26,
-            height: 26,
-            borderRadius: 4,
-            background: nsColor,
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 700,
-            fontSize: 13,
-          }}>
-            {iconLetter}
-          </div>
-          <span
-            style={{
-              flex: 1,
-              fontWeight: 600,
-              fontSize: 13,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              color: 'var(--reactodia-paper-fg)',
-            }}
-            title={data.id}
-          >
-            {label}
-          </span>
+        <div className="vg-card__main">
+          <div className="vg-card__icon">{iconLetter}</div>
+          <span className="vg-card__label" title={data.id}>{label}</span>
         </div>
 
         {/* Expanded panel */}
@@ -365,7 +296,6 @@ function RdfElementBody({ props }: { props: Reactodia.TemplateProps }) {
           </div>
         )}
 
-      </div>
     </div>
   );
 }

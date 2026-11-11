@@ -15,11 +15,49 @@ export interface LoadCatalogResult {
 
 export interface LoadCatalogOptions {
   timeoutMs?: number;
+  /**
+   * Also load the PyodideSemanticWorkflow ontology into urn:vg:ontologies (default true).
+   * The startup load passes false: the ontology is reasoning input, so it is added only when
+   * a workflow is actually used (see loadWorkflowOntology).
+   */
+  includeOntology?: boolean;
 }
 
 const WORKFLOWS_GRAPH = "urn:vg:workflows";
 const ONTOLOGIES_GRAPH = "urn:vg:ontologies";
 const DEFAULT_TIMEOUT_MS = 30000;
+
+/** A term every PyodideSemanticWorkflow ontology defines; its presence means the ontology is loaded. */
+const SPW_MARKER_SUBJECT = "https://thhanke.github.io/PyodideSemanticWorkflow#expectedType";
+
+/**
+ * Add the PyodideSemanticWorkflow ontology to urn:vg:ontologies, the graph reasoning reads.
+ * Workflows need it (classes and properties of the steps and variables they use), but a session
+ * that never uses a workflow should not reason over it. Called when a workflow is dropped on
+ * the canvas. The graph itself says whether it is already there, so a cleared store loads again.
+ */
+export async function loadWorkflowOntology(
+  config: AppConfig,
+  options?: { timeoutMs?: number },
+): Promise<LoadCatalogResult> {
+  const url = config.workflowCatalogUrls?.ontology;
+  if (!url) return { success: false, reason: 'parse-error', error: 'No workflow ontology URL configured' };
+  try {
+    const present = await rdfManager.fetchQuadsPage({
+      graphName: ONTOLOGIES_GRAPH, filter: { subject: SPW_MARKER_SUBJECT }, limit: 1,
+    });
+    if ((present?.total ?? 0) > 0) return { success: true, loadedFiles: [] };
+    await rdfManager.loadRDFFromUrl(url, ONTOLOGIES_GRAPH, { timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS });
+    return { success: true, loadedFiles: [url] };
+  } catch (error) {
+    console.error('[WorkflowCatalog] Failed to load SPW ontology:', error);
+    return {
+      success: false,
+      reason: 'network-error',
+      error: `Failed to load ontology: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+}
 
 /**
  * Load the workflow catalog from configured URLs
@@ -50,20 +88,10 @@ export async function loadWorkflowCatalog(
 
   try {
     // 1. Load SPW ontology into ontologies graph
-    try {
-      await rdfManager.loadRDFFromUrl(
-        config.workflowCatalogUrls.ontology,
-        ONTOLOGIES_GRAPH,
-        { timeoutMs },
-      );
-      loadedFiles.push(config.workflowCatalogUrls.ontology);
-    } catch (error) {
-      console.error('[WorkflowCatalog] Failed to load SPW ontology:', error);
-      return {
-        success: false,
-        reason: 'network-error',
-        error: `Failed to load ontology: ${error instanceof Error ? error.message : String(error)}`,
-      };
+    if (options?.includeOntology !== false) {
+      const ontology = await loadWorkflowOntology(config, { timeoutMs });
+      if (!ontology.success) return ontology;
+      loadedFiles.push(...(ontology.loadedFiles ?? []));
     }
 
     // 2. Load workflow catalog into workflows graph

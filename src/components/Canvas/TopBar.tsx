@@ -2,7 +2,6 @@ import React from 'react';
 import type { ReasoningResult } from '../../utils/rdfManager';
 import { useAppConfigStore } from '../../stores/appConfigStore';
 import { useShaclResultStore } from '../../stores/shaclResultStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 
 interface TopBarProps {
   viewMode: 'abox' | 'tbox';
@@ -48,8 +47,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   const shaclEnabled = useAppConfigStore(s => s.config.shaclEnabled);
   const setShaclEnabled = useAppConfigStore(s => s.setShaclEnabled);
   const shaclShapesLoaded = useShaclResultStore(s => s.shaclShapesLoaded);
-  const shaclShapesUrl = useSettingsStore(s => s.settings.shaclShapesUrl);
-  const shaclAvailable = shaclShapesLoaded && shaclShapesUrl.trim().length > 0;
+  const shaclAvailable = shaclShapesLoaded;
 
   return (
     <div className="reactodia-toolbar" role="toolbar" style={{

@@ -13,6 +13,10 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 // import { useOntologyStore } from './stores/ontologyStore';
 import { registerMcp } from '@/mcp/register';
 
+import { expectStartup, isStartupComplete } from './utils/startupReady';
+
+expectStartup();
+(window as any).__startupComplete = isStartupComplete;
 initTheme();
 
 // Apply persisted blacklist from app config at startup (best-effort)
