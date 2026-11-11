@@ -261,7 +261,7 @@ Hover over any node to reveal the authoring halo with these controls:
 
 **29** **Individual node** — represents an RDF subject. The header shows the local name, a coloured namespace badge, and the OWL class. Properties (IRI, annotations, custom fields) are shown in an editable table on selection.
 
-**30** **Edge / predicate** — labelled arrow between two nodes. Amber dashed edges are inferred triples. Double-click to open the link property editor (scored autocomplete from ontologies).
+**30** **Edge / predicate** — labelled arrow between two nodes. Amber dashed edges are inferred triples. Double-click to open the link property editor (scored autocomplete from ontologies). On large canvases (more than 300 links) the relation label of a link is shown only while the link is selected; unselected links stay clickable.
 
 **31** **Minimap** — overview panel at bottom-right. Click to jump to a region, drag to pan.
 

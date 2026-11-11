@@ -8,6 +8,7 @@ Large graphs reason and render faster: `runReasoning` returns when the reasoner 
 
 - **`runReasoning` returns when the reasoner result is in.** The inferred triples reach the canvas afterwards, in chunks. LUBM-1 with data: 126 s to 11.4–11.7 s (reasoner 8.6–8.8 s); the canvas then settles in about 85–90 s (it was about 125 s).
 - **Canvas loads are faster and shorter-blocking.** Elements are created in chunks, the inferred refresh runs in chunks, Reactodia's per-link element scan is replaced by an index, and the authoring decorators (inline Edit/Delete) are mounted only for the hovered, selected or edited element instead of for all elements. At 8,000 individuals the load settles in 19 s instead of 31 s and the longest single task drops from 4.9 s to 3.1 s.
+- **Large canvases: relation labels show only on selection.** Above 300 links, links that are not selected are drawn as a bare line with arrowhead (no label, no per-link type subscription); selecting a link brings back its label and the full template, and links stay clickable. About 30 to 24.5 DOM nodes and 0.34 to 0.26 MB renderer memory per individual (1 element + 2 links; headless Chromium, no layout). Entity cards use shared CSS classes instead of per-node inline styles (one DOM node fewer per card). The threshold is `LEAN_LINKS_THRESHOLD` in `src/templates/RdfLinkTemplate.tsx`.
 - **The halo's delete button (×) is gone.** It duplicated the entity's inline Delete; the Delete key and the inline buttons work as before.
 - **The reasoner reads the real store** (rdf-reasoner-konclude 0.9.3, pinned): no copy, no write-back, inferences unchanged. About 1.4 s less on LUBM-1.
 
@@ -17,7 +18,7 @@ Large graphs reason and render faster: `runReasoning` returns when the reasoner 
 
 ### Internal
 
-Benchmark and profiling scripts (`scripts/bench-reasoner-phases.mjs`, `bench-canvas-links.mjs`, `profile-*.mjs`; the first refuses to run on a stale Vite pre-bundle), tests for the no-copy chain, graph counts and per-quad inferred tagging, and write-ups in `docs/solutions/` (measurement pitfalls, the live-store reasoner chain, canvas load performance).
+`e2e/canvas-footprint.spec.ts` guards DOM nodes and listeners per element. Benchmark and profiling scripts (`scripts/bench-reasoner-phases.mjs`, `bench-canvas-links.mjs`, `profile-*.mjs`; the first refuses to run on a stale Vite pre-bundle), tests for the no-copy chain, graph counts and per-quad inferred tagging, and write-ups in `docs/solutions/` (measurement pitfalls, the live-store reasoner chain, canvas load performance).
 
 ## [1.8.0] — 2026-11-11
 
