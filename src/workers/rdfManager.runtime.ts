@@ -117,30 +117,49 @@ class DlReasoner {
     this.ready = this._reasoner.ready;
   }
 
+  /** Worker-side phase durations of the last reason/checkConsistency call, for the stage meta. */
+  readonly timings: Record<string, number> = {};
+
   async reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }> {
     // Reason over the blank-node copy, then publish its inferred graph into the store.
     // On a cache hit the package leaves the copy's inferred graph as copied, so the
     // store keeps what it had.
+    let t = performance.now();
     const base = reasoningBase(store);
+    this.timings.reasonCopyMs = Math.round(performance.now() - t);
     // The explanation graph is not requested: nothing in the app reads
     // urn:konclude:explanations, and on LUBM-1 it held 162,638 quads per run.
+    t = performance.now();
     const result = (await this._reasoner.materialize(base, {
       includeClassHierarchy: true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
     })) as { delta: InferenceDelta };
+    this.timings.materializeMs = Math.round(performance.now() - t);
     // The store may have been edited while Konclude worked on the copy.
-    if (isCurrent && !isCurrent()) return { delta: { added: [], removed: [] } as InferenceDelta };
     const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
+    this.timings.inferredInCopy = base.countQuads(null, null, null, inferredGraph);
+    this.timings.deltaAdded = result.delta.added.length;
+    this.timings.stale = isCurrent && !isCurrent() ? 1 : 0;
+    if (isCurrent && !isCurrent()) return { delta: { added: [], removed: [] } as InferenceDelta };
+    t = performance.now();
     store.removeQuads(store.getQuads(null, null, null, inferredGraph));
     store.addQuads(reskolemizeAll(base.getQuads(null, null, null, inferredGraph)));
-    return {
-      delta: { added: reskolemizeAll(result.delta.added), removed: reskolemizeAll(result.delta.removed) } as InferenceDelta,
-    };
+    this.timings.writebackMs = Math.round(performance.now() - t);
+    t = performance.now();
+    const delta = { added: reskolemizeAll(result.delta.added), removed: reskolemizeAll(result.delta.removed) } as InferenceDelta;
+    this.timings.reskolemizeDeltaMs = Math.round(performance.now() - t);
+    return { delta };
   }
 
-  checkConsistency(store: N3.Store): Promise<boolean> {
-    return this._reasoner.checkConsistency(reasoningBase(store));
+  async checkConsistency(store: N3.Store): Promise<boolean> {
+    let t = performance.now();
+    const base = reasoningBase(store);
+    this.timings.consistencyCopyMs = Math.round(performance.now() - t);
+    t = performance.now();
+    const ok = await this._reasoner.checkConsistency(base);
+    this.timings.consistencyMs = Math.round(performance.now() - t);
+    return ok;
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
@@ -223,6 +242,8 @@ let _cachedQueryEngine: QueryEngine | null = null;
  */
 export interface DlReasonerLike {
   readonly ready: Promise<void>;
+  /** Worker-side phase durations of the last call (optional; test doubles omit it). */
+  readonly timings?: Record<string, number>;
   checkConsistency(store: N3.Store): Promise<boolean>;
   /** Publishes into `store` only while `isCurrent()` holds, when given. */
   reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }>;
@@ -3323,7 +3344,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           kReasonerDuration = Date.now() - kStart;
           kUsedReasoner = true;
           kIsConsistent = true;
-          reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-complete", meta: { durationMs: kReasonerDuration, backend: 'konclude' } });
+          reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-complete", meta: { durationMs: kReasonerDuration, backend: 'konclude', ...konclude.timings } });
         } else {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "inconsistent-detected", meta: { durationMs: Date.now() - kStart } });
           const DEFAULT_UI_MAX_JUSTIFICATIONS = 3;
@@ -3373,6 +3394,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         }
       }
 
+      const kPost: Record<string, number> = {};
+      let kT = performance.now();
+      const kMark = (name: string) => { const n = performance.now(); kPost[name] = Math.round(n - kT); kT = n; };
       const kAddedQuads = kUsedReasoner ? kDelta.added : [];
       const kTouchedSubjects = new Set<string>();
       for (const q of kAddedQuads) {
@@ -3385,6 +3409,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (sv) kRemovedSubjects.add(sv);
       }
 
+      kMark("touchedSubjectsMs");
       if (mutateSharedStore) {
         if (emitChangeFlag && (kAddedQuads.length > 0 || kDelta.removed.length > 0)) {
           emitChange({ reason: "reasoning", addedCount: kAddedQuads.length, removedCount: kDelta.removed.length });
@@ -3392,9 +3417,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (emitSubjectsFlag && (kAddedQuads.length > 0 || kRemovedSubjects.size > 0)) {
           const emitSet = new Set(kTouchedSubjects);
           for (const s of kRemovedSubjects) emitSet.add(s);
+          kMark("emitChangeMs");
           const emission = prepareSubjectEmissionFromSet(emitSet, kStore, DataFactory);
+          kMark("prepareEmissionMs");
           if (emission.subjects.length > 0) {
             emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "reasoning", graphName: "urn:vg:inferred" });
+            kMark("emitSubjectsMs");
           }
         }
       }
@@ -3436,6 +3464,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         }
       }
 
+      kMark("shaclMs");
       const kErrors: ReasoningError[] = [...kMipsErrors, ...kShaclErrors];
       if (!kUsedReasoner && kIsConsistent === null) {
         kWarnings.push({
@@ -3457,6 +3486,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         })
         .filter((e): e is ReasoningInference => Boolean(e));
 
+      kMark("inferencesBuildMs");
       const kDurationMs = Date.now() - startedAt;
       const kResult: ReasoningResultMessage = {
         type: "reasoningResult",
@@ -3496,7 +3526,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
       reasoningStage({ type: "reasoningStage", id: msg.id, stage: "complete", meta: {
         durationMs: kDurationMs, addedCount: kResult.addedCount, usedReasoner: kUsedReasoner,
-        inferenceCount: kInferences.length, ruleQuadCount: 0,
+        inferenceCount: kInferences.length, ruleQuadCount: 0, ...kPost,
       }});
 
       return kResult;
