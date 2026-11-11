@@ -167,14 +167,14 @@ describe('no-copy reasoner chain', () => {
     const parsed: N3.Quad[] = await new Promise((resolve, reject) => {
       const out: N3.Quad[] = []; const p = new RdfXmlParser();
       p.on('data', (q: N3.Quad) => out.push(q)); p.on('error', reject); p.on('end', () => resolve(out));
-      p.write(fs.readFileSync(path.join(ROOT, 'public/bench-pizza.owl'), 'utf8')); p.end();
+      p.write(fs.readFileSync(path.join(ROOT, 'src/__tests__/fixtures/pizza.owl'), 'utf8')); p.end();
     });
     expect(parsed.length).toBeGreaterThan(1000);
     await sameAsCopy(ctx, () => skolemize(parsed));
   }, 120_000);
 
   it('PMDco (unionOf, intersectionOf, restrictions): same as the copy path; blank labels map to distinct skolem IRIs', async (ctx) => {
-    const parsed = new N3.Parser().parse(fs.readFileSync(path.join(ROOT, 'public/bench-pmdco.ttl'), 'utf8'));
+    const parsed = new N3.Parser().parse(fs.readFileSync(path.join(ROOT, 'src/__tests__/fixtures/pmdco.ttl'), 'utf8'));
     const labels = new Set(parsed.flatMap((q) => [q.subject, q.object]).filter((t) => t.termType === 'BlankNode').map((t) => t.value));
     expect(labels.size).toBeGreaterThan(500);
     // the worker skolemizes by fnv1a32(label) (rdfManager.runtime.ts); copied here, keep in sync

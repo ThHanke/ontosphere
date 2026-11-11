@@ -74,15 +74,15 @@ describe('importSerialized keeps every triple of the source', () => {
     expect([...source].filter((t) => !stored.has(t))).toEqual([]);
   });
 
-  it('PMDco (bench-pmdco.ttl): nothing missing', async () => {
-    const { stored, source } = await importAndRead(fs.readFileSync('public/bench-pmdco.ttl', 'utf8'));
+  it('PMDco (fixture pmdco.ttl): nothing missing', async () => {
+    const { stored, source } = await importAndRead(fs.readFileSync('src/__tests__/fixtures/pmdco.ttl', 'utf8'));
     const missing = [...source].filter((t) => !stored.has(t));
     console.log(`[P1-4] source ${source.size}, stored ${stored.size}, missing ${missing.length}`);
     expect(missing.slice(0, 10)).toEqual([]);
   }, 180_000);
 
   // P14_FILE=logs/pmdco-3b98aad/pmdco.ttl runs these on the version the coworker evaluated.
-  const PMDCO_FILE = process.env.P14_FILE ?? 'public/bench-pmdco.ttl';
+  const PMDCO_FILE = process.env.P14_FILE ?? 'src/__tests__/fixtures/pmdco.ttl';
   it('PMDco file: nothing missing after import', async () => {
     const { stored, source } = await importAndRead(fs.readFileSync(PMDCO_FILE, 'utf8'));
     const missing = [...source].filter((t) => !stored.has(t));

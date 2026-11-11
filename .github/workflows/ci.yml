@@ -67,6 +67,8 @@ jobs:
         run: npm ci
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
+      - name: Bench inputs (git-ignored copies served from public/)
+        run: cp src/__tests__/fixtures/pmdco.ttl public/bench-pmdco.ttl
       - name: Build
         run: npm run build
       - name: Run e2e
