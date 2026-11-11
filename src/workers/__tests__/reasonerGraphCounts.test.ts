@@ -69,4 +69,31 @@ describe('graph counts after the reasoner writes the inferred graph itself', () 
     runtime.terminate();
     reasoner.terminate();
   }, 120_000);
+
+  it('posts the reasoning result before the inferred-subjects emission', async (ctx) => {
+    let reasoner: RdfReasoner;
+    try { reasoner = new RdfReasoner({ excludeGraphs: NON_AXIOM_GRAPHS }); await reasoner.ready; } catch (e) {
+      if (process.env.REQUIRE_KONCLUDE) throw e; return ctx.skip();
+    }
+    setDlReasonerFactoryForTest(() => nodeReasoner(reasoner));
+    const messages: any[] = [];
+    const runtime = createRdfWorkerRuntime((m) => messages.push(m));
+    const ttl = `@prefix ex: <http://e/> . @prefix owl: <http://www.w3.org/2002/07/owl#> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+      ex:Sub a owl:Class ; rdfs:subClassOf ex:Top . ex:Top a owl:Class . ex:i a owl:NamedIndividual, ex:Sub .`;
+    const adds = new N3.Parser().parse(ttl).map((q) => serializeQuad(quad(q.subject, q.predicate, q.object, nn('urn:vg:data'))));
+    runtime.handleEvent({ type: 'command', id: 'seed', command: 'syncBatch', payload: { graphName: 'urn:vg:data', adds, removes: [] } } as never);
+    await new Promise((res) => setTimeout(res, 50));
+    messages.length = 0;
+    runtime.handleEvent({ type: 'command', id: 'r', command: 'runReasoning', payload: { reasoningId: 'r', shaclEnabled: false, emitSubjects: true } } as never);
+    const deadline = Date.now() + 60_000;
+    const emission = () => messages.findIndex((m) => m?.type === 'event' && m?.event === 'subjects' && m?.payload?.meta?.reason === 'reasoning');
+    while (messages.findIndex((m) => m?.id === 'r' && m?.type === 'response') < 0 || emission() < 0) {
+      if (Date.now() > deadline) throw new Error('no result or no emission');
+      await new Promise((res) => setTimeout(res, 20));
+    }
+    const resultAt = messages.findIndex((m) => m?.id === 'r' && m?.type === 'response');
+    expect(resultAt).toBeLessThan(emission());
+    runtime.terminate();
+    reasoner.terminate();
+  }, 120_000);
 });

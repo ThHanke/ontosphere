@@ -3394,7 +3394,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const emission = prepareSubjectEmissionFromSet(emitSet, kStore, DataFactory);
           kMark("prepareEmissionMs");
           if (emission.subjects.length > 0) {
-            emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "reasoning", graphName: "urn:vg:inferred" });
+            // Posted after the reasoning result: the page handles the emission with long synchronous work
+            // (links, rendering), and the result must not queue behind it. Messages arrive in post order.
+            setTimeout(() => {
+              emitSubjects(emission.subjects, emission.quadsBySubject, emission.snapshot, { reason: "reasoning", graphName: "urn:vg:inferred" });
+            }, 0);
             kMark("emitSubjectsMs");
           }
         }

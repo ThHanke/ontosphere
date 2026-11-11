@@ -252,6 +252,22 @@ const clusterLevelManager = new ClusterLevelManager(
  * EntityElements and members embedded inside EntityGroups. Used to avoid
  * re-creating elements that are already present (possibly inside a group).
  */
+/**
+ * Stamp links the data provider decorated as inferred with the linkState that the diagram snapshot
+ * serializes, so the amber decoration survives importLayout.
+ */
+function stampInferredLinks(model: Reactodia.DataDiagramModel): void {
+  for (const link of model.links) {
+    if (!(link instanceof Reactodia.RelationLink)) continue;
+    const graphName = link.data?.properties[VG_GRAPH_NAME_PROP]?.[0];
+    if (graphName?.termType === 'NamedNode' && graphName.value === 'urn:vg:inferred') {
+      const state = (link.linkState ?? Reactodia.TemplateState.empty)
+        .set(VG_GRAPH_NAME_STATE, 'urn:vg:inferred');
+      model.history.execute(Reactodia.setLinkState(link, state));
+    }
+  }
+}
+
 function collectCanvasIris(elements: ReadonlyArray<Reactodia.Element>): Set<string> {
   const iris = new Set<string>();
   for (const el of elements) {
@@ -924,11 +940,7 @@ export default function ReactodiaCanvas() {
         }
 
         // Re-fetch data + links for elements already on canvas whose triples changed.
-        // Skip for the inferred graph: handleRunReasoning owns that update path and
-        // decorates links with VG_GRAPH_NAME_PROP before they first render. Letting
-        // this branch run for inferred subjects would re-fetch links without the
-        // decoration (inferredBySubject not yet populated), causing a one-frame flash
-        // of solid-blue inferred links before they turn amber.
+        // Inferred subjects take the branch below: their links are not removed first, only refreshed.
         if (changed.length > 0 && !isInferredGraph) {
           const changedSet = new Set(changed);
           // Remove all links whose source or target is in the changed set —
@@ -943,6 +955,14 @@ export default function ReactodiaCanvas() {
           }
           await model.requestElementData(changed as Reactodia.ElementIri[]);
           await model.requestLinks({ addedElements: changed as Reactodia.ElementIri[] });
+        }
+
+        // Inferred subjects already on the canvas: the provider has tagged their inferred quads per quad
+        // (addGraph above), so links fetched now carry the amber decoration from their first render.
+        if (changed.length > 0 && isInferredGraph) {
+          await model.requestElementData(changed as Reactodia.ElementIri[]);
+          await model.requestLinks({ addedElements: changed as Reactodia.ElementIri[] });
+          stampInferredLinks(model);
         }
 
         await model.requestData();
@@ -1487,43 +1507,6 @@ export default function ReactodiaCanvas() {
     void rdfManager.emitAllSubjects('urn:vg:data');
   }, []);
 
-  const handleApplyInferred = React.useCallback(async () => {
-    // Fetch ONLY the quads that are truly in urn:vg:inferred (not the full subject
-    // quads emitted by onSubjectsChange, which includes asserted triples too).
-    // This is what drives the inferred-decoration markers in N3DataProvider.
-    const inferredPage = await rdfManager.fetchQuadsPage({
-      graphName: 'urn:vg:inferred',
-      offset: 0,
-      limit: 0,       // 0 = no limit
-      serialize: false,
-    });
-    if (Array.isArray(inferredPage?.items) && inferredPage.items.length > 0) {
-      const rdfQuads = workerQuadsToRdf(inferredPage.items as unknown as ConverterQuad[]);
-      const filtered = rdfQuads.filter(
-        q => q.subject.termType === 'NamedNode' && knownSubjects.has(q.subject.value as string)
-      );
-      if (filtered.length > 0) {
-        dataProvider.addGraph(filtered, 'urn:vg:inferred');
-        const model = modelRef.current;
-        if (model) {
-          const subjects = [...new Set(filtered.map(q => q.subject.value as Reactodia.ElementIri))];
-          await model.requestElementData(subjects);
-          await model.requestLinks({ addedElements: subjects });
-          // Stamp inferred links with linkState so the decoration survives
-          // importLayout (linkState is serialized in the diagram snapshot).
-          for (const link of model.links) {
-            if (!(link instanceof Reactodia.RelationLink)) continue;
-            const graphName = link.data?.properties[VG_GRAPH_NAME_PROP]?.[0];
-            if (graphName?.termType === 'NamedNode' && graphName.value === 'urn:vg:inferred') {
-              const state = (link.linkState ?? Reactodia.TemplateState.empty)
-                .set(VG_GRAPH_NAME_STATE, 'urn:vg:inferred');
-              model.history.execute(Reactodia.setLinkState(link, state));
-            }
-          }
-        }
-      }
-    }
-  }, []);
 
   const handleRunReasoning = React.useCallback(async (reasonerBackend?: 'konclude' | 'n3') => {
     setIsReasoning(true);
@@ -1536,7 +1519,6 @@ export default function ReactodiaCanvas() {
       const result = await rdfManager.runReasoning({ rulesets, reasonerBackend: backend });
       setCurrentReasoning(result);
       setReasoningHistory(h => [...h, result]);
-      await handleApplyInferred();
 
       // Build raw error/warning maps and set them immediately so canvas badges appear
       // without waiting for the async label resolution that follows.
@@ -1639,7 +1621,7 @@ export default function ReactodiaCanvas() {
       isReasoningRef.current = false;
       setIsInconsistentDetected(false);
     }
-  }, [handleApplyInferred]);
+  }, []);
 
   React.useEffect(() => {
     return rdfManager.onReasoningStage((payload) => {
@@ -1681,7 +1663,6 @@ export default function ReactodiaCanvas() {
       setCurrentReasoning(result);
       setReasoningHistory(h => [...h, result]);
       setIsInconsistentDetected(result.isConsistent === false);
-      await handleApplyInferred();
     } finally {
       setIsReasoning(false);
       isReasoningRef.current = false;
@@ -1693,7 +1674,7 @@ export default function ReactodiaCanvas() {
         scheduleAutoReasoningRef.current?.();
       }
     }
-  }, [handleApplyInferred]);
+  }, []);
 
   React.useEffect(() => {
     const AUTO_REASONING_DEBOUNCE_MS = 1500;

@@ -61,17 +61,22 @@ for (let i = 1; i <= runs; i++) {
     await page.evaluate((url) => window.__mcpTools.loadRdf({ url }), new URL(u, base).href);
     await sleep(500);
   }
-  // wait until the main thread has been free of long tasks for 3 s (canvas render settled)
+  // wait until the main thread has been free of long tasks for IDLE_MS (canvas render settled); the load's
+  // tail (layout results, React) can arrive after gaps of several seconds, so the default is 20 s
   const idleStart = Date.now();
-  await page.waitForFunction(() => performance.now() - window.__lastLongTask > 3000, null, { timeout: 180000, polling: 500 });
+  const idleMs = parseInt(process.env.IDLE_MS ?? '20000', 10);
+  await page.waitForFunction((ms) => performance.now() - window.__lastLongTask > ms, idleMs, { timeout: 600000, polling: 500 });
   const idleWaitMs = Date.now() - idleStart;
+  const perfStart = await page.evaluate(() => performance.now());
   const t1 = Date.now();
   await page.evaluate(() => window.__mcpTools.runReasoning({ clearBefore: true, shaclValidation: false }));
   const wall = Date.now() - t1;
   const stages = await page.evaluate(() => window.__stages);
+  const perfEnd = await page.evaluate(() => performance.now());
+  const timeline = stages.map((x) => `${x.stage}@${Math.round((x.t - perfStart) / 100) / 10}s`).join(' ');
   const peakMb = await peakRssMb(browser);
   const done = stages.find((s) => s.stage === 'reasoner-complete');
   const complete = stages.find((s) => s.stage === 'complete');
-  console.log(JSON.stringify({ run: i, idleWaitMs, wallMs: wall, workerTotalMs: complete?.meta?.durationMs, addedCount: complete?.meta?.addedCount, peakRssMb: peakMb, reasonerComplete: done?.meta }));
+  console.log(JSON.stringify({ run: i, idleWaitMs, wallMs: wall, workerTotalMs: complete?.meta?.durationMs, addedCount: complete?.meta?.addedCount, callReturnedAtS: Math.round((perfEnd - perfStart) / 100) / 10, timeline, peakRssMb: peakMb, reasonerComplete: done?.meta }));
   await ctx.close(); await browser.close();
 }
