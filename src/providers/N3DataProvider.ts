@@ -245,7 +245,10 @@ export class N3DataProvider implements DataProvider {
 
   addGraph(quads: Iterable<Rdf.Quad>, graphName?: string): void {
     const arr = Array.isArray(quads) ? quads : [...quads];
-    const trackInferred = graphName === 'urn:vg:inferred';
+    // A triple counts as inferred when the caller says the whole batch is (graphName), or when the
+    // quad itself comes from the inferred graph: worker emissions carry every quad of a subject with
+    // its own graph, so asserted and inferred triples arrive together and need no separate fetch.
+    const batchIsInferred = graphName === 'urn:vg:inferred';
     // Only subjects from data/inferred graphs enter allSubjects (Entities search).
     // Only data/inferred/ontologies graphs feed this.inner (knownElementTypes / class tree).
     // Workflow and catalog graphs are excluded from both.
@@ -270,7 +273,8 @@ export class N3DataProvider implements DataProvider {
         if (!types) { types = new Set(); this.typeMap.set(q.subject.value, types); }
         types.add(q.object.value);
       }
-      if (trackInferred && q.subject.termType === 'NamedNode' && q.predicate.termType === 'NamedNode') {
+      if ((batchIsInferred || q.graph.value === 'urn:vg:inferred')
+          && q.subject.termType === 'NamedNode' && q.predicate.termType === 'NamedNode') {
         const subj = q.subject.value;
         let entry = this.inferredBySubject.get(subj);
         if (!entry) { entry = { predicates: new Set(), triples: new Set() }; this.inferredBySubject.set(subj, entry); }

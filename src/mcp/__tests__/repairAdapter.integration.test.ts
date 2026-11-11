@@ -16,7 +16,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { suggestDeletionRepairs, type RepairLibrary, type SuggestRepairsResult } from '../tools/repairAdapter';
 import { buildRepairBrief, type DiagnosticsData } from '../tools/diagnosticsBrief';
-import { reasoningBase, reskolemizeQuad } from '../../workers/rdfManager.runtime';
+import { reskolemizeQuad } from '../../workers/rdfManager.runtime';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REQUIRE_KONCLUDE = !!process.env.REQUIRE_KONCLUDE;
@@ -317,7 +317,7 @@ ex:A rdfs:subClassOf <${SK}r1> .
 ex:x a ex:A .
 `;
       const store = parseTtl(ttl);
-      const base = () => reasoningBase(store);
+      const base = () => store;
       const lib: RepairLibrary = {
         repair: (o) => r.repair(base(), o),
         assessEdit: (e, o) => r.assessEdit(base(), e, o),

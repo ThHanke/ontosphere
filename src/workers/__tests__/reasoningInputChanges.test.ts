@@ -5,7 +5,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import * as N3 from 'n3';
 import {
-  createRdfWorkerRuntime, reasoningBase, setDlReasonerFactoryForTest, type DlReasonerLike,
+  createRdfWorkerRuntime, NON_AXIOM_GRAPHS, setDlReasonerFactoryForTest, type DlReasonerLike,
 } from '../rdfManager.runtime.ts';
 import { serializeQuad } from '../../utils/rdfSerialization.ts';
 
@@ -127,14 +127,10 @@ describe('reasoning input changes during a run', () => {
   });
 });
 
-describe('reasoningBase', () => {
-  it('holds the data and ontology graphs and leaves out graphs that are not OWL axioms', () => {
-    const q = (g: string) => N3.DataFactory.quad(nn(`${EX}A`), nn(`${EX}p`), nn(`${EX}B`), nn(g));
-    const store = new N3.Store([
-      q('urn:vg:data'), q('urn:vg:ontologies'),
-      q(INFERRED), q('urn:konclude:explanations'), q('urn:vg:shapes'), q('urn:vg:provenance'), q('urn:vg:workflows'),
-    ]);
-    const graphs = reasoningBase(store).getQuads(null, null, null, null).map((x) => x.graph.value).sort();
-    expect(graphs).toEqual(['urn:vg:data', 'urn:vg:ontologies']);
+describe('NON_AXIOM_GRAPHS', () => {
+  it('lists the graphs that are not OWL axioms and are kept away from the reasoner', () => {
+    expect([...NON_AXIOM_GRAPHS].sort()).toEqual([
+      INFERRED, 'urn:konclude:explanations', 'urn:vg:provenance', 'urn:vg:shapes', 'urn:vg:workflows',
+    ].sort());
   });
 });

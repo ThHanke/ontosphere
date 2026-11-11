@@ -126,4 +126,52 @@ describe('N3DataProvider graph tracking', () => {
     expect(inferredTypes!.map(v => v.value)).toContain('ex:Person');
     expect(inferredTypes!.map(v => v.value)).toContain('ex:Employee');
   });
+
+  // Worker emissions carry every quad of a subject with its own graph; no separate fetch is needed to
+  // tell asserted from inferred triples.
+  describe('per-quad graph', () => {
+    const inGraph = (s: string, p: string, o: string, g: string) =>
+      df.quad(df.namedNode(s), df.namedNode(p), df.namedNode(o), df.namedNode(g));
+
+    it('tracks only the quads that come from urn:vg:inferred when one batch mixes graphs', async () => {
+      dp.addGraph([
+        inGraph('ex:Alice', RDF_TYPE, 'ex:Employee', 'urn:vg:data'),
+        inGraph('ex:Alice', RDF_TYPE, 'ex:Person', 'urn:vg:inferred'),
+      ]);
+      const alice = (await dp.elements({ elementIds: ['ex:Alice' as ElementIri] })).get('ex:Alice' as ElementIri)!;
+      expect(alice.types).toContain('ex:Employee' as any);
+      expect(alice.types).toContain('ex:Person' as any);
+      const inferred = alice.properties[INFERRED_TYPES_PROP]!.map((v) => v.value);
+      expect(inferred).toContain('ex:Person');
+    });
+
+    it('decorates an inferred link and leaves the asserted link plain', async () => {
+      dp.addGraph([
+        inGraph('ex:Alice', RDF_TYPE, 'ex:Person', 'urn:vg:data'),
+        inGraph('ex:Bob', RDF_TYPE, 'ex:Person', 'urn:vg:data'),
+        inGraph('ex:Carol', RDF_TYPE, 'ex:Person', 'urn:vg:data'),
+        inGraph('ex:Alice', 'ex:knows', 'ex:Bob', 'urn:vg:data'),
+        inGraph('ex:Alice', 'ex:colleague', 'ex:Carol', 'urn:vg:inferred'),
+      ]);
+      const links = await dp.links({
+        primary: ['ex:Alice', 'ex:Bob', 'ex:Carol'] as ElementIri[],
+        secondary: ['ex:Alice', 'ex:Bob', 'ex:Carol'] as ElementIri[],
+      });
+      const decorated = (linkType: string) =>
+        links.find((l) => l.linkTypeId === linkType)?.properties[VG_GRAPH_NAME_PROP]?.[0]?.value;
+      expect(decorated('ex:colleague')).toBe('urn:vg:inferred');
+      expect(decorated('ex:knows')).toBeUndefined();
+    });
+
+    it('keeps the decoration when an asserted-subject emission is replaced and carries the inferred quads', async () => {
+      dp.addGraph([inGraph('ex:Alice', RDF_TYPE, 'ex:Person', 'urn:vg:data'), inGraph('ex:Bob', RDF_TYPE, 'ex:Person', 'urn:vg:data')]);
+      dp.addGraph([inGraph('ex:Alice', 'ex:colleague', 'ex:Bob', 'urn:vg:inferred')]);
+      dp.replaceSubjectQuads(['ex:Alice'], [
+        inGraph('ex:Alice', RDF_TYPE, 'ex:Person', 'urn:vg:data'),
+        inGraph('ex:Alice', 'ex:colleague', 'ex:Bob', 'urn:vg:inferred'),
+      ]);
+      const links = await dp.links({ primary: ['ex:Alice', 'ex:Bob'] as ElementIri[], secondary: ['ex:Alice', 'ex:Bob'] as ElementIri[] });
+      expect(links.find((l) => l.linkTypeId === 'ex:colleague')?.properties[VG_GRAPH_NAME_PROP]?.[0]?.value).toBe('urn:vg:inferred');
+    });
+  });
 });

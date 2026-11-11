@@ -83,6 +83,9 @@ const pendingPositions = new Map<string, Reactodia.Vector>();
  * Replaces SelectionActionRemove: marks selected entities for deletion in the
  * authoring state (entityDelete) instead of silently removing them from the
  * canvas view. Requires a Save to commit to the RDF store.
+ *
+ * The halo button is hidden (vg-selection-action--hidden): the entity's inline Delete does the same, so
+ * the two were a duplicate. The component stays mounted because it registers the Delete hotkey.
  */
 function DeleteEntityAction(props: { dock?: string; dockRow?: number }) {
   const { model, editor } = Reactodia.useWorkspace();
@@ -102,7 +105,7 @@ function DeleteEntityAction(props: { dock?: string; dockRow?: number }) {
   return (
     <Reactodia.SelectionAction
       {...(props as any)}
-      className="reactodia-selection-action__remove"
+      className="reactodia-selection-action__remove vg-selection-action--hidden"
       title={entities.length === 1 ? 'Delete entity' : 'Delete entities'}
       hotkey="None+Delete"
       disabled={entities.length === 0}
@@ -252,6 +255,42 @@ const clusterLevelManager = new ClusterLevelManager(
  * EntityElements and members embedded inside EntityGroups. Used to avoid
  * re-creating elements that are already present (possibly inside a group).
  */
+/**
+ * Elements created per chunk when a load arrives; see the subjects handler. Every chunk makes Reactodia
+ * re-render all existing elements, so the size scales with the load (about 8 chunks) instead of staying
+ * small: many small chunks cost far more in total than they save in task length.
+ */
+const MIN_ELEMENT_CREATE_CHUNK = 300;
+const MAX_ELEMENT_CREATE_CHUNK = 3000;
+const TARGET_CREATE_CHUNKS = 8;
+function elementCreateChunkSize(total: number): number {
+  return Math.min(MAX_ELEMENT_CREATE_CHUNK, Math.max(MIN_ELEMENT_CREATE_CHUNK, Math.ceil(total / TARGET_CREATE_CHUNKS)));
+}
+
+/** Resolves after the next rendered frame; falls back to a timer when frames are not produced (hidden tab). */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    const fallback = setTimeout(resolve, 100);
+    requestAnimationFrame(() => { clearTimeout(fallback); resolve(); });
+  });
+}
+
+/**
+ * Stamp links the data provider decorated as inferred with the linkState that the diagram snapshot
+ * serializes, so the amber decoration survives importLayout.
+ */
+function stampInferredLinks(model: Reactodia.DataDiagramModel): void {
+  for (const link of model.links) {
+    if (!(link instanceof Reactodia.RelationLink)) continue;
+    const graphName = link.data?.properties[VG_GRAPH_NAME_PROP]?.[0];
+    if (graphName?.termType === 'NamedNode' && graphName.value === 'urn:vg:inferred') {
+      const state = (link.linkState ?? Reactodia.TemplateState.empty)
+        .set(VG_GRAPH_NAME_STATE, 'urn:vg:inferred');
+      model.history.execute(Reactodia.setLinkState(link, state));
+    }
+  }
+}
+
 function collectCanvasIris(elements: ReadonlyArray<Reactodia.Element>): Set<string> {
   const iris = new Set<string>();
   for (const el of elements) {
@@ -804,6 +843,8 @@ export default function ReactodiaCanvas() {
 
   // Subscribe to rdfManager changes — incremental sync to live model
   React.useEffect(() => {
+    // IRIs whose elements a chunked load has queued but not created yet.
+    const elementsBeingCreated = new Set<string>();
     const handler = (emittedSubjects: string[], emittedQuads?: WorkerQuad[], _snapshot?: unknown, meta?: Record<string, unknown> | null) => {
       let subjects = emittedSubjects;
       let quads = emittedQuads;
@@ -914,21 +955,34 @@ export default function ReactodiaCanvas() {
 
       // Defer model mutations out of the React lifecycle to avoid flushSync warnings
       queueMicrotask(async () => {
-        for (const iri of addedFiltered) {
-          const el = model.createElement(iri as Reactodia.ElementIri);
-          const savedPos = pendingPositions.get(iri);
-          if (savedPos) {
-            el.setPosition(savedPos);
-            pendingPositions.delete(iri);
+        // Large loads create elements in chunks: after each chunk its data and links are requested and the
+        // browser gets a frame to render it, so no single task or frame covers every element. Subjects a
+        // running chunked load has not reached yet are skipped here, so a second emission cannot duplicate them.
+        const toCreate = addedFiltered.filter(iri => !elementsBeingCreated.has(iri));
+        for (const iri of toCreate) elementsBeingCreated.add(iri);
+        const chunk = elementCreateChunkSize(toCreate.length);
+        for (let i = 0; i < toCreate.length; i += chunk) {
+          if (modelRef.current !== model) {
+            for (const iri of toCreate.slice(i)) elementsBeingCreated.delete(iri);
+            return;
+          }
+          for (const iri of toCreate.slice(i, i + chunk)) {
+            const el = model.createElement(iri as Reactodia.ElementIri);
+            const savedPos = pendingPositions.get(iri);
+            if (savedPos) {
+              el.setPosition(savedPos);
+              pendingPositions.delete(iri);
+            }
+            elementsBeingCreated.delete(iri);
+          }
+          if (i + chunk < toCreate.length) {
+            await model.requestData();
+            await nextFrame();
           }
         }
 
         // Re-fetch data + links for elements already on canvas whose triples changed.
-        // Skip for the inferred graph: handleRunReasoning owns that update path and
-        // decorates links with VG_GRAPH_NAME_PROP before they first render. Letting
-        // this branch run for inferred subjects would re-fetch links without the
-        // decoration (inferredBySubject not yet populated), causing a one-frame flash
-        // of solid-blue inferred links before they turn amber.
+        // Inferred subjects take the branch below: their links are not removed first, only refreshed.
         if (changed.length > 0 && !isInferredGraph) {
           const changedSet = new Set(changed);
           // Remove all links whose source or target is in the changed set —
@@ -943,6 +997,21 @@ export default function ReactodiaCanvas() {
           }
           await model.requestElementData(changed as Reactodia.ElementIri[]);
           await model.requestLinks({ addedElements: changed as Reactodia.ElementIri[] });
+        }
+
+        // Inferred subjects already on the canvas: the provider has tagged their inferred quads per quad
+        // (addGraph above), so links fetched now carry the amber decoration from their first render.
+        if (changed.length > 0 && isInferredGraph) {
+          // In chunks, like element creation: one refresh of every changed subject is a single huge task.
+          const chunk = elementCreateChunkSize(changed.length);
+          for (let i = 0; i < changed.length; i += chunk) {
+            if (modelRef.current !== model) return;
+            const part = changed.slice(i, i + chunk) as Reactodia.ElementIri[];
+            await model.requestElementData(part);
+            await model.requestLinks({ addedElements: part });
+            if (i + chunk < changed.length) await nextFrame();
+          }
+          stampInferredLinks(model);
         }
 
         await model.requestData();
@@ -1487,43 +1556,6 @@ export default function ReactodiaCanvas() {
     void rdfManager.emitAllSubjects('urn:vg:data');
   }, []);
 
-  const handleApplyInferred = React.useCallback(async () => {
-    // Fetch ONLY the quads that are truly in urn:vg:inferred (not the full subject
-    // quads emitted by onSubjectsChange, which includes asserted triples too).
-    // This is what drives the inferred-decoration markers in N3DataProvider.
-    const inferredPage = await rdfManager.fetchQuadsPage({
-      graphName: 'urn:vg:inferred',
-      offset: 0,
-      limit: 0,       // 0 = no limit
-      serialize: false,
-    });
-    if (Array.isArray(inferredPage?.items) && inferredPage.items.length > 0) {
-      const rdfQuads = workerQuadsToRdf(inferredPage.items as unknown as ConverterQuad[]);
-      const filtered = rdfQuads.filter(
-        q => q.subject.termType === 'NamedNode' && knownSubjects.has(q.subject.value as string)
-      );
-      if (filtered.length > 0) {
-        dataProvider.addGraph(filtered, 'urn:vg:inferred');
-        const model = modelRef.current;
-        if (model) {
-          const subjects = [...new Set(filtered.map(q => q.subject.value as Reactodia.ElementIri))];
-          await model.requestElementData(subjects);
-          await model.requestLinks({ addedElements: subjects });
-          // Stamp inferred links with linkState so the decoration survives
-          // importLayout (linkState is serialized in the diagram snapshot).
-          for (const link of model.links) {
-            if (!(link instanceof Reactodia.RelationLink)) continue;
-            const graphName = link.data?.properties[VG_GRAPH_NAME_PROP]?.[0];
-            if (graphName?.termType === 'NamedNode' && graphName.value === 'urn:vg:inferred') {
-              const state = (link.linkState ?? Reactodia.TemplateState.empty)
-                .set(VG_GRAPH_NAME_STATE, 'urn:vg:inferred');
-              model.history.execute(Reactodia.setLinkState(link, state));
-            }
-          }
-        }
-      }
-    }
-  }, []);
 
   const handleRunReasoning = React.useCallback(async (reasonerBackend?: 'konclude' | 'n3') => {
     setIsReasoning(true);
@@ -1536,7 +1568,6 @@ export default function ReactodiaCanvas() {
       const result = await rdfManager.runReasoning({ rulesets, reasonerBackend: backend });
       setCurrentReasoning(result);
       setReasoningHistory(h => [...h, result]);
-      await handleApplyInferred();
 
       // Build raw error/warning maps and set them immediately so canvas badges appear
       // without waiting for the async label resolution that follows.
@@ -1639,7 +1670,7 @@ export default function ReactodiaCanvas() {
       isReasoningRef.current = false;
       setIsInconsistentDetected(false);
     }
-  }, [handleApplyInferred]);
+  }, []);
 
   React.useEffect(() => {
     return rdfManager.onReasoningStage((payload) => {
@@ -1681,7 +1712,6 @@ export default function ReactodiaCanvas() {
       setCurrentReasoning(result);
       setReasoningHistory(h => [...h, result]);
       setIsInconsistentDetected(result.isConsistent === false);
-      await handleApplyInferred();
     } finally {
       setIsReasoning(false);
       isReasoningRef.current = false;
@@ -1693,7 +1723,7 @@ export default function ReactodiaCanvas() {
         scheduleAutoReasoningRef.current?.();
       }
     }
-  }, [handleApplyInferred]);
+  }, []);
 
   React.useEffect(() => {
     const AUTO_REASONING_DEBOUNCE_MS = 1500;
