@@ -2,21 +2,22 @@
 
 ## [Unreleased]
 
-Reasoning works on the live store without copies, `runReasoning` returns when the reasoner is done, and large loads no longer arrive as one giant task.
+Large graphs reason and render much faster: `runReasoning` returns when the reasoner is done (LUBM-1: 126 s to 12 s), and the canvas needs about a third less memory and finishes sooner.
 
 ### Changed
 
-- **The reasoner reads the real store.** `DlReasoner` passes the shared N3 store to rdf-reasoner-konclude 0.9.3 (pinned) with `excludeGraphs` set once; the `reasoningBase` copy, the inferred-graph write-back and `reskolemizeAll` on the materialize path are gone. Skolem IRIs (`urn:vg:bnode:*`) stay in the store: 0.9.2+ reads them as blank nodes and returns them in the same form. LUBM-1: about 1.4 s less reasoner time; inferences unchanged (71,025). Graph counts for the reasoner-managed graphs are recounted after each reasoner command, because the package clears its inferred graph without going through the counting wrappers.
-- **`runReasoning` returns when the reasoner result is in.** The inferred-subjects emission is posted after the result, and the canvas applies it afterwards (LUBM-1: 126 s to 12 s wall time).
-- **Inferred triples are recognised per quad.** `N3DataProvider.addGraph` marks a triple as inferred from its own graph, so the separate fetch of the inferred graph (`handleApplyInferred`) is removed.
-- **Large loads create canvas elements in chunks** (about 8 per load, 300 to 3,000 elements each), and the inferred refresh runs in chunks too. Longest single task at 8,000 individuals: 14 s to 5 s; LUBM-1 after reasoning: 40 s to 16 s, with a longer total.
-- **Reactodia `createLinks` looks elements up by IRI** instead of scanning the diagram twice per link (patch-package).
+- **`runReasoning` returns when the reasoner result is in.** The inferred triples reach the canvas afterwards, in chunks. LUBM-1 with data: 126 s to 11.4–11.7 s (reasoner 8.6–8.8 s); the canvas then settles in about 85–90 s.
+- **Canvas loads are lighter.** Elements are created in chunks, the inferred refresh runs in chunks, Reactodia's per-link element scan is replaced by an index, and the authoring decorators (inline Edit/Delete) are mounted only for the hovered, selected or edited element instead of for all elements. LUBM-1 peak renderer memory 10.7 GB to 9.1–9.4 GB; small graphs: about 40% shorter load time at 8,000 individuals, longest single task 4.9 s to 3.1 s.
+- **The halo's delete button (×) is gone.** It duplicated the entity's inline Delete; the Delete key and the inline buttons work as before.
+- **The reasoner reads the real store** (rdf-reasoner-konclude 0.9.3, pinned): no copy, no write-back, inferences unchanged. About 1.4 s less on LUBM-1.
 
 ### Fixed
 
-- **Benchmark numbers in the README are re-measured** on valid inputs with the reasoner 0.9.3 (3 runs each; see *Performance* in the README). Pizza now reports 170 inferred triples (165 in 1.8.0 on 0.9.1; the no-copy path was checked equal to the copy path on the same package, so the change comes from the package version).
-- **Benchmark inputs.** `bench-lubm-tbox.owl.xml` (OWL/XML) was read as RDF/XML and yielded no TBox, so browser LUBM-1 timings measured only the canvas. `public/bench-lubm-tbox.nt` (RDF) is the valid TBox; `bench-galen.owl.xml` has the same problem and is not yet fixed.
-- **Stale reasoner bundle in benchmarks.** The dev server pre-bundles rdf-reasoner-konclude and does not re-check it after a version bump; `scripts/bench-reasoner-phases.mjs` now refuses to run on a stale bundle (restart vite with `--force`).
+- **README benchmark numbers re-measured** on valid inputs with reasoner 0.9.3 (see *Performance*): the earlier LUBM-1 and GALEN figures loaded an OWL/XML TBox the RDF parser cannot read, so no inference took place. Pizza now reports 170 inferred triples (165 in 1.8.0; the change comes from the package version, the no-copy path was checked equal on the same package).
+
+### Internal
+
+Benchmark and profiling scripts (`scripts/bench-reasoner-phases.mjs`, `bench-canvas-links.mjs`, `profile-*.mjs`; the first refuses to run on a stale Vite pre-bundle), tests for the no-copy chain, graph counts and per-quad inferred tagging, and three write-ups in `docs/solutions/` (measurement pitfalls, the live-store reasoner chain, canvas load performance).
 
 ## [1.8.0] — 2026-11-11
 
