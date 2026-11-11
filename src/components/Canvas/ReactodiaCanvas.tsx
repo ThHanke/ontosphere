@@ -999,8 +999,15 @@ export default function ReactodiaCanvas() {
         // Inferred subjects already on the canvas: the provider has tagged their inferred quads per quad
         // (addGraph above), so links fetched now carry the amber decoration from their first render.
         if (changed.length > 0 && isInferredGraph) {
-          await model.requestElementData(changed as Reactodia.ElementIri[]);
-          await model.requestLinks({ addedElements: changed as Reactodia.ElementIri[] });
+          // In chunks, like element creation: one refresh of every changed subject is a single huge task.
+          const chunk = elementCreateChunkSize(changed.length);
+          for (let i = 0; i < changed.length; i += chunk) {
+            if (modelRef.current !== model) return;
+            const part = changed.slice(i, i + chunk) as Reactodia.ElementIri[];
+            await model.requestElementData(part);
+            await model.requestLinks({ addedElements: part });
+            if (i + chunk < changed.length) await nextFrame();
+          }
           stampInferredLinks(model);
         }
 

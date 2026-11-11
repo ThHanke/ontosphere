@@ -42,8 +42,10 @@ for (let i = 1; i <= runs; i++) {
   await ctx.addInitScript(() => {
     const W = window.Worker;
     window.__stages = [];
-    window.__lastLongTask = performance.now();
-    try { new PerformanceObserver((l) => { window.__lastLongTask = performance.now(); }).observe({ type: 'longtask', buffered: true }); } catch {}
+    window.__lastLongTask = performance.now(); window.__longMs = 0; window.__longMax = 0; window.__longN = 0;
+    window.__lastBusy = performance.now(); window.__lastBeat = performance.now();
+    setInterval(() => { const n = performance.now(); if (n - window.__lastBeat > 150) window.__lastBusy = n; window.__lastBeat = n; }, 50);
+    try { new PerformanceObserver((l) => { window.__lastLongTask = performance.now(); for (const e of l.getEntries()) { window.__longMs += e.duration; window.__longN++; window.__longMax = Math.max(window.__longMax, e.duration); } }).observe({ type: 'longtask', buffered: true }); } catch {}
     window.Worker = class extends W {
       constructor(...a) {
         super(...a);
@@ -68,15 +70,20 @@ for (let i = 1; i <= runs; i++) {
   await page.waitForFunction((ms) => performance.now() - window.__lastLongTask > ms, idleMs, { timeout: 600000, polling: 500 });
   const idleWaitMs = Date.now() - idleStart;
   const perfStart = await page.evaluate(() => performance.now());
+  await page.evaluate(() => { window.__longMs = 0; window.__longMax = 0; window.__longN = 0; });
   const t1 = Date.now();
   await page.evaluate(() => window.__mcpTools.runReasoning({ clearBefore: true, shaclValidation: false }));
   const wall = Date.now() - t1;
+  const tCatch = Date.now();
+  await page.waitForFunction(() => performance.now() - window.__lastBusy > 8000 && performance.now() - window.__lastBeat < 200, null, { timeout: 900000, polling: 500 });
+  const catchUpMs = Date.now() - tCatch - 8000;
+  const totalToSettleMs = Date.now() - t1 - 8000;
+  const catchUp = await page.evaluate(() => ({ longTaskMs: Math.round(window.__longMs), longTaskCount: window.__longN, longestTaskMs: Math.round(window.__longMax) }));
   const stages = await page.evaluate(() => window.__stages);
-  const perfEnd = await page.evaluate(() => performance.now());
   const timeline = stages.map((x) => `${x.stage}@${Math.round((x.t - perfStart) / 100) / 10}s`).join(' ');
   const peakMb = await peakRssMb(browser);
   const done = stages.find((s) => s.stage === 'reasoner-complete');
   const complete = stages.find((s) => s.stage === 'complete');
-  console.log(JSON.stringify({ run: i, idleWaitMs, wallMs: wall, workerTotalMs: complete?.meta?.durationMs, addedCount: complete?.meta?.addedCount, callReturnedAtS: Math.round((perfEnd - perfStart) / 100) / 10, timeline, peakRssMb: peakMb, reasonerComplete: done?.meta }));
+  console.log(JSON.stringify({ run: i, idleWaitMs, wallMs: wall, workerTotalMs: complete?.meta?.durationMs, addedCount: complete?.meta?.addedCount, totalToSettleMs, catchUp, timeline, peakRssMb: peakMb, reasonerComplete: done?.meta }));
   await ctx.close(); await browser.close();
 }
