@@ -59,7 +59,8 @@ for (let i = 1; i <= runs; i++) {
   await page.goto(`${base}?ontologies=`, { waitUntil: 'load', timeout: 60000 });
   try { await page.waitForNavigation({ timeout: 3000, waitUntil: 'load' }); } catch {}
   await page.waitForFunction(() => window.crossOriginIsolated && !!window.__mcpTools?.loadRdf && (window.__startupComplete?.() ?? true), { timeout: 30000 });
-  for (const u of [process.env.TBOX ?? 'bench-lubm-tbox.owl.xml', 'bench-lubm-abox.ttl']) {
+  const files = process.env.FILES ? process.env.FILES.split(',') : [process.env.TBOX ?? 'bench-lubm-tbox.owl.xml', 'bench-lubm-abox.ttl'];
+  for (const u of files) {
     await page.evaluate((url) => window.__mcpTools.loadRdf({ url }), new URL(u, base).href);
     await sleep(500);
   }

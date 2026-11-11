@@ -14,6 +14,7 @@ Reasoning works on the live store without copies, `runReasoning` returns when th
 
 ### Fixed
 
+- **Benchmark numbers in the README are re-measured** on valid inputs with the reasoner 0.9.3 (3 runs each; see *Performance* in the README). Pizza now reports 170 inferred triples (165 in 1.8.0 on 0.9.1; the no-copy path was checked equal to the copy path on the same package, so the change comes from the package version).
 - **Benchmark inputs.** `bench-lubm-tbox.owl.xml` (OWL/XML) was read as RDF/XML and yielded no TBox, so browser LUBM-1 timings measured only the canvas. `public/bench-lubm-tbox.nt` (RDF) is the valid TBox; `bench-galen.owl.xml` has the same problem and is not yet fixed.
 - **Stale reasoner bundle in benchmarks.** The dev server pre-bundles rdf-reasoner-konclude and does not re-check it after a version bump; `scripts/bench-reasoner-phases.mjs` now refuses to run on a stale bundle (restart vite with `--force`).
 
