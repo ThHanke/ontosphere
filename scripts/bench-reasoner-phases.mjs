@@ -4,8 +4,36 @@
 import { createRequire } from 'module';
 const require = createRequire(new URL('../package.json', import.meta.url));
 const { chromium } = require('playwright');
+import fs from 'node:fs';
 const base = process.env.BASE ?? 'http://127.0.0.1:8091/';
+
+// Preflight: the dev server pre-bundles rdf-reasoner-konclude into node_modules/.vite/deps and only
+// re-checks that on start. If the installed package is newer than the bundle, the page runs old
+// package JS next to the new WASM/worker assets in public/ (see docs/solutions on measuring the wrong build).
+const pkgDir = new URL('../node_modules/rdf-reasoner-konclude/', import.meta.url);
+const pkg = JSON.parse(fs.readFileSync(new URL('package.json', pkgDir), 'utf8'));
+const bundle = new URL('../node_modules/.vite/deps/rdf-reasoner-konclude.js', import.meta.url);
+if (!fs.existsSync(bundle) || fs.statSync(bundle).mtimeMs < fs.statSync(new URL('package.json', pkgDir)).mtimeMs) {
+  console.error(`STALE BUILD: the dev server's pre-bundled rdf-reasoner-konclude is older than the installed ${pkg.version}. Restart vite with --force.`);
+  process.exit(2);
+}
+console.log(`rdf-reasoner-konclude ${pkg.version} (pre-bundle is current)`);
 const runs = parseInt(process.argv[2] ?? '4', 10);
+// Peak resident memory (VmHWM) of every process of this browser, by Chromium process type, via the
+// browser-level CDP SystemInfo.getProcessInfo. Workers run as threads inside the renderer, so the
+// renderer figure includes the rdf and reasoner workers.
+async function peakRssMb(browser) {
+  const cdp = await browser.newBrowserCDPSession();
+  const { processInfo } = await cdp.send('SystemInfo.getProcessInfo');
+  const out = {};
+  for (const { id, type } of processInfo) {
+    try {
+      const hwm = /VmHWM:\s+(\d+) kB/.exec(fs.readFileSync(`/proc/${id}/status`, 'utf8'));
+      if (hwm) out[type] = Math.max(out[type] ?? 0, Math.round(+hwm[1] / 1024));
+    } catch {}
+  }
+  return out;
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 for (let i = 1; i <= runs; i++) {
   const browser = await chromium.launch({ headless: true });
@@ -41,8 +69,9 @@ for (let i = 1; i <= runs; i++) {
   await page.evaluate(() => window.__mcpTools.runReasoning({ clearBefore: true, shaclValidation: false }));
   const wall = Date.now() - t1;
   const stages = await page.evaluate(() => window.__stages);
+  const peakMb = await peakRssMb(browser);
   const done = stages.find((s) => s.stage === 'reasoner-complete');
   const complete = stages.find((s) => s.stage === 'complete');
-  console.log(JSON.stringify({ run: i, idleWaitMs, wallMs: wall, workerTotalMs: complete?.meta?.durationMs, addedCount: complete?.meta?.addedCount, reasonerComplete: done?.meta }));
+  console.log(JSON.stringify({ run: i, idleWaitMs, wallMs: wall, workerTotalMs: complete?.meta?.durationMs, addedCount: complete?.meta?.addedCount, peakRssMb: peakMb, reasonerComplete: done?.meta }));
   await ctx.close(); await browser.close();
 }
