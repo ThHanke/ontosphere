@@ -29,6 +29,10 @@ for (const n of sizes) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   await ctx.addInitScript(() => {
+    // heartbeat: a timer that records when the main thread was blocked for more than 150 ms; unlike
+    // longtask entries (delivered after the task ends) it cannot report "idle" while a giant task runs
+    window.__lastBusy = performance.now(); window.__lastBeat = performance.now();
+    setInterval(() => { const n = performance.now(); if (n - window.__lastBeat > 150) window.__lastBusy = n; window.__lastBeat = n; }, 50);
     window.__lastLongTask = performance.now(); window.__longMs = 0; window.__longMax = 0; window.__longN = 0;
     try { new PerformanceObserver((l) => { window.__lastLongTask = performance.now(); for (const e of l.getEntries()) { window.__longMs += e.duration; window.__longN++; window.__longMax = Math.max(window.__longMax, e.duration); } }).observe({ type: 'longtask', buffered: true }); } catch {}
   });
@@ -41,8 +45,8 @@ for (const n of sizes) {
   const t0 = Date.now();
   await page.evaluate((url) => { window.__longMs = 0; window.__longMax = 0; window.__longN = 0; return window.__mcpTools.loadRdf({ url }); }, new URL(file, base).href);
   const loadMs = Date.now() - t0;
-  await page.waitForFunction(() => performance.now() - window.__lastLongTask > 3000, null, { timeout: 600000, polling: 500 });
-  const settledMs = Date.now() - t0 - 3000;
+  await page.waitForFunction(() => performance.now() - window.__lastBusy > 5000 && performance.now() - window.__lastBeat < 200, null, { timeout: 600000, polling: 500 });
+  const settledMs = Date.now() - t0 - 5000;
   const longMs = await page.evaluate(() => Math.round(window.__longMs));
   const longMaxMs = await page.evaluate(() => Math.round(window.__longMax));
   const longCount = await page.evaluate(() => window.__longN);

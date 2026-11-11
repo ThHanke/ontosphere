@@ -253,6 +253,26 @@ const clusterLevelManager = new ClusterLevelManager(
  * re-creating elements that are already present (possibly inside a group).
  */
 /**
+ * Elements created per chunk when a load arrives; see the subjects handler. Every chunk makes Reactodia
+ * re-render all existing elements, so the size scales with the load (about 8 chunks) instead of staying
+ * small: many small chunks cost far more in total than they save in task length.
+ */
+const MIN_ELEMENT_CREATE_CHUNK = 300;
+const MAX_ELEMENT_CREATE_CHUNK = 3000;
+const TARGET_CREATE_CHUNKS = 8;
+function elementCreateChunkSize(total: number): number {
+  return Math.min(MAX_ELEMENT_CREATE_CHUNK, Math.max(MIN_ELEMENT_CREATE_CHUNK, Math.ceil(total / TARGET_CREATE_CHUNKS)));
+}
+
+/** Resolves after the next rendered frame; falls back to a timer when frames are not produced (hidden tab). */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    const fallback = setTimeout(resolve, 100);
+    requestAnimationFrame(() => { clearTimeout(fallback); resolve(); });
+  });
+}
+
+/**
  * Stamp links the data provider decorated as inferred with the linkState that the diagram snapshot
  * serializes, so the amber decoration survives importLayout.
  */
@@ -820,6 +840,8 @@ export default function ReactodiaCanvas() {
 
   // Subscribe to rdfManager changes — incremental sync to live model
   React.useEffect(() => {
+    // IRIs whose elements a chunked load has queued but not created yet.
+    const elementsBeingCreated = new Set<string>();
     const handler = (emittedSubjects: string[], emittedQuads?: WorkerQuad[], _snapshot?: unknown, meta?: Record<string, unknown> | null) => {
       let subjects = emittedSubjects;
       let quads = emittedQuads;
@@ -930,12 +952,29 @@ export default function ReactodiaCanvas() {
 
       // Defer model mutations out of the React lifecycle to avoid flushSync warnings
       queueMicrotask(async () => {
-        for (const iri of addedFiltered) {
-          const el = model.createElement(iri as Reactodia.ElementIri);
-          const savedPos = pendingPositions.get(iri);
-          if (savedPos) {
-            el.setPosition(savedPos);
-            pendingPositions.delete(iri);
+        // Large loads create elements in chunks: after each chunk its data and links are requested and the
+        // browser gets a frame to render it, so no single task or frame covers every element. Subjects a
+        // running chunked load has not reached yet are skipped here, so a second emission cannot duplicate them.
+        const toCreate = addedFiltered.filter(iri => !elementsBeingCreated.has(iri));
+        for (const iri of toCreate) elementsBeingCreated.add(iri);
+        const chunk = elementCreateChunkSize(toCreate.length);
+        for (let i = 0; i < toCreate.length; i += chunk) {
+          if (modelRef.current !== model) {
+            for (const iri of toCreate.slice(i)) elementsBeingCreated.delete(iri);
+            return;
+          }
+          for (const iri of toCreate.slice(i, i + chunk)) {
+            const el = model.createElement(iri as Reactodia.ElementIri);
+            const savedPos = pendingPositions.get(iri);
+            if (savedPos) {
+              el.setPosition(savedPos);
+              pendingPositions.delete(iri);
+            }
+            elementsBeingCreated.delete(iri);
+          }
+          if (i + chunk < toCreate.length) {
+            await model.requestData();
+            await nextFrame();
           }
         }
 
