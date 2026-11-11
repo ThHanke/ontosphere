@@ -55,7 +55,8 @@ jobs:
   # End-to-end functional specs (reasoning / SHACL / SPARQL / MCP relay).
   # Demo recording specs are excluded by playwright.config.ts (testIgnore).
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is 26.04, which Playwright 1.59 does not support (browser install fails).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
