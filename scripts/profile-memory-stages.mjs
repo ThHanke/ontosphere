@@ -8,7 +8,7 @@ const require = createRequire(new URL('../package.json', import.meta.url));
 const { chromium } = require('playwright');
 const base = process.env.BASE ?? 'http://127.0.0.1:8091/';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, args: ['--enable-precise-memory-info'] });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
 await ctx.addInitScript(() => {
@@ -22,7 +22,14 @@ async function sample(label) {
   const rss = {};
   for (const { id, type } of processInfo) rss[type] = { rssMb: status(id, 'VmRSS'), peakMb: status(id, 'VmHWM') };
   const pageHeapMb = await page.evaluate(() => Math.round((performance.memory?.usedJSHeapSize ?? 0) / 1048576)).catch(() => null);
-  console.log(JSON.stringify({ at: label, pageJsHeapMb: pageHeapMb, rss }));
+  // precise JS heap (browser flag --enable-precise-memory-info): the page and every dedicated worker; what is
+  // left of the renderer RSS after the JS heaps is DOM, WASM linear memory and other native memory
+  const workerHeapsMb = [];
+  for (const w of page.workers()) {
+    try { workerHeapsMb.push(await w.evaluate(() => Math.round((performance.memory?.usedJSHeapSize ?? 0) / 1048576))); } catch { workerHeapsMb.push(null); }
+  }
+  const uam = { workerJsHeapsMb: workerHeapsMb, nonJsMb: rss.renderer?.rssMb != null ? rss.renderer.rssMb - (pageHeapMb ?? 0) - workerHeapsMb.reduce((t, x) => t + (x ?? 0), 0) : null };
+  console.log(JSON.stringify({ at: label, pageJsHeapMb: pageHeapMb, rss, heaps: uam }));
 }
 await page.goto(`${base}?ontologies=`, { waitUntil: 'load', timeout: 60000 });
 try { await page.waitForNavigation({ timeout: 3000, waitUntil: 'load' }); } catch {}

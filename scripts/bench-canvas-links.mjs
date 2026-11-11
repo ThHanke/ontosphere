@@ -39,6 +39,7 @@ for (const n of sizes) {
   await page.goto(`${base}?ontologies=`, { waitUntil: 'load', timeout: 60000 });
   try { await page.waitForNavigation({ timeout: 3000, waitUntil: 'load' }); } catch {}
   await page.waitForFunction(() => window.crossOriginIsolated && !!window.__mcpTools?.loadRdf && (window.__startupComplete?.() ?? true), { timeout: 30000 });
+  if (process.env.EXTRA_CSS) await page.addStyleTag({ content: process.env.EXTRA_CSS });
   await sleep(3000);
   let cdp = null;
   if (process.env.PROFILE) { cdp = await ctx.newCDPSession(page); await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 2000 }); await cdp.send('Profiler.start'); }
@@ -64,12 +65,13 @@ for (const n of sizes) {
     console.log('PROFILE', n, JSON.stringify({ totalMs: Math.round(total / 1000), idleMs: Math.round(inIdle / 1000), createLinksInclusiveMs: Math.round(inCreateLinks / 1000) }));
     for (const [k, v] of Object.entries(agg).sort((a, b) => b[1] - a[1]).slice(0, 8)) console.log('  ', Math.round(v / 1000), 'ms', k);
   }
+  const sizes = await page.evaluate(() => { const w = [], h = []; for (const el of document.querySelectorAll('.reactodia-overlaid-element')) { const b = el.getBoundingClientRect(); w.push(b.width); h.push(b.height); } w.sort((a, b) => a - b); h.sort((a, b) => a - b); return { medianW: Math.round(w[w.length >> 1] ?? 0), medianH: Math.round(h[h.length >> 1] ?? 0) }; });
   const dom = await (await ctx.newCDPSession(page)).send('Memory.getDOMCounters');
   const bcdp = await browser.newBrowserCDPSession();
   const { processInfo } = await bcdp.send('SystemInfo.getProcessInfo');
   let rendererMb = null;
   for (const { id, type } of processInfo) if (type === 'renderer') { try { rendererMb = Math.max(rendererMb ?? 0, Math.round(+/VmRSS:\s+(\d+) kB/.exec(fs.readFileSync(`/proc/${id}/status`, 'utf8'))[1] / 1024)); } catch {} }
-  console.log(JSON.stringify({ individuals: n, linkTriples: n * linksPer, loadRdfMs: loadMs, settledMs, longTaskMs: longMs, longTaskCount: longCount, longestTaskMs: longMaxMs, domNodes: dom.nodes, listeners: dom.jsEventListeners, rendererRssMb: rendererMb }));
+  console.log(JSON.stringify({ individuals: n, linkTriples: n * linksPer, loadRdfMs: loadMs, settledMs, longTaskMs: longMs, longTaskCount: longCount, longestTaskMs: longMaxMs, domNodes: dom.nodes, listeners: dom.jsEventListeners, rendererRssMb: rendererMb, ...sizes, css: process.env.EXTRA_CSS ? process.env.EXTRA_CSS.slice(0, 60) : 'none' }));
   await ctx.close(); await browser.close();
   fs.rmSync(new URL(`../public/${file}`, import.meta.url));
 }
