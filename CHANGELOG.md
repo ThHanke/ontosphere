@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+Reasoning works on the live store without copies, `runReasoning` returns when the reasoner is done, and large loads no longer arrive as one giant task.
+
+### Changed
+
+- **The reasoner reads the real store.** `DlReasoner` passes the shared N3 store to rdf-reasoner-konclude 0.9.3 (pinned) with `excludeGraphs` set once; the `reasoningBase` copy, the inferred-graph write-back and `reskolemizeAll` on the materialize path are gone. Skolem IRIs (`urn:vg:bnode:*`) stay in the store: 0.9.2+ reads them as blank nodes and returns them in the same form. LUBM-1: about 1.4 s less reasoner time; inferences unchanged (71,025). Graph counts for the reasoner-managed graphs are recounted after each reasoner command, because the package clears its inferred graph without going through the counting wrappers.
+- **`runReasoning` returns when the reasoner result is in.** The inferred-subjects emission is posted after the result, and the canvas applies it afterwards (LUBM-1: 126 s to 12 s wall time).
+- **Inferred triples are recognised per quad.** `N3DataProvider.addGraph` marks a triple as inferred from its own graph, so the separate fetch of the inferred graph (`handleApplyInferred`) is removed.
+- **Large loads create canvas elements in chunks** (about 8 per load, 300 to 3,000 elements each), and the inferred refresh runs in chunks too. Longest single task at 8,000 individuals: 14 s to 5 s; LUBM-1 after reasoning: 40 s to 16 s, with a longer total.
+- **Reactodia `createLinks` looks elements up by IRI** instead of scanning the diagram twice per link (patch-package).
+
+### Fixed
+
+- **Benchmark inputs.** `bench-lubm-tbox.owl.xml` (OWL/XML) was read as RDF/XML and yielded no TBox, so browser LUBM-1 timings measured only the canvas. `public/bench-lubm-tbox.nt` (RDF) is the valid TBox; `bench-galen.owl.xml` has the same problem and is not yet fixed.
+- **Stale reasoner bundle in benchmarks.** The dev server pre-bundles rdf-reasoner-konclude and does not re-check it after a version bump; `scripts/bench-reasoner-phases.mjs` now refuses to run on a stale bundle (restart vite with `--force`).
+
 ## [1.8.0] — 2026-11-11
 
 Reasoning moves to rdf-reasoner-konclude 0.9.1: results change (see *Upgrade notes*), and repair suggestions are now computed by the reasoner. Startup is stricter: MCP tools answer only once startup loading has finished.
