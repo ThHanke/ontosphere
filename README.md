@@ -307,7 +307,9 @@ Affected nodes display validation badges directly on the canvas — red for erro
 
 ### What is validated
 
-Validation checks the data graph (`urn:vg:data`: everything loaded or authored as data, TBox and ABox alike) **together with the inferred triples** (`urn:vg:inferred`) of the last reasoning run, so constraints such as `sh:class` see types the reasoner derived (a blank node typed by a subclass of the target class conforms). Loaded ontologies (`urn:vg:ontologies`), shapes and provenance are not validated. A violation is reported only for a focus node that is a subject in the data graph, so ontology classes that appear in the inferred graph through reasoning are not flagged.
+Validation reads one merged triple set straight from the store (nothing is copied): the data graph (`urn:vg:data`: everything loaded or authored as data, TBox and ABox alike), the loaded ontologies (`urn:vg:ontologies`), the **inferred triples** (`urn:vg:inferred`) of the last reasoning run and the shapes (`urn:vg:shapes`). Because the class hierarchy of an imported ontology is part of that set, `sh:targetClass` and `sh:class` follow `rdfs:subClassOf` across graphs (a `Dog` is a target of a shape for `Animal` when the hierarchy comes from an import), and constraints such as `sh:class` see types the reasoner derived (a blank node typed by a subclass of the target class conforms). A violation is reported only for a focus node that is a subject in the data graph, so entities of imported ontologies and classes that appear in the inferred graph through reasoning are not flagged. Provenance, workflow and explanation graphs are not part of the validation input.
+
+Blank nodes are validated as blank nodes (the store keeps them as `urn:vg:bnode:*` IRIs; the engine sees real blank nodes). As in the SHACL spec, `sh:targetClass` also targets them, so a shape that should skip anonymous nodes (for example the label check on `owl:Class`, which would otherwise flag every restriction and union) uses a SPARQL target with `FILTER(isIRI(?this))`, as the bundled ontology-quality shapes do for `owl:Class`.
 
 Consequence for `sh:closed` shapes: inferred triples count as data. A closed shape that does not list an inferred property (for example the inverse of an `owl:inverseOf` property) reports a violation after reasoning, as HermiT with pySHACL would. To validate the data graph alone, run `validateGraph` before reasoning or after `clearInferred`.
 
@@ -343,6 +345,22 @@ After loading, click **▶** (Run Reasoning) in the toolbar. The report will sho
 - **12 warnings** (sh:Warning): employees missing `ex:jobTitle`; all individuals missing `rdfs:comment`
 
 Each finding links to the affected node — click to close the dialog and navigate to it on the canvas. Error and warning badges appear directly on affected nodes.
+
+### PMDco with its community shapes
+
+Open the PMD Core chemical-composition pattern with the PMD Core ontology and the community auto-shapes (270 shapes, pinned to the commit the demo was recorded against):
+
+[Open PMDco + shapes ↗](https://thhanke.github.io/ontosphere/?rdfUrl=https://raw.githubusercontent.com/materialdigital/core-ontology/refs/heads/main/patterns/chemical%20composition/shape-data.ttl&ontology=pmdco&shaclShapes=https://raw.githubusercontent.com/materialdigital/core-ontology/56137eb627a187b5ae60b488e1589d78c322081c/patterns/autoshape/auto-shapes-open.ttl)
+
+```text
+?rdfUrl=<core-ontology>/refs/heads/main/patterns/chemical%20composition/shape-data.ttl
+&ontology=pmdco
+&shaclShapes=<core-ontology>/<commit>/patterns/autoshape/auto-shapes-open.ttl
+```
+
+Run reasoning to see the SHACL findings. With the ontology and the shapes both pinned to their June 2026 commits, the story ends with one violation, `some_silicon` (a semiconductor without a band-gap quality), and the data is consistent; `e2e/user-story-pmdco-chemical-composition.spec.ts` asserts exactly that. The link above pins the shapes only: `ontology=pmdco` loads the current PMD Core release, which changed in October 2026 (auto-shapes 270 → 399, new `pmdco.ttl`), so the findings there can differ. Because `?shaclShapes=` is given, the built-in ontology-quality shapes are not applied.
+
+To open the full PMD Core ontology itself as data (`?rdfUrl=<core-ontology>/refs/heads/main/pmdco-full.ttl`), the built-in ontology-quality shapes apply, since no shapes are named. Expect a long list of `sh:Info` findings (missing `rdfs:comment`, `rdfs:domain`, `rdfs:range` on named classes and properties); only `sh:Violation` marks the data invalid.
 
 Startup / URL parameters
 ------------------------
