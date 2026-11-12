@@ -9,7 +9,7 @@
 
 [![DOI](https://zenodo.org/badge/1049705027.svg)](https://doi.org/10.5281/zenodo.19605270)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-1.5.0-informational)
+![Version](https://img.shields.io/badge/version-1.8.1-informational)
 ![Architecture](https://img.shields.io/badge/100%25-client--side-success)
 [![Built with](https://img.shields.io/badge/React_19-TypeScript_·_WebAssembly-61dafb?logo=react&logoColor=white)](#contributing--development-notes)
 
@@ -131,7 +131,7 @@ Exposes a [Model Context Protocol](https://modelcontextprotocol.io) tool surface
 | Node operations | `addNode` · `removeNode` · `expandNode` · `getNodes` · `getNodeDetails` · `updateNode` · `searchTerms` |
 | Link operations | `addTriple` · `removeLink` · `getLinks` |
 | Layout & navigation | `runLayout` · `clusterNodes` · `layoutNodes` · `focusNode` · `fitCanvas` · `getNeighbors` · `findPath` |
-| Reasoning | `runReasoning` · `clearInferred` · `explainDiagnostics` · `explainEntailment` · `extractModule` |
+| Reasoning | `runReasoning` · `clearInferred` · `explainDiagnostics` · `explainEntailment` |
 | Namespaces | `setNamespace` · `removeNamespace` · `listNamespaces` |
 | SHACL validation | `loadShacl` · `validateGraph` · `loadShaclFromUrl` |
 | Edit provenance / undo | `listAgentEdits` · `diffAgentEdits` · `revertAgentBatch` |
