@@ -10,7 +10,7 @@ applies_when:
   - Calling RdfReasoner (materialize, checkConsistency, explain*, repair, weaken, assessEdit) from the worker
   - Changing how blank nodes are stored (urn:vg:bnode:* skolem IRIs) or how the inferred graph is published
   - Wondering why runReasoning returned long after the reasoner finished
-tags: [rdf-reasoner-konclude, 0.9.3, skolem, excludeGraphs, inferred-graph, graphCounts, message-order, runReasoning, N3DataProvider]
+tags: [rdf-reasoner-konclude, 0.9.3, skolem, blank-node, assessEdit, axiomGrouping, excludeGraphs, inferred-graph, graphCounts, message-order, runReasoning, N3DataProvider]
 ---
 
 # Pass the live N3 store to the reasoner
@@ -21,9 +21,37 @@ Every reasoner call used to build a full copy of the shared store (`reasoningBas
 
 ## Guidance
 
-### The store stays skolemized; the package does the mapping
+### The store holds real blank nodes; skolem IRIs exist only at the boundary (corrected 2026-11-12)
 
-rdf-reasoner-konclude 0.9.2+ treats `urn:vg:bnode:*` (and `/.well-known/genid/*`) IRIs as blank nodes at intern time (`dist/intern.js`: `isSkolemIri`, `skolemIriToBlankLabel`, `blankLabelToSkolemIri`) and returns the original IRIs. Verified equal to the copy path on T2, pizza, PMDco, galen, mini-family, owl2dl fixtures, a `oneOf`/`unionOf` probe, and explain/repair/weaken outputs (`src/workers/__tests__/noCopyReasoner.test.ts`). The reasoner never returns blank nodes; an inference about a blank node comes back as the stored skolem IRI. Pin the package exactly: the mapping is internal, not a documented contract, so the gate tests act as a canary on every bump.
+The first version of this note said the store stays skolemized and the package does the mapping. That is
+true for the kernel path only: rdf-reasoner-konclude 0.9.2+ treats `urn:vg:bnode:*` (and `/.well-known/genid/*`)
+IRIs as blank nodes at intern time (`dist/intern.js`: `isSkolemIri`, `skolemIriToBlankLabel`,
+`blankLabelToSkolemIri`), so classification, materialization and consistency were verified equal to the copy
+path. The package's **TypeScript readers** do not have that mapping. They recognise `termType === "BlankNode"`
+only (`assessEdit.ts:65`, `axiomGrouping.ts:56,143`, `weaken.ts:39`, `laconicJustification.ts:29`). With skolem
+IRIs in the store, measured on 0.9.3:
+
+- `assessEdit` skipped every `owl:AllDisjointClasses` group (PMDco: 21 asserted pairs checked instead of 169; a
+  reviewer measured 29 of 242 on their data).
+- `partitionIntoUnits` split a restriction and an `AllDisjointClasses` list into one-triple "axioms" (12 units
+  instead of 2), so repair, weaken and `explainInconsistencyAxioms` worked on fragments.
+
+So the store now holds real `BlankNode` terms, labelled `fnv1a32(parser label)` (8 hex digits). The UI, the MCP
+tools and SPARQL clients still address a blank node as `urn:vg:bnode:<label>` (canvas ids, navigation, removal
+identity); the mapping is a pure prefix toggle applied only where terms cross the worker boundary:
+
+- `src/utils/blankNodeIds.ts`: `serializeTermForUi` / `deserializeTermFromUi` (worker wire form), `termToId`,
+  `idToTerm`. `labelBlankNodes` in the worker relabels at ingest and is idempotent (a label that already is 8 hex
+  digits is final), which matters because inferred quads about an existing node come back under its stored label.
+- `src/workers/skolemSparqlView.ts`: a SPARQL-facing view of the store (comunica source and update destination).
+  A skolem IRI in a pattern, `DELETE DATA` or `INSERT DATA` addresses the blank node it names; results show the
+  skolem IRI. Blank nodes are never visible to SPARQL clients (`isBlank` counts 0).
+- No reasoner copy is needed, and the export path no longer has to de-skolemize.
+
+Gate: `src/workers/__tests__/blankNodeStore.test.ts` hands the worker's real store to the real library
+(`assessEdit` pairs equal the plain-parse count and exceed 21 on PMDco; a restriction is one axiom) and fails on
+the old skolem-in-store worker. Parser labels (`df_0_0`, `n3-0`, `b0_x`) depend on load order, so ids are as
+stable as before: stable for the same load order, not content-addressed.
 
 `excludeGraphs` is a constructor option (applies to every call on the instance; the reasoner's own inferred, hypothetical and explanation graphs are always excluded). `DlReasoner` passes `NON_AXIOM_GRAPHS` once.
 

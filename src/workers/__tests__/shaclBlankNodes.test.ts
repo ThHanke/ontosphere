@@ -1,7 +1,7 @@
 // @vitest-environment node
 //
-// The store keeps blank nodes skolemized (urn:vg:bnode:*). SHACL must still see them as blank
-// nodes: isIRI() is false, so shapes that opt out (SPARQL target with FILTER(isIRI(?this)), like
+// The store holds real blank nodes (labelled by the worker; the UI id is urn:vg:bnode:<label>, and a
+// label of 8 hex digits is kept as is). SHACL sees them as blank nodes: isIRI() is false, so shapes that opt out (SPARQL target with FILTER(isIRI(?this)), like
 // the owl:Class shapes in ontology-quality) skip them; plain sh:targetClass still targets them.
 // Results on blank nodes come back under the store's IRI form.
 import { describe, it, expect } from 'vitest';
@@ -36,12 +36,12 @@ async function run(shapesTtl: string, dataTtl: string, ontologyTtl?: string) {
   return reply.result as { violations: { focusNode: string | null; sourceShape: string | null }[] };
 }
 
-describe('SHACL sees skolemized nodes as blank nodes', () => {
+describe('SHACL sees blank nodes as blank nodes', () => {
   it('ontology-quality: anonymous owl:Class is skipped, named class still checked', async () => {
     const { violations } = await run(
       readFileSync(resolve(__dirname, '../../../public/shacl-shapes/ontology-quality.shacl.ttl'), 'utf-8'),
       `@prefix owl: <http://www.w3.org/2002/07/owl#> .
-       <urn:vg:bnode:c1> a owl:Class .
+       <urn:vg:bnode:0000c001> a owl:Class .
        <http://example.org/NamedClass> a owl:Class .`,
     );
     const focus = new Set(violations.map((v) => v.focusNode));
@@ -51,17 +51,17 @@ describe('SHACL sees skolemized nodes as blank nodes', () => {
   it('plain sh:targetClass still targets blank nodes', async () => {
     const { violations } = await run(
       readFileSync(resolve(__dirname, '../../../public/shacl-shapes/reasoning-demo.shacl.ttl'), 'utf-8'),
-      `@prefix ex: <http://example.com/reasoning-demo#> . <urn:vg:bnode:i1> a ex:Project .`,
+      `@prefix ex: <http://example.com/reasoning-demo#> . <urn:vg:bnode:0000a001> a ex:Project .`,
     );
-    expect(violations.map((v) => v.focusNode)).toContain('urn:vg:bnode:i1');
+    expect(violations.map((v) => v.focusNode)).toContain('urn:vg:bnode:0000a001');
   });
 
   it('shapes see a real blank node (nodeKind), result keeps the store IRI', async () => {
     const { violations } = await run(`
       @prefix sh: <http://www.w3.org/ns/shacl#> . @prefix owl: <http://www.w3.org/2002/07/owl#> .
       <urn:s:BNodeOnly> a sh:NodeShape ; sh:targetClass owl:Class ; sh:nodeKind sh:IRI .`,
-    `@prefix owl: <http://www.w3.org/2002/07/owl#> . <urn:vg:bnode:c1> a owl:Class . <http://example.org/N> a owl:Class .`);
-    expect(violations.map((v) => v.focusNode)).toEqual(['urn:vg:bnode:c1']);
+    `@prefix owl: <http://www.w3.org/2002/07/owl#> . <urn:vg:bnode:0000c001> a owl:Class . <http://example.org/N> a owl:Class .`);
+    expect(violations.map((v) => v.focusNode)).toEqual(['urn:vg:bnode:0000c001']);
   });
 
   it('triples from the ontology graph are visible; findings only for data nodes', async () => {
@@ -107,7 +107,7 @@ describe('SHACL sees skolemized nodes as blank nodes', () => {
       ex:B a owl:Class ; skos:definition "b" .
       ex:C a owl:Class ; obo:IAO_0000115 "c" .
       ex:D a owl:Class .
-      <urn:vg:bnode:anon> a owl:Class .`);
+      <urn:vg:bnode:deadbeef> a owl:Class .`);
     expect(all.every((v) => (v as any).severity === 'sh:Info')).toBe(true);
     const violations = all.filter((v) => String((v as any).message).includes('definition'));
     expect(violations.map((v) => v.focusNode)).toEqual(['http://example.org/D']);

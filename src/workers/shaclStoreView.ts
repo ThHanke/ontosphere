@@ -1,26 +1,17 @@
 // Read-only RDF/JS DatasetCore over the shared N3 store, for the SHACL engine. Nothing is copied:
-// every match() is a store.match() per visible graph, the results are one triple set (default
-// graph), and urn:vg:bnode:* IRIs are presented as real blank nodes (and mapped back on input).
+// every match() is a store.match() per visible graph and the results are one triple set (default
+// graph). The store holds real blank nodes (skolem urn:vg:bnode:* ids exist only at the worker
+// boundary), so terms pass through unchanged.
 // Shapes, data, imported ontologies and inferred triples being one set is what SHACL expects:
 // the class hierarchy (sh:targetClass, sh:class) is read from the same graph as the data.
 import * as N3 from "n3";
 
 const { DataFactory } = N3;
-const SKOLEM_PREFIX = "urn:vg:bnode:";
 
 /** Graphs SHACL sees: not provenance, workflows or explanations. */
 export const SHACL_VIEW_GRAPHS: readonly string[] = [
   "urn:vg:data", "urn:vg:ontologies", "urn:vg:inferred", "urn:vg:shapes",
 ];
-
-const out = (t: any): any =>
-  t.termType === "NamedNode" && t.value.startsWith(SKOLEM_PREFIX)
-    ? DataFactory.blankNode(t.value.slice(SKOLEM_PREFIX.length)) : t;
-
-/** Store forms of a pattern term: a blank node may be stored as itself or as its skolem IRI. */
-const variants = (t: any): any[] =>
-  !t || t.termType === "Variable" ? [null]
-    : t.termType === "BlankNode" ? [t, DataFactory.namedNode(SKOLEM_PREFIX + t.value)] : [t];
 
 /** Result of match(): a small materialised dataset. */
 class QuadList {
@@ -62,17 +53,18 @@ export class ShaclStoreView {
   match(s?: any, p?: any, o?: any, g?: any): QuadList {
     // a concrete non-default graph is not part of the view's vocabulary
     if (g && g.termType !== "DefaultGraph" && g.termType !== "Variable") return new QuadList([]);
-    const pi = p?.termType === "Variable" ? null : p ?? null;
+    const pi = p && p.termType !== "Variable" ? p : null;
     const seen = new Set<string>();
     const res: any[] = [];
-    const sub = variants(s), obj = variants(o);
-    for (const gr of this.graphs) for (const si of sub) for (const oi of obj) {
+    const si = s && s.termType !== "Variable" ? s : null;
+    const oi = o && o.termType !== "Variable" ? o : null;
+    for (const gr of this.graphs) {
       for (const q of this.store.match(si, pi, oi, gr)) {
         // the same triple in several graphs (data + inferred) counts once, as in a merged graph
         const k = `${q.subject.termType[0]}${q.subject.value}\n${q.predicate.value}\n${q.object.termType[0]}${q.object.value}\n${(q.object as any).datatype?.value ?? ""}\n${(q.object as any).language ?? ""}`;
         if (seen.has(k)) continue;
         seen.add(k);
-        res.push(DataFactory.quad(out(q.subject), q.predicate, out(q.object), DataFactory.defaultGraph()));
+        res.push(DataFactory.quad(q.subject, q.predicate, q.object, DataFactory.defaultGraph()));
       }
     }
     return new QuadList(res);

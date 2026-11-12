@@ -1,6 +1,6 @@
 // @vitest-environment node
-// W3C data-shapes suite (core + sparql, vendored in shacl-engine) against the engine in four
-// set-ups: copied datasets, the N3-store view, the view with skolemized blank nodes, and the view
+// W3C data-shapes suite (core + sparql, vendored in shacl-engine) against the engine in three
+// set-ups: copied datasets, the N3-store view (shapes and data in separate graphs), and the view
 // with the class hierarchy in another graph. All must pass every case, so the view stays
 // spec-neutral. Report: logs/shacl-conformance.log
 import { describe, it, expect } from 'vitest';
@@ -90,10 +90,8 @@ async function engine() {
   return { Validator, factory, dataset, ...sparql };
 }
 
-type Mode = 'copy' | 'view' | 'view-skolem' | 'view-split';
-const MODES: Mode[] = ['copy', 'view', 'view-skolem', 'view-split'];
-
-const skol = (t: any) => (t.termType === 'BlankNode' ? nn('urn:vg:bnode:' + t.value) : t);
+type Mode = 'copy' | 'view' | 'view-split';
+const MODES: Mode[] = ['copy', 'view', 'view-split'];
 
 async function run(c: Case, mode: Mode, e: any): Promise<{ conforms: boolean; tuples: string[] }> {
   const opts = { factory: e.factory, targetResolvers: e.targetResolvers, validations: e.validations };
@@ -107,9 +105,7 @@ async function run(c: Case, mode: Mode, e: any): Promise<{ conforms: boolean; tu
     const add = (qs: N3.Quad[], defaultGraph: string) => {
       for (const q of qs) {
         const toOnt = mode === 'view-split' && defaultGraph === 'urn:vg:data' && q.predicate.value === NS.rdfs + 'subClassOf';
-        const s = mode === 'view-skolem' ? skol(q.subject) : q.subject;
-        const o = mode === 'view-skolem' ? skol(q.object) : q.object;
-        store.addQuad(quad(s as any, q.predicate, o as any, nn(toOnt ? 'urn:vg:ontologies' : defaultGraph)));
+        store.addQuad(quad(q.subject as any, q.predicate, q.object as any, nn(toOnt ? 'urn:vg:ontologies' : defaultGraph)));
       }
     };
     // shapes graph and data graph are different files in some tests: keep them in different graphs
@@ -127,7 +123,7 @@ describe.skipIf(!existsSync(`${SUITE}/manifest.ttl`))('W3C data-shapes suite (co
   it('passes in all modes', async () => {
     const e = await engine();
     const cases = loadCases();
-    const failures: Record<Mode, string[]> = { copy: [], view: [], 'view-skolem': [], 'view-split': [] };
+    const failures: Record<Mode, string[]> = { copy: [], view: [], 'view-split': [] };
     for (const c of cases) {
       for (const mode of MODES) {
         try {
