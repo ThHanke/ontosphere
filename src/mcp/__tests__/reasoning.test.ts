@@ -335,6 +335,18 @@ describe('explainEntailment', () => {
     expect(summary).toContain("'exact'");
   });
 
+  it('does not repeat the advice to use exact when the reasoner already says so', async () => {
+    mockExplainEntailment.mockResolvedValueOnce({
+      isEntailed: true,
+      justifications: [],
+      justificationUnavailable: true,
+      justificationMode: 'fast',
+      reason: 'use justificationMode "exact" for the axioms.',
+    });
+    const result = await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
+    expect(((result as any).data.summary as string).match(/exact/g)).toHaveLength(1);
+  });
+
   it('passes justificationMode to the worker and shows which search produced the answer', async () => {
     mockExplainEntailment.mockResolvedValueOnce({ isEntailed: false, justifications: [] });
     await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ, justificationMode: 'fast' });

@@ -397,7 +397,8 @@ const explainEntailment: McpTool = {
         // so an empty list here means no sound justification could be produced.
         summary =
           `${axiomText} is entailed, but no sound justification could be produced` +
-          `${reason ? ` (${reason})` : ''}. Ask again with justificationMode 'exact' to search for the axioms.`;
+          `${reason ? ` (${reason})` : ''}.` +
+          `${reason?.includes('exact') ? '' : " Ask again with justificationMode 'exact' to search for the axioms."}`;
         return { success: true, data: { isEntailed, justifications, justificationUnavailable: true, ...(usedMode ? { justificationMode: usedMode } : {}), ...(reason ? { reason } : {}), summary } };
       } else {
         const sets = justifications
