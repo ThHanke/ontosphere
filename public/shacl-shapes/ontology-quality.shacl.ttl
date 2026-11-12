@@ -10,6 +10,9 @@
 # ═══════════════════════════════════════════════════════════════════════
 
 # ── owl:Class ─────────────────────────────────────────────────────────
+# Named classes only: blank-node owl:Class are anonymous class expressions (restrictions, unions)
+# and need no label or comment. Use this pattern (SPARQL target with isIRI) in shapes that must
+# skip blank nodes; sh:targetClass alone also targets them.
 
 <urn:shacl:ontology-quality:ClassLabel>
   a sh:NodeShape ;

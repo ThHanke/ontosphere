@@ -1173,8 +1173,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
     const dataGraph = DataFactory.namedNode("urn:vg:data");
     const inferredGraph = DataFactory.namedNode("urn:vg:inferred");
+    // The engine reads data, imported ontologies and inferred triples, so class hierarchies and
+    // types from imports apply to sh:targetClass / sh:class. Findings are then reported only for
+    // nodes that are subjects in the data graph (see dataSubjects below).
+    const ontologiesGraph = DataFactory.namedNode("urn:vg:ontologies");
     const dataQuads = [
       ...(store.getQuads(null, null, null, dataGraph) || []),
+      ...(store.getQuads(null, null, null, ontologiesGraph) || []),
       ...(store.getQuads(null, null, null, inferredGraph) || []),
     ];
 
@@ -1189,8 +1194,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const factory = dataModelMod.default ?? dataModelMod;
     const dataset = datasetMod.default?.dataset ?? datasetMod.dataset;
 
+    // The store keeps blank nodes skolemized (urn:vg:bnode:*). SHACL has to see real blank nodes,
+    // otherwise isIRI(), sh:nodeKind and the like treat them as IRIs. Results are mapped back below.
     function convertTerm(term: any) {
       if (term.termType === "BlankNode") return factory.blankNode(term.value);
+      if (term.termType === "NamedNode" && term.value.startsWith(SKOLEM_PREFIX))
+        return factory.blankNode(term.value.slice(SKOLEM_PREFIX.length));
       if (term.termType === "Literal")
         return factory.literal(term.value, term.language || (term.datatype ? factory.namedNode(term.datatype.value) : undefined));
       return factory.namedNode(term.value);
@@ -1229,12 +1238,16 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       };
     }
 
+    // Back to the store's form: blank nodes become their urn:vg:bnode:* IRI again.
+    const storeValue = (t: any): string | null =>
+      !t ? null : t.termType === "BlankNode" ? `${SKOLEM_PREFIX}${t.value}` : t.value;
+
     // Build reverse map: property shape (blank node) → parent NodeShape IRI
     const SH_PROPERTY = "http://www.w3.org/ns/shacl#property";
     const propShapeToNodeShape = new Map<string, string>();
     for (const q of [...shapesDs] as any[]) {
       if (q.predicate.value === SH_PROPERTY && q.subject.termType === "NamedNode") {
-        propShapeToNodeShape.set(q.object.value, q.subject.value);
+        propShapeToNodeShape.set(storeValue(q.object)!, q.subject.value);
       }
     }
 
@@ -1246,7 +1259,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     }
 
     const violations: ShaclViolation[] = (report.results ?? []).map((r: any) => {
-      let shapeVal = r.shape?.ptr?.term?.value ?? null;
+      let shapeVal = storeValue(r.shape?.ptr?.term);
       if (shapeVal && propShapeToNodeShape.has(shapeVal)) {
         shapeVal = propShapeToNodeShape.get(shapeVal)!;
       }
@@ -1255,7 +1268,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         ? r.message.map((m: any) => m.value).join("; ")
         : (typeof r.message === "string" ? r.message : (r.message?.value ?? null));
       return {
-        focusNode: r.focusNode?.value ?? null,
+        focusNode: storeValue(r.focusNode?.term ?? r.focusNode),
         path: pathVal,
         severity: r.severity?.value?.replace("http://www.w3.org/ns/shacl#", "sh:") ?? null,
         message: msgVal,
