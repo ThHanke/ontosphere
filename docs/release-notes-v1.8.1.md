@@ -7,7 +7,7 @@ A correctness and speed release on top of 1.8.0. **Reasoning in the browser is a
 - **PMDCO reasoning in the browser: 14.9 s → 2.5 s.** 1.8.0 shipped reasoner 0.9.3, which was about eight times slower in the browser than the release before it (1.7.7: 2.4 s). rdf-reasoner-konclude 0.9.4 removes the cause (a C++ exception thrown on every OR branch, 77 µs each in Chromium) and 0.9.5 is the version pinned here. Same inferred triples as 0.9.3 (counted on all five benchmark ontologies).
 - **Correct explanations after a reasoning run.** `explainEntailment` returned an inferred class-hierarchy edge or an unrelated axiom once `runReasoning` had run, and printed "directly asserted" for the empty answers. It now searches for the guaranteed-minimal justification by default and returns HermiT's two justifications on the Fe-Si case.
 - **Repair assessment and axiom-level explanations see blank nodes again.** `assessEdit` checked 21 of 169 asserted disjointness pairs on PMDco; it now checks all of them. Restrictions and lists are one axiom in `repair`, `weaken` and `explainInconsistencyAxioms` instead of one-triple fragments.
-- **SHACL on the spec:** blank nodes are validated as blank nodes, shapes see imported ontologies and the class hierarchy, the default shapes check labels only, and validation reads the store without copying it (LUBM-1: 32 MB held instead of 464 MB).
+- **SHACL on the spec:** blank nodes are validated as blank nodes, shapes see imported ontologies and the class hierarchy, the default shapes check labels only, and validation reads the store without copying it.
 
 ## Upgrade notes
 
@@ -20,7 +20,7 @@ A correctness and speed release on top of 1.8.0. **Reasoning in the browser is a
 ## Features and improvements
 
 ### Reasoning
-- `rdf-reasoner-konclude` 0.9.3 → 0.9.5 (pinned, no caret). 0.9.4: native WebAssembly exceptions, an optimized WASM binary (10.4 MB → 7.05 MB), and `checkConsistency` that stops at the consistency step. 0.9.5: sound `explainEntailment` after a reasoning run, `justificationMode` `"fast"`/`"exact"`, and the reasoner remembers the inferred graph it was given.
+- `rdf-reasoner-konclude` 0.9.3 → 0.9.5 (pinned, no caret). 0.9.4: native WebAssembly exceptions, an optimized WASM binary (11.9 MB → 7.05 MB download), and `checkConsistency` that stops at the consistency step. 0.9.5: sound `explainEntailment` after a reasoning run, `justificationMode` `"fast"`/`"exact"`, and the reasoner remembers the inferred graph it was given.
 - Blank nodes are real blank nodes in the worker store again. The canvas, the MCP tools and SPARQL keep addressing them as `urn:vg:bnode:<label>`; the mapping is applied only where terms cross the worker boundary, and SPARQL patterns, `INSERT DATA` and `DELETE DATA` with such an id address the blank node it names. SPARQL clients never see blank-node terms.
 - `validate()` receives the inferred graph name like every other reasoner call.
 
@@ -47,7 +47,7 @@ A correctness and speed release on top of 1.8.0. **Reasoning in the browser is a
 | GALEN | 3.9–4.0 s | 3.0–3.1 s | 1,386 |
 | LUBM-1 with data | 11.4–11.7 s | 9.7–9.9 s (reasoner 7.1–7.2 s) | 71,025 |
 
-The inferred counts are identical in both columns. Peak renderer memory including the reasoner worker: 0.5–1.0 GB for the first four, 6.7 GB for LUBM-1 (17,174 individuals; the canvas keeps the page busy for about 64 s after the reasoner returns). The release before 1.8.0 (1.7.7, reasoner 0.8.0) took 2.4 s on PMDCO with a different script, but 0.8.0 left some true subsumptions untested (2 on PMDco, 70 on Pizza), which 0.9.0 fixed at a cost in time that 0.9.4 buys back.
+The inferred counts are identical in both columns. On LUBM-1 (17,174 individuals) the canvas keeps the page busy for about 64 s after the reasoner returns. The release before 1.8.0 (1.7.7, reasoner 0.8.0) took 2.4 s on PMDCO with a different script, but 0.8.0 left some true subsumptions untested (2 on PMDco, 70 on Pizza), which 0.9.0 fixed at a cost in time that 0.9.4 buys back.
 
 ## Known limits
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.8.1] — unreleased
+## [1.8.1] — 2026-11-12
 
 SHACL validation now follows the spec on blank nodes and class hierarchies, reads the store without copying it, and the default shapes are smaller and quieter.
 
@@ -19,11 +19,11 @@ SHACL validation now follows the spec on blank nodes and class hierarchies, read
 - **Repair assessment and axiom-level explanations saw no blank nodes.** Since the reasoner stopped receiving a de-skolemized copy of the store (1.8.0 branch, commit 34fd069), `assessEdit` skipped every `owl:AllDisjointClasses` group (PMDco: 21 of 169 asserted disjointness pairs checked) and `repair`, `weaken` and `explainInconsistencyAxioms` split restrictions and RDF lists into one-triple "axioms", because the reasoner library's TypeScript readers only recognise real blank nodes. The worker's store now holds real blank nodes again; `urn:vg:bnode:<label>` is the id the canvas, the MCP tools and SPARQL use and is mapped only at the worker boundary. SPARQL patterns, `INSERT DATA` and `DELETE DATA` with such an id address the blank node it names. No change for users; ids and results keep their form. Details: `docs/solutions/architecture-patterns/reasoner-reads-the-live-store-no-copy-2026-11-11.md`.
 - **`loadRdf` with inline Turtle no longer rewrites your own `@prefix` for a built-in prefix name.** `@prefix ex: <http://my.org/band-gap#> .` used to be deleted and replaced by `http://example.org/`, silently changing every IRI that used the prefix (same for `schema`, `dc`, `dcterms`, `foaf`, `skos`, `rdf`, `rdfs`, `owl`, `xsd`). A well-formed declaration of your own is kept; only a malformed one or an exact copy of the built-in mapping is dropped. Loading from a URL or file was not affected.
 - **Typed literals written through `syncBatch` had no datatype IRI** (`"1"^^undefined` in the store): the worker took a serialized term for an RDF/JS term. Datatype constraints on authored values could misfire.
-- **SHACL validation no longer copies the store.** It reads the N3 store through a read-only view: on LUBM-1 (100,880 quads) 32 MB held after a run instead of 464 MB, and 1.6 s instead of 2.2 s.
+- **SHACL validation no longer copies the store.** It reads the N3 store through a read-only view instead of copying it (on LUBM-1, 100,880 quads: 1.6 s instead of 2.2 s).
 
 ### Dependencies
 
-- `rdf-reasoner-konclude` 0.9.3 → 0.9.5 (pinned, no caret). 0.9.4: PMDCO reasoning in the browser is back to about 2.5 s (it was 14.9 s on 0.9.3 and 2.4 s on the 1.7.7 release): native WebAssembly exceptions, an optimized WASM binary (10.4 MB → 7.05 MB), and `checkConsistency` that stops at the consistency step. Same inferred triples as 0.9.3 (reasoning-demo 53, Pizza 170, PMDco 289, GALEN 1,386, LUBM-1 71,025, counted on 0.9.5; Roberts per the reasoner's release notes). 0.9.4 needs a browser with WebAssembly exception handling (Chrome 95+, Firefox 100+, Safari 15.2+). 0.9.5: sound `explainEntailment` after a reasoning run (`justificationMode` `"fast"`/`"exact"`, `justificationUnavailable`); see *Changes to behaviour*.
+- `rdf-reasoner-konclude` 0.9.3 → 0.9.5 (pinned, no caret). 0.9.4: PMDCO reasoning in the browser is back to about 2.5 s (it was 14.9 s on 0.9.3 and 2.4 s on the 1.7.7 release): native WebAssembly exceptions, an optimized WASM binary (11.9 MB → 7.05 MB download), and `checkConsistency` that stops at the consistency step. Same inferred triples as 0.9.3 (reasoning-demo 53, Pizza 170, PMDco 289, GALEN 1,386, LUBM-1 71,025, counted on 0.9.5; Roberts per the reasoner's release notes). 0.9.4 needs a browser with WebAssembly exception handling (Chrome 95+, Firefox 100+, Safari 15.2+). 0.9.5: sound `explainEntailment` after a reasoning run (`justificationMode` `"fast"`/`"exact"`, `justificationUnavailable`); see *Changes to behaviour*.
 - `shacl-engine` 1.1.0 → 1.1.3. It pulls Comunica 5, which the app already uses, so a second Comunica 4 copy drops out (large `package-lock.json` change). The W3C data-shapes suite (core and sparql, 106 cases) passes against the engine in four set-ups (`src/workers/__tests__/shaclConformance.test.ts`).
 
 ### Documentation and tests
