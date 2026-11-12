@@ -71,5 +71,7 @@ test(
     delete (window as any).__VG_ALLOW_PERSISTED_AUTOLOAD;
     window.history.replaceState({}, "test", base);
   },
-  10000,
+  // 1.6 s locally. The Windows CI runner imports the app slowly (87 s of import time for the whole suite), and this
+  // test boots the worker runtime and renders the canvas before it asserts anything: keep a wide margin.
+  30_000,
 );
