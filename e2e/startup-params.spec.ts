@@ -6,9 +6,16 @@
  * while startup is still loading must see the finished graph. The ontology response is delayed to
  * make "called too early" the normal case.
  */
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import * as N3 from 'n3';
 import { test, expect, type Page } from '@playwright/test';
 import { gotoAndWaitForReady, callTool } from './e2e-helpers.js';
 
+// Size of the default preset: whatever the bundled file holds.
+const PRESET_QUADS = new N3.Parser().parse(
+  readFileSync(resolve(process.cwd(), 'public/shacl-shapes/ontology-quality.shacl.ttl'), 'utf-8'),
+).length;
 const BASE_URL = process.env.VG_URL ?? 'http://localhost:8080';
 const ONTOLOGY_URL = 'https://startup-test.example.org/vocab.ttl';
 const ONTOLOGY_TTL = `@prefix owl: <http://www.w3.org/2002/07/owl#> .
@@ -84,6 +91,6 @@ test.describe('startup from URL parameters', () => {
     test.setTimeout(120_000);
     await gotoAndWaitForReady(page, `${BASE_URL}/`, 'validateGraph');
     await expect.poll(() => startupComplete(page), { timeout: 60_000 }).toBe(true);
-    expect(await graphCount(page, 'urn:vg:shapes')).toBe(67);
+    expect(await graphCount(page, 'urn:vg:shapes')).toBe(PRESET_QUADS);
   });
 });

@@ -1,10 +1,11 @@
 // @vitest-environment node
-// Spike: W3C data-shapes suite (vendored in shacl-engine) run against the engine in several
-// dataset set-ups, to see where the N3-store view differs from plain copied datasets.
-// Report: logs/shacl-conformance.log
+// W3C data-shapes suite (core + sparql, vendored in shacl-engine) against the engine in four
+// set-ups: copied datasets, the N3-store view, the view with skolemized blank nodes, and the view
+// with the class hierarchy in another graph. All must pass every case, so the view stays
+// spec-neutral. Report: logs/shacl-conformance.log
 import { describe, it, expect } from 'vitest';
 import * as N3 from 'n3';
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { ShaclStoreView } from '../shaclStoreView.ts';
@@ -122,8 +123,8 @@ async function run(c: Case, mode: Mode, e: any): Promise<{ conforms: boolean; tu
   return { conforms: report.conforms, tuples: rnode ? tuples(rq, rnode) : [] };
 }
 
-describe('W3C data-shapes suite (core + sparql) against shacl-engine', () => {
-  it('runs all modes', async () => {
+describe.skipIf(!existsSync(`${SUITE}/manifest.ttl`))('W3C data-shapes suite (core + sparql) against shacl-engine', () => {
+  it('passes in all modes', async () => {
     const e = await engine();
     const cases = loadCases();
     const failures: Record<Mode, string[]> = { copy: [], view: [], 'view-skolem': [], 'view-split': [] };
@@ -148,5 +149,6 @@ describe('W3C data-shapes suite (core + sparql) against shacl-engine', () => {
     mkdirSync(resolve(__dirname, '../../../logs'), { recursive: true });
     writeFileSync(resolve(__dirname, '../../../logs/shacl-conformance.log'), lines.join('\n') + '\n');
     expect(cases.length).toBeGreaterThan(100);
+    for (const m of MODES) expect(failures[m], `${m}: ${failures[m].join('\n')}`).toEqual([]);
   }, 600_000);
 });

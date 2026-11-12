@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Spike: SHACL engine over a no-copy view of the N3 store vs. the engine on copied datasets.
+// shacl-engine over ShaclStoreView (no copy of the N3 store) vs. the engine on copied datasets.
 import { describe, it, expect } from 'vitest';
 import * as N3 from 'n3';
 import { readFileSync } from 'node:fs';
@@ -31,7 +31,7 @@ const SUBCLASS = 'http://www.w3.org/2000/01/rdf-schema#subClassOf';
 // zed is typed only as Executive; Executive ⊑ Manager ⊑ Employee is declared in the demo TBox.
 const EXTRA = `@prefix ex: <${EX}> . ex:zed a ex:Executive .`;
 
-describe('spike: shacl-engine over ShaclStoreView (reasoning demo)', () => {
+describe('shacl-engine over ShaclStoreView (reasoning demo)', () => {
   it('view: same results as copied datasets when everything is one graph', async () => {
     const { Validator, targetResolvers, validations, factory } = await engine();
     const dataset = ((await import('@rdfjs/dataset')) as any).default.dataset;

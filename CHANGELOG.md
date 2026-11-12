@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.8.1] — unreleased
+
+SHACL validation now follows the spec on blank nodes and class hierarchies, reads the store without copying it, and the default shapes are smaller and quieter.
+
+### Changes to behaviour
+
+- **The default shapes check labels only.** `ontology-quality.shacl.ttl` now holds the label checks (Warning): `rdfs:label`, `skos:prefLabel` or `dcterms:title`; at most one label per language; no `rdfs:subClassOf` cycles. Comments, domain, range and `skos:inScheme` moved to the opt-in `ontology-documentation.shacl.ttl` (Info; the "Ontology Documentation" preset in Settings → SHACL). *Why:* on PMD Core as data the old defaults gave about 1,600 findings, mostly comments and domain/range, which many ontologies leave out on purpose. Now: 2 warnings on `pmdco-full.ttl`; 431 findings with the documentation preset (a definition may also be `skos:definition` or `obo:IAO_0000115`).
+- **`sh:Info` findings are not warnings.** They are listed in the reasoning report on request (Warnings tab), are not counted as warnings in the top bar or the report summary and draw no canvas badges. `validateGraph` / graph info report them as `infoCount`. Only `sh:Violation` marks the data invalid, as before.
+- **Blank nodes are validated as blank nodes.** The store keeps them as `urn:vg:bnode:*` IRIs; SHACL now sees real blank nodes (`isIRI()`, `sh:nodeKind`). Anonymous classes (restrictions, unions) no longer get label findings: on PMD Core as data that was 570 findings, 285 of them warnings.
+- **Shapes see imported ontologies and the class hierarchy.** SHACL reads the data, the loaded ontologies (`urn:vg:ontologies`), the inferred triples and the shapes as one triple set, so `sh:targetClass` and `sh:class` follow `rdfs:subClassOf` across graphs. Findings are still reported only for subjects of the data graph. *Why:* `shacl-engine` reads the class hierarchy from the shapes dataset, so a hierarchy from an import never reached it (on LUBM-1 a shape for `ub:Student` found none of the 6,463 students).
+- **The "SKOS Quality" preset is gone** (it pointed at a file that never existed). The SKOS label checks are part of the default shapes. The xpSHACL preset is labelled as strict: its file sets no `sh:severity`, so every finding is a Violation, and its per-node SPARQL constraints take about a minute on `pmdco-full`.
+
+### Fixes
+
+- **Typed literals written through `syncBatch` had no datatype IRI** (`"1"^^undefined` in the store): the worker took a serialized term for an RDF/JS term. Datatype constraints on authored values could misfire.
+- **SHACL validation no longer copies the store.** It reads the N3 store through a read-only view: on LUBM-1 (100,880 quads) 32 MB held after a run instead of 464 MB, and 1.6 s instead of 2.2 s.
+
+### Dependencies
+
+- `shacl-engine` 1.1.0 → 1.1.3. It pulls Comunica 5, which the app already uses, so a second Comunica 4 copy drops out (large `package-lock.json` change). The W3C data-shapes suite (core and sparql, 106 cases) passes against the engine in four set-ups (`src/workers/__tests__/shaclConformance.test.ts`).
+
+### Documentation and tests
+
+- README: what SHACL validates, blank nodes, preset table, a PMDco link with its community shapes, and how to write a SPARQL-based check that does not cost one query per node.
+- Browser tests: the shapes precedence (`?shaclShapes=` over the settings URL over the built-in default; named shapes are never mixed with the default) and the default preset size is read from the file instead of hard-coded.
+
 ## [1.8.0] — 2026-11-11
 
 Reasoning moves to rdf-reasoner-konclude 0.9.x (pinned 0.9.3): results change (see *Upgrade notes*), and repair suggestions are now computed by the reasoner. Startup is stricter: MCP tools answer only once startup loading has finished. Large graphs reason and render faster: `runReasoning` returns when the reasoner is done (LUBM-1: 126 s to 12 s), and the canvas finishes loading sooner.
