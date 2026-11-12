@@ -1,5 +1,6 @@
  // Test environment polyfills for jsdom -> provide minimal DOMMatrix/DOMMatrixReadOnly
- // used by @xyflow/react internals when running under jsdom in Vitest.
+ // used by canvas code that computes element transforms when running under jsdom in Vitest
+ // (originally React Flow, which the app no longer uses).
  //
  // This file is loaded by the test runner setup (see vitest config or package.json).
  // It implements a forgiving DOMMatrixReadOnly that accepts CSS transform strings
@@ -52,8 +53,8 @@ try {
   }
 }
 //
-// Keep this file minimal and robust; it's only needed so xyflow/react can compute
-// element transforms during tests that render ReactFlow components.
+// Keep this file minimal and robust; it's only needed so canvas code can compute
+// element transforms during tests that render canvas components.
 class SimpleDOMMatrixReadOnly {
   m11: number;
   m12: number;
@@ -201,7 +202,7 @@ void (async () => {
   }
 })();
 
-// Additional lightweight polyfills to help React/ReactDOM and reactflow internals in jsdom tests.
+// Additional lightweight polyfills to help React/ReactDOM and canvas internals in jsdom tests.
 // Provide window.getSelection, document.activeElement helpers and a minimal global React Flow instance
 // so tests that query window.__VG_RF_INSTANCE or inspect selection/activeElement do not crash.
 {
