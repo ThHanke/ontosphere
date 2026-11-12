@@ -17,7 +17,14 @@ import type {
   WorkerReconcileSubjectSnapshotPayload,
 } from "../utils/rdfManager.workerProtocol.ts";
 import type { ReasoningResult } from "../utils/reasoningTypes.ts";
-import { deserializeQuad, deserializeTerm, serializeQuad } from "../utils/rdfSerialization.ts";
+import {
+  SKOLEM_PREFIX,
+  deserializeQuadFromUi as deserializeQuad,
+  deserializeTermFromUi as deserializeTerm,
+  idToTerm,
+  serializeQuadForUi as serializeQuad,
+  termToId,
+} from "../utils/blankNodeIds.ts";
 import type { WorkerQuad } from "../utils/rdfSerialization.ts";
 import { WELL_KNOWN } from "../utils/wellKnownOntologies.ts";
 import { ensureDefaultNamespaceMap } from "../constants/namespaces.ts";
@@ -30,11 +37,11 @@ import { GenerationCache } from "./generationCache.ts";
 import { RdfReasoner, type AxiomJustification, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta, type Axiom as LibAxiom, type RepairOptions, type RepairResult, type Edit, type AssessEditOptions, type EditAssessment, type WeakenOptions, type WeakenResult } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
+import { skolemView } from "./skolemSparqlView.ts";
 const KONCLUDE_INFERRED_GRAPH_IRI = "urn:vg:inferred";
 
 const INFERRED_GRAPH = KONCLUDE_INFERRED_GRAPH_IRI;
 
-const SKOLEM_PREFIX = "urn:vg:bnode:";
 
 function reskolemize(t: N3.Term): N3.Term {
   return t.termType === "BlankNode" ? N3.DataFactory.namedNode(`${SKOLEM_PREFIX}${t.value}`) : t;
@@ -533,31 +540,34 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     return h.toString(16).padStart(8, "0");
   }
 
-  // Skolemize: replace blank-node subjects/objects with stable urn:vg:bnode:{hash} IRIs.
-  // Hash is derived from the blank node's label (value) only — not its predicate-object
-  // pairs — so the same label always maps to the same IRI regardless of batch size.
-  // This enables building blank-node restrictions via individual addTriple calls:
-  // every call that references "_:b0" produces the same urn:vg:bnode: IRI.
-  // Callers are responsible for using distinct labels for distinct blank nodes.
-  function skolemizeQuads(quads: Quad[], DataFactory: any): Quad[] {
+  // Blank nodes stay real BlankNode terms in the store (the reasoner library's TypeScript readers only
+  // recognise those), but with a deterministic label: fnv1a32 of the parser's label. The UI id of a
+  // blank node is urn:vg:bnode:<label> (see utils/blankNodeIds.ts), applied only when terms cross the
+  // worker boundary.
+  // The hash depends on the label only, so every call that references "_:b0" gets the same label and a
+  // restriction can be built with individual addTriple calls. Callers use distinct labels for distinct
+  // blank nodes. A label that already is 8 hex digits is final (it came back from the UI or from the
+  // reasoner) and is kept, which makes the function idempotent.
+  const FINAL_BLANK_LABEL = /^[0-9a-f]{8}$/;
+  function labelBlankNodes(quads: Quad[], DataFactory: any): Quad[] {
     const hasBnodes = quads.some(
       (q) => q.subject.termType === "BlankNode" || q.object.termType === "BlankNode"
     );
     if (!hasBnodes) return quads;
 
     const cache = new Map<string, string>();
-    const toIri = (id: string): string => {
-      if (!cache.has(id)) cache.set(id, `urn:vg:bnode:${fnv1a32(id)}`);
-      return cache.get(id)!;
+    const toLabel = (id: string): string => {
+      if (FINAL_BLANK_LABEL.test(id)) return id;
+      let label = cache.get(id);
+      if (label === undefined) { label = fnv1a32(id); cache.set(id, label); }
+      return label;
     };
+    const relabel = (t: any) =>
+      t.termType === "BlankNode" && toLabel(t.value) !== t.value ? DataFactory.blankNode(toLabel(t.value)) : t;
 
     return quads.map((q) => {
-      const subj = q.subject.termType === "BlankNode"
-        ? DataFactory.namedNode(toIri(q.subject.value))
-        : q.subject;
-      const obj = q.object.termType === "BlankNode"
-        ? DataFactory.namedNode(toIri((q.object as any).value))
-        : q.object;
+      const subj = relabel(q.subject);
+      const obj = relabel(q.object);
       if (subj === q.subject && obj === q.object) return q;
       return DataFactory.quad(subj, q.predicate, obj, q.graph);
     });
@@ -771,7 +781,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       if (!term) return fallback || "";
       const value = term.value ?? "";
       if (term.termType === "BlankNode") {
-        return `_:${String(value)}`;
+        return `${SKOLEM_PREFIX}${String(value)}`;
       }
       return String(value || "");
     } catch (_) {
@@ -783,10 +793,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
   function collectWorkerQuadsForSubject(subject: string, store: any, DataFactory: any): WorkerQuad[] {
     try {
-      const term =
-        /^_:/i.test(String(subject))
-          ? DataFactory.blankNode(String(subject).replace(/^_:/, ""))
-          : DataFactory.namedNode(String(subject));
+      const term = idToTerm(DataFactory, String(subject));
       const quads = store.getQuads(term, null, null, null) || [];
       const out: WorkerQuad[] = [];
       for (const q of quads) {
@@ -839,7 +846,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     try {
       if (!term) return "";
       if (term.termType === "BlankNode") {
-        return `_:${String(term.value || "")}`;
+        return `${SKOLEM_PREFIX}${String(term.value || "")}`;
       }
       if (term.termType === "Literal") {
         return String(term.value || "");
@@ -1234,7 +1241,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const propShapeToNodeShape = new Map<string, string>();
     for (const q of [...shapesDs] as any[]) {
       if (q.predicate.value === SH_PROPERTY && q.subject.termType === "NamedNode") {
-        propShapeToNodeShape.set(q.object.value, q.subject.value);
+        propShapeToNodeShape.set(termToId(q.object), q.subject.value);
       }
     }
 
@@ -1242,11 +1249,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     // that reasoning materialized into the inferred graph.
     const dataSubjects = new Set<string>();
     for (const q of store.getQuads(null, null, null, dataGraph) || []) {
-      if (q.subject?.value) dataSubjects.add(q.subject.value);
+      if (q.subject?.value) dataSubjects.add(termToId(q.subject));
     }
 
     const violations: ShaclViolation[] = (report.results ?? []).map((r: any) => {
-      let shapeVal = r.shape?.ptr?.term?.value ?? null;
+      let shapeVal = r.shape?.ptr?.term ? termToId(r.shape.ptr.term) : null;
       if (shapeVal && propShapeToNodeShape.has(shapeVal)) {
         shapeVal = propShapeToNodeShape.get(shapeVal)!;
       }
@@ -1255,7 +1262,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         ? r.message.map((m: any) => m.value).join("; ")
         : (typeof r.message === "string" ? r.message : (r.message?.value ?? null));
       return {
-        focusNode: r.focusNode?.value ?? null,
+        focusNode: r.focusNode ? termToId(r.focusNode) : null,
         path: pathVal,
         severity: r.severity?.value?.replace("http://www.w3.org/ns/shacl#", "sh:") ?? null,
         message: msgVal,
@@ -1746,7 +1753,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
           if (payload && Array.isArray(payload.quads)) {
             const rawQuads = (payload.quads as any[]).map((pq) => deserializeQuad(pq, DataFactory));
-            for (const quad of skolemizeQuads(rawQuads, DataFactory)) {
+            for (const quad of labelBlankNodes(rawQuads, DataFactory)) {
               try {
                 store.addQuad(quad);
                 added += 1;
@@ -1849,9 +1856,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               ? payload.graphName
               : "urn:vg:data";
           const graphTerm = createGraphTerm(graphName, DataFactory);
-          const subjTerm = /^_:/i.test(String(iri))
-            ? DataFactory.blankNode(String(iri).replace(/^_:/, ""))
-            : DataFactory.namedNode(String(iri));
+          const subjTerm = idToTerm(DataFactory, String(iri));
           const touchedSubjects = new Set<string>();
           let removedSubjects = 0;
           let removedObjects = 0;
@@ -1872,7 +1877,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           }
 
           try {
-            const objectTerm = DataFactory.namedNode(String(iri));
+            const objectTerm = idToTerm(DataFactory, String(iri));
             const objectQuads = store.getQuads(null, null, objectTerm, graphTerm) || [];
             for (const q of objectQuads) {
               try {
@@ -2044,7 +2049,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           let processed = 0;
           for (let start = 0; start < total; start += IMPORT_CHUNK_SIZE) {
             const slice = parsedBuffer.slice(start, start + IMPORT_CHUNK_SIZE);
-            for (const normalized of skolemizeQuads(slice, DataFactory)) {
+            for (const normalized of labelBlankNodes(slice, DataFactory)) {
               try {
                 const changed = store.addQuad(normalized);
                 // N3 returns true only when the quad was not already present.
@@ -2081,7 +2086,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             const ontGraphTerm = DataFactory.namedNode("urn:vg:ontologies");
             for (const subj of touchedSubjects) {
               try {
-                const subjNode = DataFactory.namedNode(subj);
+                const subjNode = idToTerm(DataFactory, subj);
                 store.addQuad(DataFactory.quad(subjNode, loadedFromNode, ontUrlNode, ontGraphTerm));
               } catch (_) { /* ignore */ }
             }
@@ -2129,7 +2134,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           let batchRemoved = 0;
           for (const iri of batchIris) {
             try {
-              const subjTerm = DataFactory.namedNode(iri);
+              const subjTerm = idToTerm(DataFactory, iri);
               const subjectQuads = store.getQuads(subjTerm, null, null, batchGraphTerm) || [];
               for (const q of subjectQuads) {
                 store.removeQuad(q);
@@ -2178,7 +2183,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
           for (const subj of annotatedSubjects) {
             try {
-              const subjNode = DataFactory.namedNode(subj);
+              const subjNode = idToTerm(DataFactory, subj);
               // Remove this ontology's loadedFrom annotation
               store.removeQuad(DataFactory.quad(subjNode, loadedFromNode, ontUrlNode, ontGraphTerm));
               // Check if any other loadedFrom annotation remains
@@ -2247,7 +2252,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               const rawGraphQuads: Quad[] = store.getQuads(null, null, null, gTerm) || [];
               // Skolemise blank nodes consistently with the single-graph path so output is
               // stable and re-parseable; they are de-skolemised back to bnodes below.
-              for (const q of skolemizeQuads(rawGraphQuads, DataFactory)) {
+              for (const q of labelBlankNodes(rawGraphQuads, DataFactory)) {
                 const k = quadKeyFromTerms(q);
                 if (!seenKeys.has(k)) { seenKeys.add(k); mergedQuads.push(q); }
               }
@@ -2261,7 +2266,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             // Build the set of data-graph subjects for inferred-triple filtering
             const dataSubjects = new Set<string>();
             for (const q of primaryQuads) {
-              if (q.subject.termType === "NamedNode") dataSubjects.add(q.subject.value);
+              if (q.subject.termType === "NamedNode" || q.subject.termType === "BlankNode") dataSubjects.add(q.subject.value);
             }
 
             const rawInferred: Quad[] =
@@ -2269,7 +2274,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                 ? (store.getQuads(null, null, null, inferredTerm) || [])
                 : [];
 
-            const skolemizedInferred = skolemizeQuads(rawInferred, DataFactory);
+            const skolemizedInferred = labelBlankNodes(rawInferred, DataFactory);
             const filteredInferred = skolemizedInferred.filter((q) => {
               // Must be grounded in data (subject is a NamedNode known from the data graph)
               if (q.subject.termType !== "NamedNode") return false;
@@ -2629,7 +2634,8 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
               store.removeQuad(q);
 
-              const subj = DataFactory.namedNode(newS ?? sVal);
+              // a blank-node subject has no IRI to rename: keep the term
+              const subj = newS === null && q.subject?.termType === "BlankNode" ? q.subject : DataFactory.namedNode(newS ?? sVal);
               const pred = DataFactory.namedNode(newP ?? pVal);
               let obj = q.object;
               if (newO !== null) obj = DataFactory.namedNode(newO);
@@ -2794,9 +2800,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const graphTerm = graphName === null ? null : createGraphTerm(graphName, DataFactory);
           const subjectTerm =
             payload && typeof payload === "object" && typeof payload.subject === "string"
-              ? payload.subject.startsWith("_:")
-                ? DataFactory.blankNode(payload.subject.slice(2))
-                : DataFactory.namedNode(String(payload.subject))
+              ? idToTerm(DataFactory, String(payload.subject))
               : null;
           const predicateTerm =
             payload && typeof payload === "object" && typeof payload.predicate === "string"
@@ -2915,7 +2919,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
           if (payload && Array.isArray(payload.adds)) {
             const rawAdds = (payload.adds as any[]).filter(Boolean).map((a) => deserializeQuad(a, DataFactory));
-            for (const quad of skolemizeQuads(rawAdds, DataFactory)) {
+            for (const quad of labelBlankNodes(rawAdds, DataFactory)) {
               try {
                 // BUG C: only count an add when store.addQuad actually changed the
                 // store (it returns false for a no-op re-add of an existing quad),
@@ -2979,7 +2983,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const store = getSharedStore();
           // unionDefaultGraph: true makes plain BGP patterns match quads from all named graphs
           // (urn:vg:data, urn:vg:inferred, etc.) not just the empty default graph.
-          const queryResult = await _cachedQueryEngine.query(sparql, { sources: [store], unionDefaultGraph: true });
+          // The store holds real blank nodes; SPARQL sees them as urn:vg:bnode:<label> (skolemSparqlView).
+          const sparqlView = skolemView(store, resolveN3().DataFactory);
+          const queryResult = await _cachedQueryEngine.query(sparql, { sources: [sparqlView as any], unionDefaultGraph: true });
 
           if (queryResult.resultType === "bindings") {
             const bindingsStream = await queryResult.execute();
@@ -3846,7 +3852,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         rawInferred.push(DataFactory.quad(subjectTerm, predicateTerm, objectTerm, inferredGraphTerm));
       }
 
-      for (const inferredQuad of skolemizeQuads(rawInferred, DataFactory)) {
+      for (const inferredQuad of labelBlankNodes(rawInferred, DataFactory)) {
         const additionKey = quadKeyFromTerms(inferredQuad);
         if (!additionSeen.has(additionKey)) {
           additionSeen.add(additionKey);
