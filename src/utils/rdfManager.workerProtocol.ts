@@ -192,6 +192,13 @@ export type RDFWorkerCommandPayloads = {
     /** Set true only when the object is a literal value (default: IRI object). */
     objectIsLiteral?: boolean;
     maxJustifications?: number;
+    /**
+     * "exact" (default): guaranteed-minimal justifications, can take seconds. "fast": one verified candidate
+     * from the reasoner's cache, or justificationUnavailable.
+     */
+    justificationMode?: "fast" | "exact";
+    /** Wall-clock limit of the exact search in milliseconds (default 60000). */
+    timeoutMs?: number;
   };
   getOntologyStats: undefined;
   syncRemoveBatchSubjectsFromGraph: { subjects: string[]; graphName?: string };
@@ -740,7 +747,7 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
   },
   explainEntailment(payload) {
     assertPlainObject(payload, "explainEntailment payload must be an object");
-    const { subjectIri, predicateIri, objectIri, objectIsLiteral, maxJustifications } =
+    const { subjectIri, predicateIri, objectIri, objectIsLiteral, maxJustifications, justificationMode, timeoutMs } =
       payload as RDFWorkerCommandPayloads["explainEntailment"];
     assertString(subjectIri, "explainEntailment.subjectIri must be a string");
     assertString(predicateIri, "explainEntailment.predicateIri must be a string");
@@ -755,6 +762,12 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
       maxJustifications,
       "explainEntailment.maxJustifications must be a number when provided",
     );
+    invariant(
+      typeof justificationMode === "undefined" || justificationMode === "fast" || justificationMode === "exact",
+      'explainEntailment.justificationMode must be "fast" or "exact" when provided',
+      { justificationMode },
+    );
+    assertOptionalFiniteNumber(timeoutMs, "explainEntailment.timeoutMs must be a number when provided");
   },
   getOntologyStats(payload) {
     invariant(typeof payload === "undefined", "getOntologyStats payload must be undefined");

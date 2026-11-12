@@ -851,12 +851,21 @@ export class RDFManagerImpl {
     subjectIri: string,
     predicateIri: string,
     objectIri: string,
-    opts?: { objectIsLiteral?: boolean; maxJustifications?: number },
+    opts?: {
+      objectIsLiteral?: boolean;
+      maxJustifications?: number;
+      justificationMode?: "fast" | "exact";
+      timeoutMs?: number;
+    },
   ): Promise<{
     isEntailed: boolean | null;
     justifications: { subject: string; predicate: string; object: string }[][];
     ontologyInconsistent?: boolean;
     vacuous?: boolean;
+    /** True when the ontology entails the axiom but no sound justification could be produced. */
+    justificationUnavailable?: boolean;
+    /** The mode the justifications come from ("exact" = guaranteed minimal). */
+    justificationMode?: "fast" | "exact";
     reason?: string;
   }> {
     const response = await this.worker.call("explainEntailment", {
@@ -865,6 +874,8 @@ export class RDFManagerImpl {
       objectIri,
       objectIsLiteral: opts?.objectIsLiteral,
       maxJustifications: opts?.maxJustifications,
+      justificationMode: opts?.justificationMode,
+      timeoutMs: opts?.timeoutMs,
     });
     const safe = (isPlainObject(response) ? response : {}) as Record<string, unknown>;
     // C1: when the ontology is already inconsistent the reduction is invalid and
@@ -879,6 +890,10 @@ export class RDFManagerImpl {
         : [],
       ...(ontologyInconsistent ? { ontologyInconsistent: true } : {}),
       ...(safe.vacuous === true ? { vacuous: true } : {}),
+      ...(safe.justificationUnavailable === true ? { justificationUnavailable: true } : {}),
+      ...(safe.justificationMode === "fast" || safe.justificationMode === "exact"
+        ? { justificationMode: safe.justificationMode }
+        : {}),
       ...(typeof safe.reason === "string" ? { reason: safe.reason } : {}),
     };
   }

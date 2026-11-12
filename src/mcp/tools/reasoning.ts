@@ -311,7 +311,7 @@ const explainEntailment: McpTool = {
     "Input: { subjectIri, predicateIri, objectIri, maxJustifications? }. " +
     "Returns { isEntailed, justifications, summary, ontologyInconsistent?, vacuous?, reason? }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; " +
     "justifications is a list of minimal axiom sets (each { subject, predicate, object }[]) — every axiom in a set is needed to derive the conclusion. " +
-    "An empty justifications list with isEntailed=true means the axiom is directly asserted (nothing to derive) or its shape is unsupported. " +
+    "A directly asserted axiom comes back as its own one-axiom justification. isEntailed=true with justificationUnavailable=true means the axiom is entailed but no sound justification could be produced (see reason): ask again with justificationMode 'exact'. justificationMode in the result says which search produced the justifications ('exact' = guaranteed minimal, 'fast' = one verified candidate, not necessarily minimal). " +
     "isEntailed=false with empty justifications means the axiom is NOT entailed. " +
     "ontologyInconsistent=true (isEntailed=null) means the ontology is ALREADY inconsistent so entailment is vacuous — run explainDiagnostics and fix consistency first; the result is NOT a real entailment. " +
     "vacuous=true (subClassOf only) means the axiom holds ONLY because the subject class is unsatisfiable (empty class ⊑ anything) — not a genuine derivation; fix the unsatisfiable class. " +
@@ -326,16 +326,21 @@ const explainEntailment: McpTool = {
       predicateIri: { type: 'string', description: 'Full IRI or prefixed name: rdfs:subClassOf or rdf:type.' },
       objectIri: { type: 'string', description: 'Full IRI or prefixed name: the axiom object (the superclass, or the class).' },
       maxJustifications: { type: 'number', default: 1, description: 'Maximum number of independent justifications to return.' },
+      justificationMode: { type: 'string', enum: ['exact', 'fast'], default: 'exact', description: "'exact' (default): guaranteed-minimal justifications, can take seconds on a large ontology (limit 60 s, then one verified candidate). 'fast': one verified candidate or justificationUnavailable." },
     },
   },
   async handler(params): Promise<McpResult> {
     try {
-      const { subjectIri: rawSubject, predicateIri: rawPredicate, objectIri: rawObject, maxJustifications = 1 } = (params ?? {}) as {
+      const { subjectIri: rawSubject, predicateIri: rawPredicate, objectIri: rawObject, maxJustifications = 1, justificationMode } = (params ?? {}) as {
         subjectIri?: string;
         predicateIri?: string;
         objectIri?: string;
         maxJustifications?: number;
+        justificationMode?: 'exact' | 'fast';
       };
+      if (justificationMode !== undefined && justificationMode !== 'exact' && justificationMode !== 'fast') {
+        return { success: false, error: "explainEntailment: justificationMode must be 'exact' or 'fast'." };
+      }
       if (!rawSubject || !rawPredicate || !rawObject) {
         return { success: false, error: 'explainEntailment requires subjectIri, predicateIri and objectIri.' };
       }
@@ -351,12 +356,12 @@ const explainEntailment: McpTool = {
       }
 
       // Ensure the reasoner has the current asserted graph (read-only).
-      const { isEntailed, justifications, ontologyInconsistent, vacuous, reason } =
+      const { isEntailed, justifications, ontologyInconsistent, vacuous, reason, justificationUnavailable, justificationMode: usedMode } =
         await rdfManager.explainEntailment(
           subjectIri,
           predicateIri,
           objectIri,
-          { maxJustifications },
+          { maxJustifications, ...(justificationMode ? { justificationMode } : {}) },
         );
 
       const entailmentNamespaces = entriesToRecord(rdfManager.getNamespaces());
@@ -388,7 +393,13 @@ const explainEntailment: McpTool = {
       if (!isEntailed) {
         summary = `${axiomText} is NOT entailed by the current ontology.`;
       } else if (justifications.length === 0) {
-        summary = `${axiomText} holds — it is directly asserted (no derivation needed).`;
+        // The reasoner no longer reports an asserted axiom as an empty list (it is its own justification),
+        // so an empty list here means no sound justification could be produced.
+        summary =
+          `${axiomText} is entailed, but no sound justification could be produced` +
+          `${reason ? ` (${reason})` : ''}.` +
+          `${reason?.includes('exact') ? '' : " Ask again with justificationMode 'exact' to search for the axioms."}`;
+        return { success: true, data: { isEntailed, justifications, justificationUnavailable: true, ...(usedMode ? { justificationMode: usedMode } : {}), ...(reason ? { reason } : {}), summary } };
       } else {
         const sets = justifications
           .map((j, i) => {
@@ -399,7 +410,18 @@ const explainEntailment: McpTool = {
         summary = `${axiomText} is inferred because: ${sets}.`;
       }
 
-      return { success: true, data: { isEntailed, justifications, summary } };
+      const direct = justifications.length === 1 && justifications[0].length === 1 &&
+        justifications[0][0].subject === subjectIri && justifications[0][0].predicate === predicateIri && justifications[0][0].object === objectIri;
+      if (isEntailed && direct) summary = `${axiomText} holds — it is directly asserted (no derivation needed).`;
+      return {
+        success: true,
+        data: {
+          isEntailed, justifications, summary,
+          ...(usedMode ? { justificationMode: usedMode } : {}),
+          ...(justificationUnavailable ? { justificationUnavailable: true } : {}),
+          ...(reason ? { reason } : {}),
+        },
+      };
     } catch (e) {
       return { success: false, error: `explainEntailment: ${(e as Error)?.message ?? String(e)}` };
     }

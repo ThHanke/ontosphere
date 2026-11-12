@@ -115,14 +115,16 @@ export interface ShaclEntry {
   nodeId?: string;
   message: string;
   rule: string;
-  severity: "error" | "warning";
+  severity: "error" | "warning" | "info";
   sourceShape?: string;
   path?: string;
 }
 
 /** Single source of truth for SHACL severity → reasoning severity (was duplicated and inconsistent). */
-export function mapShaclSeverity(severity: string | null | undefined): "error" | "warning" {
-  return severity === "sh:Violation" ? "error" : "warning";
+export function mapShaclSeverity(severity: string | null | undefined): "error" | "warning" | "info" {
+  if (severity === "sh:Violation") return "error";
+  if (severity === "sh:Info") return "info";
+  return "warning";
 }
 
 /**

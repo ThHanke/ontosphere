@@ -1,7 +1,7 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
 title: "Ontosphere"
-version: "1.8.0"
+version: "1.8.1"
 abstract: >
   Ontosphere is a browser-based RDF/ontology knowledge graph editor. It loads RDF
   from local files, remote URLs, or SPARQL/Fuseki endpoints; lets users author
@@ -25,7 +25,7 @@ authors:
 repository-code: "https://github.com/ThHanke/ontosphere"
 url: "https://thhanke.github.io/ontosphere/"
 license: Apache-2.0
-date-released: "2026-11-11"
+date-released: "2026-11-12"
 keywords:
   - rdf
   - ontology

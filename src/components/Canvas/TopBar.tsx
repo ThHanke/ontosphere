@@ -1,4 +1,5 @@
 import React from 'react';
+import { isShaclInfo } from '@/utils/shaclInfo';
 import type { ReasoningResult } from '../../utils/rdfManager';
 import { useAppConfigStore } from '../../stores/appConfigStore';
 import { useShaclResultStore } from '../../stores/shaclResultStore';
@@ -175,7 +176,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               )
             ) : currentReasoning ? (() => {
               const errs = currentReasoning.errors?.length ?? 0;
-              const warns = currentReasoning.warnings?.length ?? 0;
+              const warns = (currentReasoning.warnings ?? []).filter(w => !isShaclInfo(w)).length;
               const consistent = currentReasoning.isConsistent !== false;
               if (!consistent) {
                 return <span>⊗ Inconsistent · {errs > 0 ? `${errs} error${errs !== 1 ? 's' : ''}` : `${warns} warning${warns !== 1 ? 's' : ''}`}</span>;

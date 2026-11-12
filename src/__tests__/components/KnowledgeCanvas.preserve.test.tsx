@@ -16,7 +16,7 @@ const { namedNode } = DataFactory;
  * Rationale:
  * - The original test relied on reading the internal ReactFlow instance state
  *   (window.__VG_RF_INSTANCE.getNodes/getEdges) which is flaky in the test
- *   environment due to reactflow internals and act() timing differences.
+ *   environment due to canvas internals and act() timing differences.
  * - The Canvas is responsible for mapping quads emitted by the RDF manager into
  *   visual nodes/edges, but the authoritative source of truth for data is the
  *   RDF store. Tests that assert preservation across ontology loads are more

@@ -9,7 +9,7 @@
 
 [![DOI](https://zenodo.org/badge/1049705027.svg)](https://doi.org/10.5281/zenodo.19605270)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-![Version](https://img.shields.io/badge/version-1.8.0-informational)
+![Version](https://img.shields.io/badge/version-1.8.1-informational)
 ![Architecture](https://img.shields.io/badge/100%25-client--side-success)
 [![Built with](https://img.shields.io/badge/React_19-TypeScript_·_WebAssembly-61dafb?logo=react&logoColor=white)](#contributing--development-notes)
 
@@ -112,7 +112,7 @@ Everything below runs in the browser tab, against an in-memory RDF store backed 
 
 #### 🧠 Reason
 - **Complete OWL 2 DL inference** in the browser via **Konclude (WebAssembly)**; inferred triples render as amber dashed edges and inferred types/annotations in amber italic, with a full inference report and one-click clearing that never touches asserted data.
-- Automatic **consistency checking** with per-entity clash details in the Errors tab, **justifications** (MIPS), **OWL 2 profile** detection (EL/QL/RL/DL), and **locality-module** scoping for incremental/modular verification.
+- Automatic **consistency checking** with per-entity clash details in the Errors tab, **justifications** (MIPS), and **OWL 2 profile** detection (EL/QL/RL/DL).
 
 #### 🔧 Repair — reasoner-verified
 - When the reasoner finds a contradiction (or SHACL reports a violation), a **Repairs** tab shows reasoner-computed, ranked, verified fixes — the same repairs the `explainDiagnostics` MCP tool hands an agent.
@@ -131,7 +131,7 @@ Exposes a [Model Context Protocol](https://modelcontextprotocol.io) tool surface
 | Node operations | `addNode` · `removeNode` · `expandNode` · `getNodes` · `getNodeDetails` · `updateNode` · `searchTerms` |
 | Link operations | `addTriple` · `removeLink` · `getLinks` |
 | Layout & navigation | `runLayout` · `clusterNodes` · `layoutNodes` · `focusNode` · `fitCanvas` · `getNeighbors` · `findPath` |
-| Reasoning | `runReasoning` · `clearInferred` · `explainDiagnostics` · `explainEntailment` · `extractModule` |
+| Reasoning | `runReasoning` · `clearInferred` · `explainDiagnostics` · `explainEntailment` |
 | Namespaces | `setNamespace` · `removeNamespace` · `listNamespaces` |
 | SHACL validation | `loadShacl` · `validateGraph` · `loadShaclFromUrl` |
 | Edit provenance / undo | `listAgentEdits` · `diffAgentEdits` · `revertAgentBatch` |
@@ -140,6 +140,8 @@ Exposes a [Model Context Protocol](https://modelcontextprotocol.io) tool surface
 **Notes for agents**
 - **Startup:** every tool call is rejected ("still loading…") until startup loading (ontologies, `?rdfUrl=` data, shapes) has finished. In a browser console `window.__startupComplete()` turns `true`; retry after a few seconds.
 - **IRIs:** tools accept full IRIs or prefixed names resolved through the namespace map (`listNamespaces`); an unknown prefix or a bare name is an error. Text in results (briefs, rationales, summaries, error messages) names IRIs as prefixed names, or as full IRIs when no prefix is registered, never as bare local names. Structured fields are full IRIs. `queryGraph` rows use prefixed names.
+- **Blank nodes:** the tools, SPARQL and the canvas address a blank node (a restriction, a list cell, an `owl:AllDisjointClasses` node) as `urn:vg:bnode:<label>`; it works as an ordinary IRI in `queryGraph` patterns, `INSERT DATA` and `DELETE DATA`. SPARQL results never contain blank-node terms. An inline-Turtle `@prefix` of your own, even for `ex:`, `schema:`, `dc:` and the other built-in names, is kept as written.
+- **`explainEntailment`:** the default `justificationMode: "exact"` returns guaranteed-minimal justifications and can take seconds on a large ontology (limit 60 s). If it finds none, the answer falls back to `"fast"` (one verified candidate, not necessarily minimal), and if that has none either, `justificationUnavailable: true` with a `reason`. An empty `justifications` list never means "asserted": a directly asserted axiom is its own one-axiom justification. `justificationMode` in the result names the search that produced it.
 - **`explainDiagnostics`:** `justifications` are the axiom sets from the reasoner's repair search (declarations are not part of them). Deletion repairs have `kind: "delete"`, weakenings `kind: "weaken"`. For an inconsistent ontology `unsatisfiableClasses` is not computed (every class is unsatisfiable there) and `unsatisfiableClassesSkipped: "ontology-inconsistent"` says so. `includeTimings: true` adds `timingsMs` (stage and reasoner-call durations) for diagnosing slow runs.
 
 Video tutorials
@@ -307,7 +309,9 @@ Affected nodes display validation badges directly on the canvas — red for erro
 
 ### What is validated
 
-Validation checks the data graph (`urn:vg:data`: everything loaded or authored as data, TBox and ABox alike) **together with the inferred triples** (`urn:vg:inferred`) of the last reasoning run, so constraints such as `sh:class` see types the reasoner derived (a blank node typed by a subclass of the target class conforms). Loaded ontologies (`urn:vg:ontologies`), shapes and provenance are not validated. A violation is reported only for a focus node that is a subject in the data graph, so ontology classes that appear in the inferred graph through reasoning are not flagged.
+Validation reads one merged triple set straight from the store (nothing is copied): the data graph (`urn:vg:data`: everything loaded or authored as data, TBox and ABox alike), the loaded ontologies (`urn:vg:ontologies`), the **inferred triples** (`urn:vg:inferred`) of the last reasoning run and the shapes (`urn:vg:shapes`). Because the class hierarchy of an imported ontology is part of that set, `sh:targetClass` and `sh:class` follow `rdfs:subClassOf` across graphs (a `Dog` is a target of a shape for `Animal` when the hierarchy comes from an import), and constraints such as `sh:class` see types the reasoner derived (a blank node typed by a subclass of the target class conforms). A violation is reported only for a focus node that is a subject in the data graph, so entities of imported ontologies and classes that appear in the inferred graph through reasoning are not flagged. Provenance, workflow and explanation graphs are not part of the validation input.
+
+Blank nodes are validated as blank nodes (the store holds real blank nodes; results name them by their `urn:vg:bnode:<label>` id). As in the SHACL spec, `sh:targetClass` also targets them, so a shape that should skip anonymous nodes (for example the label check on `owl:Class`, which would otherwise flag every restriction and union) uses a SPARQL target with `FILTER(isIRI(?this))`, as the bundled ontology-quality shapes do for `owl:Class`.
 
 Consequence for `sh:closed` shapes: inferred triples count as data. A closed shape that does not list an inferred property (for example the inverse of an `owl:inverseOf` property) reports a violation after reasoning, as HermiT with pySHACL would. To validate the data graph alone, run `validateGraph` before reasoning or after `clearInferred`.
 
@@ -325,11 +329,16 @@ Shapes are loaded into the `urn:vg:shapes` named graph, which is excluded from O
 
 ### Bundled shape presets
 
-| Preset | Target | Checks |
-|--------|--------|--------|
-| Ontology Quality | `owl:Class`, `owl:ObjectProperty`, `owl:DatatypeProperty` | `rdfs:label`, `rdfs:comment`, `rdfs:domain`, `rdfs:range` |
-| SKOS Quality | `skos:Concept`, `skos:ConceptScheme` | `skos:prefLabel`, `skos:inScheme`, `rdfs:label` |
-| Reasoning Demo | `ex:Project`, `ex:Contractor`, `ex:Employee`, `owl:NamedIndividual` | Missing descriptions, supervisors, job titles |
+| Preset | Target | Checks | Severity |
+|--------|--------|--------|----------|
+| Ontology Quality (default) | named `owl:Class`, `owl:ObjectProperty`, `owl:DatatypeProperty`, `skos:Concept`, `skos:ConceptScheme` | a label (`rdfs:label`, `skos:prefLabel` or `dcterms:title`), at most one label per language, no `rdfs:subClassOf` cycles (one SPARQL target query over the graph) | Warning |
+| Ontology Documentation | the same entities | the default checks plus a definition (`rdfs:comment`, `skos:definition` or `obo:IAO_0000115`), `rdfs:domain`, `rdfs:range`, `skos:inScheme`, language-tagged labels, classes not connected to anything | Info |
+| Reasoning Demo | `ex:Project`, `ex:Contractor`, `ex:Employee`, `owl:NamedIndividual` | Missing descriptions, supervisors, job titles | Violation, Warning |
+| xpSHACL shark_shapes | classes and properties | Guideline checks with SPARQL constraints | every finding is a Violation (the file sets no `sh:severity`); runs one query per node, about a minute on `pmdco-full` |
+
+`sh:Info` findings are listed in the reasoning report on request (**Warnings** tab) and do not count as warnings or draw canvas badges. The documentation checks are opt-in because domain and range are a style choice (many ontologies, BFO-based ones among them, use restrictions instead) and because they produce long lists on large ontologies. Select the preset in Settings → SHACL, or pass both files: `?shaclShapes=<origin>/shacl-shapes/ontology-quality.shacl.ttl,<origin>/shacl-shapes/ontology-documentation.shacl.ttl`.
+
+To report on a computed set of nodes (cycles, orphans) use one `sh:SPARQLTarget` plus a constraint that fails for every selected node (`sh:not [ sh:nodeKind sh:IRI ]`), not a `sh:sparql` constraint: a constraint runs one SPARQL query per focus node (about 50 ms each, a minute for 1,300 classes), a target runs once.
 
 ### SHACL demo
 
@@ -343,6 +352,22 @@ After loading, click **▶** (Run Reasoning) in the toolbar. The report will sho
 - **12 warnings** (sh:Warning): employees missing `ex:jobTitle`; all individuals missing `rdfs:comment`
 
 Each finding links to the affected node — click to close the dialog and navigate to it on the canvas. Error and warning badges appear directly on affected nodes.
+
+### PMDco with its community shapes
+
+Open the PMD Core chemical-composition pattern with the PMD Core ontology and the community auto-shapes (270 shapes, pinned to the commit the demo was recorded against):
+
+[Open PMDco + shapes ↗](https://thhanke.github.io/ontosphere/?rdfUrl=https://raw.githubusercontent.com/materialdigital/core-ontology/refs/heads/main/patterns/chemical%20composition/shape-data.ttl&ontology=pmdco&shaclShapes=https://raw.githubusercontent.com/materialdigital/core-ontology/56137eb627a187b5ae60b488e1589d78c322081c/patterns/autoshape/auto-shapes-open.ttl)
+
+```text
+?rdfUrl=<core-ontology>/refs/heads/main/patterns/chemical%20composition/shape-data.ttl
+&ontology=pmdco
+&shaclShapes=<core-ontology>/<commit>/patterns/autoshape/auto-shapes-open.ttl
+```
+
+Run reasoning to see the SHACL findings. With the ontology and the shapes both pinned to their June 2026 commits, the story ends with one violation, `some_silicon` (a semiconductor without a band-gap quality), and the data is consistent; `e2e/user-story-pmdco-chemical-composition.spec.ts` asserts exactly that. The link above pins the shapes only: `ontology=pmdco` loads the current PMD Core release, which changed in October 2026 (auto-shapes 270 → 399, new `pmdco.ttl`), so the findings there can differ. Because `?shaclShapes=` is given, the built-in ontology-quality shapes are not applied.
+
+To open the full PMD Core ontology itself as data (`?rdfUrl=<core-ontology>/refs/heads/main/pmdco-full.ttl`), the built-in ontology-quality shapes apply, since no shapes are named. The default checks report only the few unlabelled or duplicate-label entities (as warnings); with the Ontology Documentation preset expect a few hundred `sh:Info` findings. Only `sh:Violation` marks the data invalid.
 
 Startup / URL parameters
 ------------------------
@@ -654,7 +679,7 @@ Developer
 
 **Deployment requirement:** Konclude's WASM binary uses `SharedArrayBuffer` (pthreads). The server must send `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: credentialless` headers. Localhost deployments have `SharedArrayBuffer` available without headers. Ontosphere's `server.js` sets these headers automatically.
 
-**Performance:** Konclude (rdf-reasoner-konclude 0.9.3), headless Chromium on 8 cores, canvas idle before the run, 3 runs each (`scripts/bench-reasoner-phases.mjs`; time from the `runReasoning` call to its return, worker = the reasoner's own time): reasoning-demo 1.1 s (worker 1.0 s, 53 inferred), Pizza 1.3–1.4 s (170 inferred), PMDCO 14.8–15.3 s (worker 14.7–15.2 s, 289 inferred), GALEN 3.9–4.0 s (1,386 inferred; `public/bench-galen.nt`), LUBM-1 with data 11.4–11.7 s (worker 8.6–8.8 s: consistency check about 3.4 s, materialization about 4.5 s; 71,025 inferred). Small ontologies are dominated by reasoner start-up (about 1 s). The reasoner is the whole cost for everything except LUBM-1: there, rendering the 17,174 individuals and the inferred triples on the canvas keeps the page busy for about 85–90 s after `runReasoning` has returned, in chunks (single main-thread tasks of 11–13 s at most). Earlier LUBM-1 timings in this README (28.5–85.8 s, 65.6 s) loaded `bench-lubm-tbox.owl.xml`, which is OWL/XML and cannot be read by the RDF/XML parser, so the reasoner saw no TBox and inferred nothing; they measured only the canvas. Earlier GALEN timings used the same kind of file (`bench-galen.owl.xml`) and are superseded. Earlier releases quoted 2.6 s for PMDCO; 0.9.x does not reproduce that and the time is the reasoner's, not the canvas's. See [Konclude WASM reasoning performance](#konclude-wasm-reasoning-performance) for reasoner-only numbers. N3: under 2 seconds for typical ontologies (hundreds to a few thousand triples). Try LUBM-1 in the browser (dev server): `/?ontologies=&rdfUrl=<origin>/bench-lubm-full.ttl` after `cat public/bench-lubm-tbox.nt public/bench-lubm-abox.ttl > public/bench-lubm-full.ttl`.
+**Performance:** Konclude (rdf-reasoner-konclude 0.9.5), headless Chromium on 8 cores, canvas idle before the run, 3 runs each (`scripts/bench-reasoner-phases.mjs`; time from the `runReasoning` call to its return, worker = the reasoner's own time): reasoning-demo 0.85–0.95 s (worker 0.8–0.9 s, 53 inferred), Pizza 1.0–1.1 s (170 inferred), PMDCO 2.5–2.6 s (worker 2.5 s, 289 inferred), GALEN 3.0–3.1 s (1,386 inferred; `public/bench-galen.nt`), LUBM-1 with data 9.7–9.9 s (worker 7.1–7.2 s; 71,025 inferred). Small ontologies are dominated by reasoner start-up (about 1 s). The reasoner is the whole cost for everything except LUBM-1: there, rendering the 17,174 individuals and the inferred triples on the canvas keeps the page busy for about 64 s after `runReasoning` has returned, in chunks. PMDCO took 14.8–15.3 s with reasoner 0.9.0 to 0.9.3 (a C++ exception thrown on every OR branch costs about 25 times more in Chromium than in Node); 0.9.4 removes the cause. Earlier LUBM-1 timings in this README (28.5–85.8 s, 65.6 s) loaded `bench-lubm-tbox.owl.xml`, which is OWL/XML and cannot be read by the RDF/XML parser, so the reasoner saw no TBox and inferred nothing; they measured only the canvas. Earlier GALEN timings used the same kind of file (`bench-galen.owl.xml`) and are superseded. See [Konclude WASM reasoning performance](#konclude-wasm-reasoning-performance) for reasoner-only numbers. N3: under 2 seconds for typical ontologies (hundreds to a few thousand triples). Try LUBM-1 in the browser (dev server): `/?ontologies=&rdfUrl=<origin>/bench-lubm-full.ttl` after `cat public/bench-lubm-tbox.nt public/bench-lubm-abox.ttl > public/bench-lubm-full.ttl`.
 
 ### Other startup mechanisms
 
@@ -988,15 +1013,6 @@ pthreads under Node.js, medians of 3–5 runs, single shared host (see the packa
 Ratio = WASM / native Konclude. ¹ Full role-closure realization; the native figure is Konclude with
 `RealizePrecomputation.RoleInstances=true`, the like-for-like configuration (WASM always computes the
 role closure). The WASM figures exclude the one-off module start (about 0.9 s).
-
-### Module-extraction benchmark
-
-Syntactic-locality star-module extraction for incremental reasoning
-(see [`scripts/bench-reasoning.mjs`](scripts/bench-reasoning.mjs)):
-
-```sh
-node scripts/bench-reasoning.mjs 2>&1 | tee logs/bench-reasoning.log
-```
 
 ### LLM transparency
 

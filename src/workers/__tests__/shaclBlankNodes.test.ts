@@ -1,0 +1,145 @@
+// @vitest-environment node
+//
+// The store holds real blank nodes (labelled by the worker; the UI id is urn:vg:bnode:<label>, and a
+// label of 8 hex digits is kept as is). SHACL sees them as blank nodes: isIRI() is false, so shapes that opt out (SPARQL target with FILTER(isIRI(?this)), like
+// the owl:Class shapes in ontology-quality) skip them; plain sh:targetClass still targets them.
+// Results on blank nodes come back under the store's IRI form.
+import { describe, it, expect } from 'vitest';
+import * as N3 from 'n3';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { createRdfWorkerRuntime } from '../rdfManager.runtime.ts';
+import { serializeQuad } from '../../utils/rdfSerialization.ts';
+
+const { namedNode: nn, quad } = N3.DataFactory;
+const settle = () => new Promise((res) => setTimeout(res, 50));
+
+async function run(shapesTtl: string, dataTtl: string, ontologyTtl?: string) {
+  const messages: any[] = [];
+  const runtime = createRdfWorkerRuntime((m) => messages.push(m));
+  const seed = async (graphName: string, ttl: string) => {
+    const adds = new N3.Parser().parse(ttl).map((q) => serializeQuad(quad(q.subject, q.predicate, q.object, nn(graphName))));
+    runtime.handleEvent({ type: 'command', id: `seed-${graphName}`, command: 'syncBatch', payload: { graphName, adds, removes: [] } });
+    await settle();
+  };
+  await seed('urn:vg:data', dataTtl);
+  if (ontologyTtl) await seed('urn:vg:ontologies', ontologyTtl);
+  await seed('urn:vg:shapes', shapesTtl);
+  runtime.handleEvent({ type: 'command', id: 'v', command: 'runShaclValidation', payload: {} });
+  const deadline = Date.now() + 20_000;
+  let reply: any;
+  while (!(reply = messages.find((m) => m?.type === 'response' && m?.id === 'v'))) {
+    if (Date.now() > deadline) throw new Error('runShaclValidation did not respond');
+    await settle();
+  }
+  runtime.terminate();
+  return reply.result as { violations: { focusNode: string | null; sourceShape: string | null }[] };
+}
+
+describe('SHACL sees blank nodes as blank nodes', () => {
+  it('ontology-quality: anonymous owl:Class is skipped, named class still checked', async () => {
+    const { violations } = await run(
+      readFileSync(resolve(__dirname, '../../../public/shacl-shapes/ontology-quality.shacl.ttl'), 'utf-8'),
+      `@prefix owl: <http://www.w3.org/2002/07/owl#> .
+       <urn:vg:bnode:0000c001> a owl:Class .
+       <http://example.org/NamedClass> a owl:Class .`,
+    );
+    const focus = new Set(violations.map((v) => v.focusNode));
+    expect(focus).toEqual(new Set(['http://example.org/NamedClass']));
+  });
+
+  it('plain sh:targetClass still targets blank nodes', async () => {
+    const { violations } = await run(
+      readFileSync(resolve(__dirname, '../../../public/shacl-shapes/reasoning-demo.shacl.ttl'), 'utf-8'),
+      `@prefix ex: <http://example.com/reasoning-demo#> . <urn:vg:bnode:0000a001> a ex:Project .`,
+    );
+    expect(violations.map((v) => v.focusNode)).toContain('urn:vg:bnode:0000a001');
+  });
+
+  it('shapes see a real blank node (nodeKind), result keeps the store IRI', async () => {
+    const { violations } = await run(`
+      @prefix sh: <http://www.w3.org/ns/shacl#> . @prefix owl: <http://www.w3.org/2002/07/owl#> .
+      <urn:s:BNodeOnly> a sh:NodeShape ; sh:targetClass owl:Class ; sh:nodeKind sh:IRI .`,
+    `@prefix owl: <http://www.w3.org/2002/07/owl#> . <urn:vg:bnode:0000c001> a owl:Class . <http://example.org/N> a owl:Class .`);
+    expect(violations.map((v) => v.focusNode)).toEqual(['urn:vg:bnode:0000c001']);
+  });
+
+  it('triples from the ontology graph are visible; findings only for data nodes', async () => {
+    const shapes = `@prefix sh: <http://www.w3.org/ns/shacl#> . @prefix ex: <http://example.org/> .
+      <urn:s:Thing> a sh:NodeShape ; sh:targetClass ex:Thing ;
+        sh:property [ sh:path ex:name ; sh:minCount 1 ] .
+      <urn:s:Link> a sh:NodeShape ; sh:targetNode ex:x ;
+        sh:property [ sh:path ex:p ; sh:class ex:Animal ] .`;
+    const data = `@prefix ex: <http://example.org/> . ex:x ex:p ex:y . ex:rex a ex:Thing .`;
+    // ex:y is typed only in the ontology graph; ex:ImportedThing lives only there
+    const ont = `@prefix ex: <http://example.org/> . ex:y a ex:Animal . ex:ImportedThing a ex:Thing .`;
+    const without = await run(shapes, data);
+    expect(without.violations.map((v) => v.sourceShape)).toContain('urn:s:Link');
+    const withOnt = await run(shapes, data, ont);
+    expect(withOnt.violations.map((v) => v.sourceShape)).not.toContain('urn:s:Link');
+    expect(withOnt.violations.map((v) => v.focusNode)).toEqual(['http://example.org/rex']);
+  });
+
+  const shapesFile = (f: string) => readFileSync(resolve(__dirname, `../../../public/shacl-shapes/${f}`), 'utf-8');
+  const OWL = '@prefix owl: <http://www.w3.org/2002/07/owl#> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . @prefix skos: <http://www.w3.org/2004/02/skos/core#> . @prefix dcterms: <http://purl.org/dc/terms/> . @prefix obo: <http://purl.obolibrary.org/obo/> . @prefix ex: <http://example.org/> .';
+
+  it('default shapes accept rdfs:label, skos:prefLabel and dcterms:title; only unlabelled entities are flagged', async () => {
+    const { violations } = await run(shapesFile('ontology-quality.shacl.ttl'), `${OWL}
+      ex:A a owl:Class ; rdfs:label "A" .
+      ex:B a owl:Class ; skos:prefLabel "B" .
+      ex:C a owl:Class ; dcterms:title "C" .
+      ex:D a owl:Class .
+      ex:p a owl:ObjectProperty ; skos:prefLabel "p" .
+      ex:q a owl:ObjectProperty .`);
+    expect(new Set(violations.map((v) => v.focusNode))).toEqual(new Set(['http://example.org/D', 'http://example.org/q']));
+    expect(violations.every((v) => (v as any).severity === 'sh:Warning')).toBe(true);
+  });
+
+  it('default shapes ask for nothing but labels (no comment, domain, range)', async () => {
+    const { violations } = await run(shapesFile('ontology-quality.shacl.ttl'), `${OWL}
+      ex:A a owl:Class ; rdfs:label "A" . ex:p a owl:ObjectProperty ; rdfs:label "p" .`);
+    expect(violations).toEqual([]);
+  });
+
+  it('documentation shapes: Info only; a definition may be rdfs:comment, skos:definition or obo:IAO_0000115', async () => {
+    const { violations: all } = await run(shapesFile('ontology-documentation.shacl.ttl'), `${OWL}
+      ex:A a owl:Class ; rdfs:comment "a" .
+      ex:B a owl:Class ; skos:definition "b" .
+      ex:C a owl:Class ; obo:IAO_0000115 "c" .
+      ex:D a owl:Class .
+      <urn:vg:bnode:deadbeef> a owl:Class .`);
+    expect(all.every((v) => (v as any).severity === 'sh:Info')).toBe(true);
+    const violations = all.filter((v) => String((v as any).message).includes('definition'));
+    expect(violations.map((v) => v.focusNode)).toEqual(['http://example.org/D']);
+  });
+
+  it('default shapes: two labels in one language and a subClassOf cycle are warnings; equivalence and chains are not', async () => {
+    const { violations } = await run(shapesFile('ontology-quality.shacl.ttl'), `${OWL}
+      ex:Dup a owl:Class ; rdfs:label "a"@en, "b"@en .
+      ex:OkLang a owl:Class ; rdfs:label "a"@en, "a"@de .
+      ex:C1 a owl:Class ; rdfs:label "c1" ; rdfs:subClassOf ex:C2 .
+      ex:C2 a owl:Class ; rdfs:label "c2" ; rdfs:subClassOf ex:C3 .
+      ex:C3 a owl:Class ; rdfs:label "c3" ; rdfs:subClassOf ex:C1 .
+      ex:E1 a owl:Class ; rdfs:label "e1" ; owl:equivalentClass ex:E2 ; rdfs:subClassOf ex:E2 .
+      ex:E2 a owl:Class ; rdfs:label "e2" ; owl:equivalentClass ex:E1 ; rdfs:subClassOf ex:E1 .
+      ex:Self a owl:Class ; rdfs:label "self" ; rdfs:subClassOf ex:Self .
+      ex:Top a owl:Class ; rdfs:label "top" . ex:Mid a owl:Class ; rdfs:label "mid" ; rdfs:subClassOf ex:Top .
+      ex:S1 a skos:Concept ; skos:prefLabel "x"@en, "y"@en .`);
+    const by = (iri: string) => violations.filter((v) => v.focusNode === `http://example.org/${iri}`).length;
+    expect(by('Dup')).toBe(1);
+    expect(by('OkLang')).toBe(0);
+    expect([by('C1'), by('C2'), by('C3')]).toEqual([1, 1, 1]);
+    expect([by('E1'), by('E2'), by('Self'), by('Top'), by('Mid')]).toEqual([0, 0, 0, 0, 0]);
+    expect(by('S1')).toBe(1);
+  });
+
+  it('documentation shapes: orphan class and untagged labels are info; connected classes are not', async () => {
+    const { violations } = await run(shapesFile('ontology-documentation.shacl.ttl'), `${OWL}
+      ex:Orphan a owl:Class ; rdfs:comment "c" ; rdfs:label "orphan"@en .
+      ex:Top a owl:Class ; rdfs:comment "c" ; rdfs:label "top" .
+      ex:Mid a owl:Class ; rdfs:comment "c" ; rdfs:label "mid"@en ; rdfs:subClassOf ex:Top .
+      ex:p a owl:ObjectProperty ; rdfs:label "p"@en ; rdfs:domain ex:Mid ; rdfs:range ex:Mid .`);
+    const msgs = violations.map((v) => `${v.focusNode?.split('/').pop()}:${(v as any).message?.slice(0, 20)}`).sort();
+    expect(msgs).toEqual(['Orphan:Class is not connect', 'Top:Label should have a '].sort());
+  });
+});

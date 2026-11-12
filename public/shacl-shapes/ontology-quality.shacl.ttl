@@ -2,15 +2,22 @@
 @prefix owl: <http://www.w3.org/2002/07/owl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix obo: <http://purl.obolibrary.org/obo/> .
 
 # ═══════════════════════════════════════════════════════════════════════
-# Ontology quality shapes — best-practice constraints for OWL + SKOS
+# Ontology quality shapes (default): every entity needs a label.
+#
+# These are the checks that apply to nearly every ontology, so they are the built-in default.
+# Documentation checks (comment, domain, range, inScheme) are in ontology-documentation.shacl.ttl.
+#
+# Accepted labels: rdfs:label, skos:prefLabel or dcterms:title (SKOS concepts: skos:prefLabel or
+# rdfs:label). A shape that should skip anonymous nodes (restrictions, unions) uses a SPARQL
+# target with FILTER(isIRI(?this)); sh:targetClass alone also targets blank nodes.
 # ═══════════════════════════════════════════════════════════════════════
 
-# ── owl:Class ─────────────────────────────────────────────────────────
-
+# ── owl:Class (named classes only: blank-node owl:Class are anonymous class expressions) ──
 <urn:shacl:ontology-quality:ClassLabel>
   a sh:NodeShape ;
   sh:target [
@@ -18,99 +25,100 @@
     sh:select "SELECT ?this WHERE { ?this a <http://www.w3.org/2002/07/owl#Class> . FILTER(isIRI(?this)) }" ;
   ] ;
   sh:property [
-    sh:path rdfs:label ;
+    sh:path [ sh:alternativePath ( rdfs:label skos:prefLabel dcterms:title ) ] ;
     sh:minCount 1 ;
     sh:severity sh:Warning ;
-    sh:message "OWL class should have an rdfs:label" ;
-  ] .
-
-<urn:shacl:ontology-quality:ClassComment>
-  a sh:NodeShape ;
-  sh:target [
-    a sh:SPARQLTarget ;
-    sh:select "SELECT ?this WHERE { ?this a <http://www.w3.org/2002/07/owl#Class> . FILTER(isIRI(?this)) }" ;
+    sh:message "OWL class should have a label (rdfs:label, skos:prefLabel or dcterms:title)" ;
   ] ;
   sh:property [
-    sh:path rdfs:comment ;
-    sh:minCount 1 ;
-    sh:severity sh:Info ;
-    sh:message "OWL class should have an rdfs:comment for documentation" ;
+    sh:path rdfs:label ;
+    sh:uniqueLang true ;
+    sh:severity sh:Warning ;
+    sh:message "Two labels in the same language (rdfs:label)" ;
   ] .
 
-# ── owl:ObjectProperty ───────────────────────────────────────────────
+# ── owl:ObjectProperty / owl:DatatypeProperty ────────────────────────
 
 <urn:shacl:ontology-quality:ObjectPropertyLabel>
   a sh:NodeShape ;
   sh:targetClass owl:ObjectProperty ;
   sh:property [
-    sh:path rdfs:label ;
+    sh:path [ sh:alternativePath ( rdfs:label skos:prefLabel dcterms:title ) ] ;
     sh:minCount 1 ;
     sh:severity sh:Warning ;
-    sh:message "Object property should have an rdfs:label" ;
-  ] .
-
-<urn:shacl:ontology-quality:ObjectPropertyDomain>
-  a sh:NodeShape ;
-  sh:targetClass owl:ObjectProperty ;
+    sh:message "Object property should have a label (rdfs:label, skos:prefLabel or dcterms:title)" ;
+  ] ;
   sh:property [
-    sh:path rdfs:domain ;
-    sh:minCount 1 ;
-    sh:severity sh:Info ;
-    sh:message "Object property should declare rdfs:domain" ;
+    sh:path rdfs:label ;
+    sh:uniqueLang true ;
+    sh:severity sh:Warning ;
+    sh:message "Two labels in the same language (rdfs:label)" ;
   ] .
-
-<urn:shacl:ontology-quality:ObjectPropertyRange>
-  a sh:NodeShape ;
-  sh:targetClass owl:ObjectProperty ;
-  sh:property [
-    sh:path rdfs:range ;
-    sh:minCount 1 ;
-    sh:severity sh:Info ;
-    sh:message "Object property should declare rdfs:range" ;
-  ] .
-
-# ── owl:DatatypeProperty ─────────────────────────────────────────────
 
 <urn:shacl:ontology-quality:DatatypePropertyLabel>
   a sh:NodeShape ;
   sh:targetClass owl:DatatypeProperty ;
   sh:property [
-    sh:path rdfs:label ;
+    sh:path [ sh:alternativePath ( rdfs:label skos:prefLabel dcterms:title ) ] ;
     sh:minCount 1 ;
     sh:severity sh:Warning ;
-    sh:message "Datatype property should have an rdfs:label" ;
+    sh:message "Datatype property should have a label (rdfs:label, skos:prefLabel or dcterms:title)" ;
+  ] ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:uniqueLang true ;
+    sh:severity sh:Warning ;
+    sh:message "Two labels in the same language (rdfs:label)" ;
   ] .
 
-# ── skos:Concept ─────────────────────────────────────────────────────
+# ── SKOS ─────────────────────────────────────────────────────────────
 
 <urn:shacl:ontology-quality:ConceptPrefLabel>
   a sh:NodeShape ;
   sh:targetClass skos:Concept ;
   sh:property [
-    sh:path skos:prefLabel ;
+    sh:path [ sh:alternativePath ( skos:prefLabel rdfs:label ) ] ;
     sh:minCount 1 ;
     sh:severity sh:Warning ;
-    sh:message "SKOS concept must have a skos:prefLabel" ;
-  ] .
-
-<urn:shacl:ontology-quality:ConceptInScheme>
-  a sh:NodeShape ;
-  sh:targetClass skos:Concept ;
+    sh:message "SKOS concept should have a label (skos:prefLabel preferred)" ;
+  ] ;
   sh:property [
-    sh:path skos:inScheme ;
-    sh:minCount 1 ;
-    sh:severity sh:Info ;
-    sh:message "SKOS concept should be in a concept scheme (skos:inScheme)" ;
+    sh:path skos:prefLabel ;
+    sh:uniqueLang true ;
+    sh:severity sh:Warning ;
+    sh:message "Two skos:prefLabel in the same language (SKOS allows one per language)" ;
   ] .
-
-# ── skos:ConceptScheme ───────────────────────────────────────────────
 
 <urn:shacl:ontology-quality:ConceptSchemeLabel>
   a sh:NodeShape ;
   sh:targetClass skos:ConceptScheme ;
   sh:property [
-    sh:path rdfs:label ;
+    sh:path [ sh:alternativePath ( rdfs:label skos:prefLabel dcterms:title ) ] ;
     sh:minCount 1 ;
     sh:severity sh:Warning ;
-    sh:message "SKOS concept scheme should have an rdfs:label" ;
+    sh:message "SKOS concept scheme should have a label (rdfs:label, skos:prefLabel or dcterms:title)" ;
   ] .
+
+# ── Class hierarchy ──────────────────────────────────────────────────
+# A subClassOf cycle makes the classes equivalent; say so with owl:equivalentClass instead.
+# Reflexive triples and pairs already linked by owl:equivalentClass (also inferred ones) are fine.
+# One SPARQL target selects the classes on a cycle (a single query over the graph; a sh:sparql
+# constraint would run one query per class, about 50 ms each); every selected node is reported
+# by the constraint that cannot hold for an IRI.
+
+<urn:shacl:ontology-quality:ClassCycle>
+  a sh:NodeShape ;
+  sh:target [
+    a sh:SPARQLTarget ;
+    sh:select """
+      SELECT DISTINCT ?this WHERE {
+        ?this <http://www.w3.org/2000/01/rdf-schema#subClassOf>+ ?other .
+        ?other <http://www.w3.org/2000/01/rdf-schema#subClassOf>+ ?this .
+        FILTER(isIRI(?this) && ?other != ?this)
+        FILTER NOT EXISTS { ?this <http://www.w3.org/2002/07/owl#equivalentClass> ?other }
+        FILTER NOT EXISTS { ?other <http://www.w3.org/2002/07/owl#equivalentClass> ?this }
+      }""" ;
+  ] ;
+  sh:severity sh:Warning ;
+  sh:message "Class is part of an rdfs:subClassOf cycle (use owl:equivalentClass for equivalent classes)" ;
+  sh:not [ sh:nodeKind sh:IRI ] .

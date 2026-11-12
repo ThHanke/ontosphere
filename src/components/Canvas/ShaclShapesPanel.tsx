@@ -260,7 +260,7 @@ export function ShaclShapesPanel() {
           {shapeCount} shape{shapeCount !== 1 ? 's' : ''} loaded
           {hasResults && (
             <span className="ml-1">
-              · {shaclErrors.length} error{shaclErrors.length !== 1 ? 's' : ''}, {shaclWarnings.length} warning{shaclWarnings.length !== 1 ? 's' : ''}
+              · {shaclErrors.length} error{shaclErrors.length !== 1 ? 's' : ''}, {shaclWarnings.filter(w => w.severity !== 'info').length} warning{shaclWarnings.filter(w => w.severity !== 'info').length !== 1 ? 's' : ''}, {shaclWarnings.filter(w => w.severity === 'info').length} info
             </span>
           )}
         </span>

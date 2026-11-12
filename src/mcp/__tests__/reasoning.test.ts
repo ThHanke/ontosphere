@@ -305,17 +305,58 @@ describe('explainEntailment', () => {
     expect((result as any).data.summary).toContain('NOT entailed');
   });
 
-  it('returns directly asserted when entailed with no justifications', async () => {
+  it('an asserted axiom comes back as its own justification and is called directly asserted', async () => {
+    mockExplainEntailment.mockResolvedValueOnce({
+      isEntailed: true,
+      justifications: [[{ subject: SUB, predicate: PRED, object: OBJ }]],
+      justificationMode: 'exact',
+    });
+    const result = await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
+    expect(result).toMatchObject({ success: true, data: { isEntailed: true, justificationMode: 'exact' } });
+    expect((result as any).data.summary).toContain('directly asserted');
+  });
+
+  it('an empty justification list is never reported as asserted: it is justificationUnavailable', async () => {
     mockExplainEntailment.mockResolvedValueOnce({
       isEntailed: true,
       justifications: [],
+      justificationUnavailable: true,
+      justificationMode: 'fast',
+      reason: 'No justification was found within 60 s.',
     });
     const result = await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
     expect(result).toMatchObject({
       success: true,
-      data: { isEntailed: true, justifications: [] },
+      data: { isEntailed: true, justifications: [], justificationUnavailable: true, justificationMode: 'fast' },
     });
-    expect((result as any).data.summary).toContain('directly asserted');
+    const summary = (result as any).data.summary as string;
+    expect(summary).not.toContain('directly asserted');
+    expect(summary).toContain('no sound justification');
+    expect(summary).toContain("'exact'");
+  });
+
+  it('does not repeat the advice to use exact when the reasoner already says so', async () => {
+    mockExplainEntailment.mockResolvedValueOnce({
+      isEntailed: true,
+      justifications: [],
+      justificationUnavailable: true,
+      justificationMode: 'fast',
+      reason: 'use justificationMode "exact" for the axioms.',
+    });
+    const result = await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
+    expect(((result as any).data.summary as string).match(/exact/g)).toHaveLength(1);
+  });
+
+  it('passes justificationMode to the worker and shows which search produced the answer', async () => {
+    mockExplainEntailment.mockResolvedValueOnce({ isEntailed: false, justifications: [] });
+    await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ, justificationMode: 'fast' });
+    expect(mockExplainEntailment).toHaveBeenCalledWith(SUB, PRED, OBJ, expect.objectContaining({ justificationMode: 'fast' }));
+  });
+
+  it('rejects an unknown justificationMode before reaching the reasoner', async () => {
+    const result = await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ, justificationMode: 'causal' });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining('justificationMode') });
+    expect(mockExplainEntailment).not.toHaveBeenCalled();
   });
 
   it('formats justification axioms in the summary', async () => {

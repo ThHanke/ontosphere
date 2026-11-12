@@ -122,13 +122,23 @@ function validateTurtleSnippet(turtle: string): string | null {
 
 /**
  * Fix common qwen3 Turtle mistakes before parsing:
- * 1. Remove @prefix lines for pre-loaded prefixes (often malformed: `< http://...>`)
+ * 1. Remove malformed @prefix lines for pre-loaded prefixes (`< http://...>` is repaired by 2, a missing <iri> is dropped);
+ *    well-formed user declarations are kept, even when they rebind a built-in prefix name
  * 2. Collapse whitespace inside angle brackets: `< http://... >` → `<http://...>`
  */
 function sanitizeTurtle(turtle: string): string {
   const preloaded = new Set(Object.keys(BUILTIN_PREFIXES).map(k => k.replace(/:$/, '')));
-  const lines = turtle.split('\n').filter(line => {
-    const m = line.match(/^\s*@prefix\s+(\w*)\s*:/i);
+  // Per declaration (several may share a line): a well-formed one is the user's choice and is kept, even
+  // when it rebinds a built-in prefix name (e.g. `ex:` for their own namespace). Only an exact copy of
+  // the built-in mapping is dropped, because the built-in is injected anyway.
+  const withoutDuplicates = turtle.replace(
+    /@prefix\s+(\w*)\s*:\s*<\s*([^>]*?)\s*>\s*\./gi,
+    (decl, name: string, iri: string) =>
+      preloaded.has(name) && BUILTIN_PREFIXES[`${name}:`] === iri ? '' : decl,
+  );
+  // A declaration of a built-in prefix without any <iri> is malformed: drop the line, the built-in is injected.
+  const lines = withoutDuplicates.split('\n').filter(line => {
+    const m = line.match(/^\s*@prefix\s+(\w*)\s*:\s*(?![\s<])/i);
     return !(m && preloaded.has(m[1]));
   });
   return lines.join('\n').replace(/<\s+(https?:\/\/[^>]*?)\s*>/g, '<$1>');
@@ -146,12 +156,12 @@ function injectTurtlePrefixes(turtle: string): string {
 
 const loadRdf: McpTool = {
   name: 'loadRdf',
-  description: 'Load RDF data into the graph from a URL or inline Turtle text. Common prefixes (owl:, rdf:, rdfs:, ex:, xsd:) are auto-injected — you do not need to include @prefix declarations.',
+  description: 'Load RDF data into the graph from a URL or inline Turtle text. Common prefixes (owl:, rdf:, rdfs:, ex:, xsd:) are auto-injected when you do not declare them — you do not need to include @prefix declarations. A well-formed @prefix of your own, even for one of these names (e.g. ex:), is kept and wins.',
   inputSchema: {
     type: 'object',
     properties: {
       url: { type: 'string', description: 'URL of an RDF document to fetch and load.' },
-      turtle: { type: 'string', description: 'Inline Turtle text to load. @prefix declarations are optional — owl:, rdf:, rdfs:, ex:, xsd: are available automatically.' },
+      turtle: { type: 'string', description: 'Inline Turtle text to load. @prefix declarations are optional — owl:, rdf:, rdfs:, ex:, xsd: are available automatically unless you declare them yourself; your own well-formed @prefix declaration (even for ex:) is kept.' },
     },
     oneOf: [{ required: ['url'] }, { required: ['turtle'] }],
   },
@@ -645,12 +655,14 @@ const getGraphState: McpTool = {
       if (graphSet.has('urn:vg:shapes')) {
         const shaclState = useShaclResultStore.getState();
         const shaclErrorCount = shaclState.errors.length;
-        const shaclWarningCount = shaclState.warnings.length;
+        const shaclInfoCount = shaclState.warnings.filter(w => w.severity === 'info').length;
+        const shaclWarningCount = shaclState.warnings.length - shaclInfoCount;
         result.shacl = {
           shapesLoaded: shaclState.shaclShapesLoaded,
-          conforms: shaclErrorCount === 0 && shaclWarningCount === 0,
+          conforms: shaclErrorCount === 0 && shaclWarningCount === 0 && shaclInfoCount === 0,
           errorCount: shaclErrorCount,
           warningCount: shaclWarningCount,
+          infoCount: shaclInfoCount,
         };
       }
 

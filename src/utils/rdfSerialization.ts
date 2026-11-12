@@ -46,8 +46,13 @@ type DataFactoryLike = Pick<
   "namedNode" | "blankNode" | "literal" | "defaultGraph" | "quad"
 >;
 
+/**
+ * A real RDF/JS term, not a wire-format object: a serialized term has the same `termType` and
+ * `value` fields but its datatype is an IRI string, so it must go through the switch below
+ * (returning it as is left typed literals with no datatype IRI: "1"^^undefined in the store).
+ */
 function isRdfTerm(term: unknown): term is Term {
-  return Boolean(term && typeof (term as any).termType === "string");
+  return Boolean(term && typeof (term as any).termType === "string" && typeof (term as any).equals === "function");
 }
 
 export function isWorkerTerm(term: unknown): term is WorkerTerm {

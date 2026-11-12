@@ -4,8 +4,6 @@
  */
 
 import { LiteralProperty, AnnotationPropertyValue, EntityType, RDFType } from './ontology';
-// @ts-expect-error -- @xyflow/react not installed; types kept for future use
-import type { Node as RFNodeType, Edge as RFEdgeType } from '@xyflow/react';
 
 /**
  * Represents a node in the diagram payload used across the app.
@@ -232,14 +230,6 @@ export interface CanvasActions {
   /** Mark the current view's canvas as ready (layout/clustering complete). */
   setCanvasReady: (ready: boolean) => void;
 }
-
-/**
- * React Flow derived node/edge aliases carrying our domain payloads.
- * Use AppNode/AppEdge across the codebase to ensure the runtime shape matches
- * React Flow's Node/Edge types while preserving our NodeData/LinkData payloads.
- */
-export type AppNode = RFNodeType<NodeData>;
-export type AppEdge = RFEdgeType<LinkData>;
 
 /**
  * Diagram configuration options

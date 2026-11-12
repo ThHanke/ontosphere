@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import * as N3 from "n3";
-import { mipsToReasoningError, shaclViolationToEntry } from "../reasoningDiagnostics";
+import { mipsToReasoningError, shaclViolationToEntry, mapShaclSeverity } from "../reasoningDiagnostics";
 
 const { namedNode, quad } = N3.DataFactory;
 
@@ -120,7 +120,7 @@ describe("shaclViolationToEntry", () => {
   it("names the SHACL focus node, path, shape and constraint as prefixed names or full IRIs", () => {
     const entry = shaclViolationToEntry({
       focusNode: "http://example.com/demo#Employee", path: "http://www.w3.org/2000/01/rdf-schema#comment",
-      sourceShape: "urn:shacl:ontology-quality:ClassComment", severity: "sh:Info",
+      sourceShape: "urn:shacl:ontology-documentation:ClassComment", severity: "sh:Info",
       constraint: "http://www.w3.org/ns/shacl#MinCountConstraintComponent",
     }, { inc: "http://example.com/demo#" });
     expect(entry.message).toContain("path: rdfs:comment");
@@ -128,5 +128,12 @@ describe("shaclViolationToEntry", () => {
     expect(entry.message).not.toMatch(/path: comment/);
     expect(entry.rule).toBe("shacl:MinCountConstraintComponent"); // the rule id stays an identifier
     expect(entry.nodeId).toBe("http://example.com/demo#Employee");
+  });
+
+  it("maps SHACL severities: Violation to error, Warning to warning, Info to info", () => {
+    expect(mapShaclSeverity("sh:Violation")).toBe("error");
+    expect(mapShaclSeverity("sh:Warning")).toBe("warning");
+    expect(mapShaclSeverity("sh:Info")).toBe("info");
+    expect(mapShaclSeverity(null)).toBe("warning");
   });
 });
