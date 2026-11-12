@@ -31,6 +31,7 @@ it.skipIf(!LABEL || !STACK)('pmdco as data + auto-shapes', async () => {
   const nData = await seed('urn:vg:data', process.env.DATA_FILE ?? 'pmdco.ttl');
   if (existsSync(`${STACK}/shape-data.ttl`) && process.env.WITH_DATA) await seed('urn:vg:data', 'shape-data.ttl');
   let nShapes = process.env.NO_AUTO ? 0 : await seed('urn:vg:shapes', 'auto-shapes-open.ttl');
+  if (process.env.EXTRA_SHAPES) nShapes += await seedFile('urn:vg:shapes', process.env.EXTRA_SHAPES);
   if (process.env.WITH_QUALITY) nShapes += await seedFile('urn:vg:shapes', resolve(__dirname, '../../../public/shacl-shapes/ontology-quality.shacl.ttl'));
 
   const t0 = performance.now();
@@ -49,6 +50,7 @@ it.skipIf(!LABEL || !STACK)('pmdco as data + auto-shapes', async () => {
     bySeverity: by((x) => String(x.severity)),
     byConstraint: by((x) => String(x.constraint).split('#').pop()!),
     topShapes: by((x) => String(x.sourceShape)).slice(0, 10),
+    byMessage: by((x) => String(x.message).slice(0, 70)).slice(0, 25),
     uniqueFocus: new Set(v.map((x) => x.focusNode)).size,
     blankFocus: v.filter((x) => String(x.focusNode).startsWith('urn:vg:bnode:')).length,
   };
