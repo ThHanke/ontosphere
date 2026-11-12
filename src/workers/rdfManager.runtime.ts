@@ -128,7 +128,7 @@ class DlReasoner {
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
-    const result = (await this._reasoner.validate(store)) as ValidationResult;
+    const result = (await this._reasoner.validate(store, { inferredGraph: INFERRED_GRAPH })) as ValidationResult;
     return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
   }
 
