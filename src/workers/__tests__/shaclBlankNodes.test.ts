@@ -102,14 +102,44 @@ describe('SHACL sees skolemized nodes as blank nodes', () => {
   });
 
   it('documentation shapes: Info only; a definition may be rdfs:comment, skos:definition or obo:IAO_0000115', async () => {
-    const { violations } = await run(shapesFile('ontology-documentation.shacl.ttl'), `${OWL}
+    const { violations: all } = await run(shapesFile('ontology-documentation.shacl.ttl'), `${OWL}
       ex:A a owl:Class ; rdfs:comment "a" .
       ex:B a owl:Class ; skos:definition "b" .
       ex:C a owl:Class ; obo:IAO_0000115 "c" .
       ex:D a owl:Class .
       <urn:vg:bnode:anon> a owl:Class .`);
+    expect(all.every((v) => (v as any).severity === 'sh:Info')).toBe(true);
+    const violations = all.filter((v) => String((v as any).message).includes('definition'));
     expect(violations.map((v) => v.focusNode)).toEqual(['http://example.org/D']);
-    expect(violations.every((v) => (v as any).severity === 'sh:Info')).toBe(true);
+  });
+
+  it('default shapes: two labels in one language and a subClassOf cycle are warnings; equivalence and chains are not', async () => {
+    const { violations } = await run(shapesFile('ontology-quality.shacl.ttl'), `${OWL}
+      ex:Dup a owl:Class ; rdfs:label "a"@en, "b"@en .
+      ex:OkLang a owl:Class ; rdfs:label "a"@en, "a"@de .
+      ex:C1 a owl:Class ; rdfs:label "c1" ; rdfs:subClassOf ex:C2 .
+      ex:C2 a owl:Class ; rdfs:label "c2" ; rdfs:subClassOf ex:C3 .
+      ex:C3 a owl:Class ; rdfs:label "c3" ; rdfs:subClassOf ex:C1 .
+      ex:E1 a owl:Class ; rdfs:label "e1" ; owl:equivalentClass ex:E2 ; rdfs:subClassOf ex:E2 .
+      ex:E2 a owl:Class ; rdfs:label "e2" ; owl:equivalentClass ex:E1 ; rdfs:subClassOf ex:E1 .
+      ex:Self a owl:Class ; rdfs:label "self" ; rdfs:subClassOf ex:Self .
+      ex:Top a owl:Class ; rdfs:label "top" . ex:Mid a owl:Class ; rdfs:label "mid" ; rdfs:subClassOf ex:Top .
+      ex:S1 a skos:Concept ; skos:prefLabel "x"@en, "y"@en .`);
+    const by = (iri: string) => violations.filter((v) => v.focusNode === `http://example.org/${iri}`).length;
+    expect(by('Dup')).toBe(1);
+    expect(by('OkLang')).toBe(0);
+    expect([by('C1'), by('C2'), by('C3')]).toEqual([1, 1, 1]);
+    expect([by('E1'), by('E2'), by('Self'), by('Top'), by('Mid')]).toEqual([0, 0, 0, 0, 0]);
+    expect(by('S1')).toBe(1);
+  });
+
+  it('documentation shapes: orphan class and untagged labels are info; connected classes are not', async () => {
+    const { violations } = await run(shapesFile('ontology-documentation.shacl.ttl'), `${OWL}
+      ex:Orphan a owl:Class ; rdfs:comment "c" ; rdfs:label "orphan"@en .
+      ex:Top a owl:Class ; rdfs:comment "c" ; rdfs:label "top" .
+      ex:Mid a owl:Class ; rdfs:comment "c" ; rdfs:label "mid"@en ; rdfs:subClassOf ex:Top .
+      ex:p a owl:ObjectProperty ; rdfs:label "p"@en ; rdfs:domain ex:Mid ; rdfs:range ex:Mid .`);
+    const msgs = violations.map((v) => `${v.focusNode?.split('/').pop()}:${(v as any).message?.slice(0, 20)}`).sort();
+    expect(msgs).toEqual(['Orphan:Class is not connect', 'Top:Label should have a '].sort());
   });
 });
-

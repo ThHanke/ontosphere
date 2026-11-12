@@ -29,6 +29,12 @@
     sh:minCount 1 ;
     sh:severity sh:Warning ;
     sh:message "OWL class should have a label (rdfs:label, skos:prefLabel or dcterms:title)" ;
+  ] ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:uniqueLang true ;
+    sh:severity sh:Warning ;
+    sh:message "Two labels in the same language (rdfs:label)" ;
   ] .
 
 # ── owl:ObjectProperty / owl:DatatypeProperty ────────────────────────
@@ -41,6 +47,12 @@
     sh:minCount 1 ;
     sh:severity sh:Warning ;
     sh:message "Object property should have a label (rdfs:label, skos:prefLabel or dcterms:title)" ;
+  ] ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:uniqueLang true ;
+    sh:severity sh:Warning ;
+    sh:message "Two labels in the same language (rdfs:label)" ;
   ] .
 
 <urn:shacl:ontology-quality:DatatypePropertyLabel>
@@ -51,6 +63,12 @@
     sh:minCount 1 ;
     sh:severity sh:Warning ;
     sh:message "Datatype property should have a label (rdfs:label, skos:prefLabel or dcterms:title)" ;
+  ] ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:uniqueLang true ;
+    sh:severity sh:Warning ;
+    sh:message "Two labels in the same language (rdfs:label)" ;
   ] .
 
 # ── SKOS ─────────────────────────────────────────────────────────────
@@ -63,6 +81,12 @@
     sh:minCount 1 ;
     sh:severity sh:Warning ;
     sh:message "SKOS concept should have a label (skos:prefLabel preferred)" ;
+  ] ;
+  sh:property [
+    sh:path skos:prefLabel ;
+    sh:uniqueLang true ;
+    sh:severity sh:Warning ;
+    sh:message "Two skos:prefLabel in the same language (SKOS allows one per language)" ;
   ] .
 
 <urn:shacl:ontology-quality:ConceptSchemeLabel>
@@ -74,3 +98,27 @@
     sh:severity sh:Warning ;
     sh:message "SKOS concept scheme should have a label (rdfs:label, skos:prefLabel or dcterms:title)" ;
   ] .
+
+# ── Class hierarchy ──────────────────────────────────────────────────
+# A subClassOf cycle makes the classes equivalent; say so with owl:equivalentClass instead.
+# Reflexive triples and pairs already linked by owl:equivalentClass (also inferred ones) are fine.
+# One SPARQL target selects the classes on a cycle (a single query over the graph; a sh:sparql
+# constraint would run one query per class, about 50 ms each); every selected node is reported
+# by the constraint that cannot hold for an IRI.
+
+<urn:shacl:ontology-quality:ClassCycle>
+  a sh:NodeShape ;
+  sh:target [
+    a sh:SPARQLTarget ;
+    sh:select """
+      SELECT DISTINCT ?this WHERE {
+        ?this <http://www.w3.org/2000/01/rdf-schema#subClassOf>+ ?other .
+        ?other <http://www.w3.org/2000/01/rdf-schema#subClassOf>+ ?this .
+        FILTER(isIRI(?this) && ?other != ?this)
+        FILTER NOT EXISTS { ?this <http://www.w3.org/2002/07/owl#equivalentClass> ?other }
+        FILTER NOT EXISTS { ?other <http://www.w3.org/2002/07/owl#equivalentClass> ?this }
+      }""" ;
+  ] ;
+  sh:severity sh:Warning ;
+  sh:message "Class is part of an rdfs:subClassOf cycle (use owl:equivalentClass for equivalent classes)" ;
+  sh:not [ sh:nodeKind sh:IRI ] .

@@ -58,3 +58,38 @@
     sh:severity sh:Info ;
     sh:message "SKOS concept should be in a concept scheme (skos:inScheme)" ;
   ] .
+
+<urn:shacl:ontology-documentation:LabelLanguage>
+  a sh:NodeShape ;
+  sh:target [
+    a sh:SPARQLTarget ;
+    sh:select "SELECT ?this WHERE { { ?this a <http://www.w3.org/2002/07/owl#Class> } UNION { ?this a <http://www.w3.org/2002/07/owl#ObjectProperty> } UNION { ?this a <http://www.w3.org/2002/07/owl#DatatypeProperty> } FILTER(isIRI(?this)) }" ;
+  ] ;
+  sh:property [
+    sh:path rdfs:label ;
+    sh:datatype rdf:langString ;
+    sh:severity sh:Info ;
+    sh:message "Label should have a language tag (e.g. \"name\"@en)" ;
+  ] .
+
+# A class with no superclass, subclass, equivalent class, domain or range is not connected to the
+# rest. One SPARQL target selects them; sh:not [ sh:nodeKind sh:IRI ] reports each selected node.
+<urn:shacl:ontology-documentation:OrphanClass>
+  a sh:NodeShape ;
+  sh:target [
+    a sh:SPARQLTarget ;
+    sh:select """
+      SELECT ?this WHERE {
+        ?this a <http://www.w3.org/2002/07/owl#Class> .
+        FILTER(isIRI(?this) && ?this != <http://www.w3.org/2002/07/owl#Thing>)
+        FILTER NOT EXISTS { ?this <http://www.w3.org/2000/01/rdf-schema#subClassOf> ?a . FILTER(?a != <http://www.w3.org/2002/07/owl#Thing>) }
+        FILTER NOT EXISTS { ?b <http://www.w3.org/2000/01/rdf-schema#subClassOf> ?this }
+        FILTER NOT EXISTS { ?this <http://www.w3.org/2002/07/owl#equivalentClass> ?c }
+        FILTER NOT EXISTS { ?d <http://www.w3.org/2002/07/owl#equivalentClass> ?this }
+        FILTER NOT EXISTS { ?p <http://www.w3.org/2000/01/rdf-schema#domain> ?this }
+        FILTER NOT EXISTS { ?r <http://www.w3.org/2000/01/rdf-schema#range> ?this }
+      }""" ;
+  ] ;
+  sh:severity sh:Info ;
+  sh:message "Class is not connected: no superclass, subclass, equivalent class, domain or range" ;
+  sh:not [ sh:nodeKind sh:IRI ] .

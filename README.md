@@ -327,11 +327,16 @@ Shapes are loaded into the `urn:vg:shapes` named graph, which is excluded from O
 
 ### Bundled shape presets
 
-| Preset | Target | Checks |
-|--------|--------|--------|
-| Ontology Quality | `owl:Class`, `owl:ObjectProperty`, `owl:DatatypeProperty` | `rdfs:label`, `rdfs:comment`, `rdfs:domain`, `rdfs:range` |
-| SKOS Quality | `skos:Concept`, `skos:ConceptScheme` | `skos:prefLabel`, `skos:inScheme`, `rdfs:label` |
-| Reasoning Demo | `ex:Project`, `ex:Contractor`, `ex:Employee`, `owl:NamedIndividual` | Missing descriptions, supervisors, job titles |
+| Preset | Target | Checks | Severity |
+|--------|--------|--------|----------|
+| Ontology Quality (default) | named `owl:Class`, `owl:ObjectProperty`, `owl:DatatypeProperty`, `skos:Concept`, `skos:ConceptScheme` | a label (`rdfs:label`, `skos:prefLabel` or `dcterms:title`), at most one label per language, no `rdfs:subClassOf` cycles (one SPARQL target query over the graph) | Warning |
+| Ontology Documentation | the same entities | the default checks plus a definition (`rdfs:comment`, `skos:definition` or `obo:IAO_0000115`), `rdfs:domain`, `rdfs:range`, `skos:inScheme`, language-tagged labels, classes not connected to anything | Info |
+| Reasoning Demo | `ex:Project`, `ex:Contractor`, `ex:Employee`, `owl:NamedIndividual` | Missing descriptions, supervisors, job titles | Violation, Warning |
+| xpSHACL shark_shapes | classes and properties | Guideline checks with SPARQL constraints | every finding is a Violation (the file sets no `sh:severity`); runs one query per node, about a minute on `pmdco-full` |
+
+`sh:Info` findings are listed in the reasoning report on request (**Warnings** tab) and do not count as warnings or draw canvas badges. The documentation checks are opt-in because domain and range are a style choice (many ontologies, BFO-based ones among them, use restrictions instead) and because they produce long lists on large ontologies. Select the preset in Settings → SHACL, or pass both files: `?shaclShapes=<origin>/shacl-shapes/ontology-quality.shacl.ttl,<origin>/shacl-shapes/ontology-documentation.shacl.ttl`.
+
+To report on a computed set of nodes (cycles, orphans) use one `sh:SPARQLTarget` plus a constraint that fails for every selected node (`sh:not [ sh:nodeKind sh:IRI ]`), not a `sh:sparql` constraint: a constraint runs one SPARQL query per focus node (about 50 ms each, a minute for 1,300 classes), a target runs once.
 
 ### SHACL demo
 
@@ -360,7 +365,7 @@ Open the PMD Core chemical-composition pattern with the PMD Core ontology and th
 
 Run reasoning to see the SHACL findings. With the ontology and the shapes both pinned to their June 2026 commits, the story ends with one violation, `some_silicon` (a semiconductor without a band-gap quality), and the data is consistent; `e2e/user-story-pmdco-chemical-composition.spec.ts` asserts exactly that. The link above pins the shapes only: `ontology=pmdco` loads the current PMD Core release, which changed in October 2026 (auto-shapes 270 → 399, new `pmdco.ttl`), so the findings there can differ. Because `?shaclShapes=` is given, the built-in ontology-quality shapes are not applied.
 
-To open the full PMD Core ontology itself as data (`?rdfUrl=<core-ontology>/refs/heads/main/pmdco-full.ttl`), the built-in ontology-quality shapes apply, since no shapes are named. Expect a long list of `sh:Info` findings (missing `rdfs:comment`, `rdfs:domain`, `rdfs:range` on named classes and properties); only `sh:Violation` marks the data invalid.
+To open the full PMD Core ontology itself as data (`?rdfUrl=<core-ontology>/refs/heads/main/pmdco-full.ttl`), the built-in ontology-quality shapes apply, since no shapes are named. The default checks report only the few unlabelled or duplicate-label entities (as warnings); with the Ontology Documentation preset expect a few hundred `sh:Info` findings. Only `sh:Violation` marks the data invalid.
 
 Startup / URL parameters
 ------------------------

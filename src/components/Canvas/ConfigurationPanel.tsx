@@ -671,10 +671,10 @@ export const ConfigurationPanel = ({
                       className="w-full justify-start text-xs"
                       onClick={() => {
                         updateSettings({ shaclShapesUrl: 'https://raw.githubusercontent.com/gcpdev/xpshacl/main/data/shark_shapes.ttl' });
-                        toast.success('Set to xpSHACL shark_shapes (uses SPARQL constraints)');
+                        toast.success('Set to xpSHACL shark_shapes (all findings are violations; SPARQL constraints run once per node)');
                       }}
                     >
-                      xpSHACL shark_shapes — SPARQL-based (limited support)
+                      xpSHACL shark_shapes — strict: every finding is a Violation, slow on large ontologies
                     </Button>
                   </div>
                 </div>
