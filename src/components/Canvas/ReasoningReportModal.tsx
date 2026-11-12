@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { ScrollArea } from '../ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { AlertTriangle, CheckCircle, XCircle, Lightbulb, Clock, Shield, ExternalLink, X, Wrench } from 'lucide-react';
+import { isShaclInfo } from '@/utils/shaclInfo';
 import type { ReasoningResult } from '../../utils/rdfManager';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
 import { useShaclResultStore, makeShaclMessageKey } from '@/stores/shaclResultStore';
@@ -205,6 +206,7 @@ export const ReasoningReportModal = memo(({ open, onOpenChange, currentReasoning
   const reasoningId = currentReasoning?.id ?? null;
   const hasReasoning = !!currentReasoning;
 
+  const [showInfo, setShowInfo] = useState(false);
   const navigateToNode = useCallback((iri: string) => {
     try {
       const { navigateToIri } = getWorkspaceRefs();
@@ -288,7 +290,10 @@ export const ReasoningReportModal = memo(({ open, onOpenChange, currentReasoning
     );
   }
 
-  const { errors, warnings, inferences, status, duration, timestamp } = currentReasoning;
+  const { errors, warnings: allWarnings, inferences, status, duration, timestamp } = currentReasoning;
+  // sh:Info findings are kept apart: they do not count as warnings and are listed on request only
+  const warnings = allWarnings.filter(w => !isShaclInfo(w));
+  const infos = allWarnings.filter(isShaclInfo);
   const isConsistent = currentReasoning?.isConsistent;
   const inferredCount = graphCounts['urn:vg:inferred'] || 0;
 
@@ -424,7 +429,7 @@ export const ReasoningReportModal = memo(({ open, onOpenChange, currentReasoning
                 </CardHeader>
                 <CardContent>
                   <div className={`text-sm font-medium ${shaclTotal === 0 ? 'text-green-600' : shaclHasErrors ? 'text-destructive' : 'text-warning'}`}>
-                    {shaclTotal === 0 ? 'Conforms' : shaclHasErrors ? `${shaclErrors.length} errors, ${shaclWarnings.length} warnings` : `${shaclWarnings.length} warnings`}
+                    {shaclTotal === 0 ? (infos.length > 0 ? `Conforms · ${infos.length} info` : 'Conforms') : shaclHasErrors ? `${shaclErrors.length} errors, ${shaclWarnings.length} warnings` : `${shaclWarnings.length} warnings`}
                   </div>
                 </CardContent>
               </Card>
@@ -629,6 +634,33 @@ export const ReasoningReportModal = memo(({ open, onOpenChange, currentReasoning
                       </CardContent>
                     </Card>
                   ))
+                )}
+                {infos.length > 0 && (
+                  <div className="pt-2">
+                    <button
+                      className="text-xs text-primary hover:underline cursor-pointer"
+                      onClick={() => setShowInfo(v => !v)}
+                    >
+                      {showInfo ? 'Hide' : 'Show'} {infos.length} info finding{infos.length !== 1 ? 's' : ''} (SHACL sh:Info, not counted as warnings)
+                    </button>
+                    {showInfo && (
+                      <div className="mt-2 space-y-1">
+                        {infos.map((info, index) => (
+                          <div key={index} className="text-xs text-muted-foreground break-words border-b border-border/40 pb-1">
+                            {info.nodeId ? (
+                              <button
+                                className="text-primary hover:underline cursor-pointer mr-1"
+                                onClick={() => navigateToShaclMessage('info', info.nodeId!, info.message)}
+                              >
+                                {info.nodeId.split(/[#/]/).pop() || info.nodeId}
+                              </button>
+                            ) : null}
+                            {info.message}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </ScrollArea>

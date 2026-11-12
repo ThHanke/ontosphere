@@ -3411,7 +3411,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
               if (entry.severity === "error") {
                 kShaclErrors.push({ ...entry, severity: "error" as const });
               } else {
-                kWarnings.push({ ...entry, severity: "warning" as const });
+                kWarnings.push({ ...entry, severity: entry.severity });
               }
             }
           }
@@ -3888,7 +3888,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             if (entry.severity === "error") {
               errors.push({ ...entry, severity: "error" as const });
             } else {
-              warnings.push({ ...entry, severity: "warning" as const });
+              warnings.push({ ...entry, severity: entry.severity });
             }
           }
         }

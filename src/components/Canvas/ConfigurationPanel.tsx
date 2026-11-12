@@ -637,7 +637,7 @@ export const ConfigurationPanel = ({
                         toast.success('Set to ontology quality shapes');
                       }}
                     >
-                      Ontology Quality — labels, comments, domain/range
+                      Ontology Quality (default) — labels
                     </Button>
                     <Button
                       size="sm"
@@ -645,12 +645,12 @@ export const ConfigurationPanel = ({
                       className="w-full justify-start text-xs"
                       onClick={() => {
                         const base = window.location.origin + (import.meta.env.BASE_URL || '/');
-                        const url = `${base}shacl-shapes/skos-quality.shacl.ttl`;
+                        const url = `${base}shacl-shapes/ontology-quality.shacl.ttl,${base}shacl-shapes/ontology-documentation.shacl.ttl`;
                         updateSettings({ shaclShapesUrl: url });
-                        toast.success('Set to SKOS quality shapes');
+                        toast.success('Set to ontology quality + documentation shapes');
                       }}
                     >
-                      SKOS Quality — prefLabel, inScheme
+                      Ontology Documentation — labels plus comments, domain/range (info)
                     </Button>
                     <Button
                       size="sm"

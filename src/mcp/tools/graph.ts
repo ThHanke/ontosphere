@@ -655,12 +655,14 @@ const getGraphState: McpTool = {
       if (graphSet.has('urn:vg:shapes')) {
         const shaclState = useShaclResultStore.getState();
         const shaclErrorCount = shaclState.errors.length;
-        const shaclWarningCount = shaclState.warnings.length;
+        const shaclInfoCount = shaclState.warnings.filter(w => w.severity === 'info').length;
+        const shaclWarningCount = shaclState.warnings.length - shaclInfoCount;
         result.shacl = {
           shapesLoaded: shaclState.shaclShapesLoaded,
-          conforms: shaclErrorCount === 0 && shaclWarningCount === 0,
+          conforms: shaclErrorCount === 0 && shaclWarningCount === 0 && shaclInfoCount === 0,
           errorCount: shaclErrorCount,
           warningCount: shaclWarningCount,
+          infoCount: shaclInfoCount,
         };
       }
 

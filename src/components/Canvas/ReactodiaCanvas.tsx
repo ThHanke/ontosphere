@@ -32,6 +32,7 @@ import { TrackpadZoomDampener } from './TrackpadZoomDampener';
 import { useAppConfigStore } from '@/stores/appConfigStore';
 import { markStartupComplete } from '@/utils/startupReady';
 import { useSettingsStore, DEFAULT_SHACL_SHAPES_URL } from '@/stores/settingsStore';
+import { isShaclInfo } from '@/utils/shaclInfo';
 import { useShaclResultStore } from '@/stores/shaclResultStore';
 import { getLayoutFunction } from './layout/getLayoutFunction';
 import { runSilentLayout, type SilentLayoutEdge } from './layout/silentLayout';
@@ -1582,7 +1583,8 @@ export default function ReactodiaCanvas() {
         }
         const warnMap = new Map<string, string[]>();
         for (const warn of warnings ?? []) {
-          if (warn.nodeId) {
+          // sh:Info findings are listed in the report but never drawn as canvas badges
+          if (warn.nodeId && !isShaclInfo(warn)) {
             const list = warnMap.get(warn.nodeId) ?? [];
             list.push(msgFn(warn));
             warnMap.set(warn.nodeId, list);

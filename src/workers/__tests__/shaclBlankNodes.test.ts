@@ -79,4 +79,37 @@ describe('SHACL sees skolemized nodes as blank nodes', () => {
     expect(withOnt.violations.map((v) => v.sourceShape)).not.toContain('urn:s:Link');
     expect(withOnt.violations.map((v) => v.focusNode)).toEqual(['http://example.org/rex']);
   });
+
+  const shapesFile = (f: string) => readFileSync(resolve(__dirname, `../../../public/shacl-shapes/${f}`), 'utf-8');
+  const OWL = '@prefix owl: <http://www.w3.org/2002/07/owl#> . @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . @prefix skos: <http://www.w3.org/2004/02/skos/core#> . @prefix dcterms: <http://purl.org/dc/terms/> . @prefix obo: <http://purl.obolibrary.org/obo/> . @prefix ex: <http://example.org/> .';
+
+  it('default shapes accept rdfs:label, skos:prefLabel and dcterms:title; only unlabelled entities are flagged', async () => {
+    const { violations } = await run(shapesFile('ontology-quality.shacl.ttl'), `${OWL}
+      ex:A a owl:Class ; rdfs:label "A" .
+      ex:B a owl:Class ; skos:prefLabel "B" .
+      ex:C a owl:Class ; dcterms:title "C" .
+      ex:D a owl:Class .
+      ex:p a owl:ObjectProperty ; skos:prefLabel "p" .
+      ex:q a owl:ObjectProperty .`);
+    expect(new Set(violations.map((v) => v.focusNode))).toEqual(new Set(['http://example.org/D', 'http://example.org/q']));
+    expect(violations.every((v) => (v as any).severity === 'sh:Warning')).toBe(true);
+  });
+
+  it('default shapes ask for nothing but labels (no comment, domain, range)', async () => {
+    const { violations } = await run(shapesFile('ontology-quality.shacl.ttl'), `${OWL}
+      ex:A a owl:Class ; rdfs:label "A" . ex:p a owl:ObjectProperty ; rdfs:label "p" .`);
+    expect(violations).toEqual([]);
+  });
+
+  it('documentation shapes: Info only; a definition may be rdfs:comment, skos:definition or obo:IAO_0000115', async () => {
+    const { violations } = await run(shapesFile('ontology-documentation.shacl.ttl'), `${OWL}
+      ex:A a owl:Class ; rdfs:comment "a" .
+      ex:B a owl:Class ; skos:definition "b" .
+      ex:C a owl:Class ; obo:IAO_0000115 "c" .
+      ex:D a owl:Class .
+      <urn:vg:bnode:anon> a owl:Class .`);
+    expect(violations.map((v) => v.focusNode)).toEqual(['http://example.org/D']);
+    expect(violations.every((v) => (v as any).severity === 'sh:Info')).toBe(true);
+  });
 });
+
