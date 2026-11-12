@@ -28,9 +28,9 @@ it.skipIf(!LABEL || !STACK)('pmdco as data + auto-shapes', async () => {
     return adds.length;
   };
   const seed = (graph: string, file: string) => seedFile(graph, `${STACK}/${file}`);
-  const nData = await seed('urn:vg:data', 'pmdco.ttl');
+  const nData = await seed('urn:vg:data', process.env.DATA_FILE ?? 'pmdco.ttl');
   if (existsSync(`${STACK}/shape-data.ttl`) && process.env.WITH_DATA) await seed('urn:vg:data', 'shape-data.ttl');
-  let nShapes = await seed('urn:vg:shapes', 'auto-shapes-open.ttl');
+  let nShapes = process.env.NO_AUTO ? 0 : await seed('urn:vg:shapes', 'auto-shapes-open.ttl');
   if (process.env.WITH_QUALITY) nShapes += await seedFile('urn:vg:shapes', resolve(__dirname, '../../../public/shacl-shapes/ontology-quality.shacl.ttl'));
 
   const t0 = performance.now();
@@ -53,7 +53,7 @@ it.skipIf(!LABEL || !STACK)('pmdco as data + auto-shapes', async () => {
     blankFocus: v.filter((x) => String(x.focusNode).startsWith('urn:vg:bnode:')).length,
   };
   mkdirSync(resolve(__dirname, '../../../logs'), { recursive: true });
-  writeFileSync(resolve(__dirname, `../../../logs/pmdco-shacl-${LABEL}${process.env.WITH_QUALITY ? '-q' : ''}.json`), JSON.stringify({ ...out, violations: v }, null, 1));
-  writeFileSync(resolve(__dirname, `../../../logs/pmdco-shacl-${LABEL}${process.env.WITH_QUALITY ? '-q' : ''}.summary.json`), JSON.stringify(out, null, 1));
+  writeFileSync(resolve(__dirname, `../../../logs/pmdco-shacl-${process.env.DATA_FILE ? 'full-' : ''}${LABEL}${process.env.WITH_QUALITY ? '-q' : ''}.json`), JSON.stringify({ ...out, violations: v }, null, 1));
+  writeFileSync(resolve(__dirname, `../../../logs/pmdco-shacl-${process.env.DATA_FILE ? 'full-' : ''}${LABEL}${process.env.WITH_QUALITY ? '-q' : ''}.summary.json`), JSON.stringify(out, null, 1));
   runtime.terminate();
 }, 900_000);
