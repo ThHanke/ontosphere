@@ -112,7 +112,7 @@ Everything below runs in the browser tab, against an in-memory RDF store backed 
 
 #### 🧠 Reason
 - **Complete OWL 2 DL inference** in the browser via **Konclude (WebAssembly)**; inferred triples render as amber dashed edges and inferred types/annotations in amber italic, with a full inference report and one-click clearing that never touches asserted data.
-- Automatic **consistency checking** with per-entity clash details in the Errors tab, **justifications** (MIPS), **OWL 2 profile** detection (EL/QL/RL/DL), and **locality-module** scoping for incremental/modular verification.
+- Automatic **consistency checking** with per-entity clash details in the Errors tab, **justifications** (MIPS), and **OWL 2 profile** detection (EL/QL/RL/DL).
 
 #### 🔧 Repair — reasoner-verified
 - When the reasoner finds a contradiction (or SHACL reports a violation), a **Repairs** tab shows reasoner-computed, ranked, verified fixes — the same repairs the `explainDiagnostics` MCP tool hands an agent.
@@ -1013,15 +1013,6 @@ pthreads under Node.js, medians of 3–5 runs, single shared host (see the packa
 Ratio = WASM / native Konclude. ¹ Full role-closure realization; the native figure is Konclude with
 `RealizePrecomputation.RoleInstances=true`, the like-for-like configuration (WASM always computes the
 role closure). The WASM figures exclude the one-off module start (about 0.9 s).
-
-### Module-extraction benchmark
-
-Syntactic-locality star-module extraction for incremental reasoning
-(see [`scripts/bench-reasoning.mjs`](scripts/bench-reasoning.mjs)):
-
-```sh
-node scripts/bench-reasoning.mjs 2>&1 | tee logs/bench-reasoning.log
-```
 
 ### LLM transparency
 

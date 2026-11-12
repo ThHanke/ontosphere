@@ -59,6 +59,7 @@ The inferred counts are identical in both columns. On LUBM-1 (17,174 individuals
 ## Housekeeping
 
 - `npm audit` reports 0 vulnerabilities: `minimatch` is overridden to `^11.0.8` for `@typescript-eslint/typescript-estree`, which is dev tooling only.
+- The README no longer advertises locality-module scoping and the module-extraction benchmark: that feature moved out of the app earlier (`extractModule` is not a tool any more), and `scripts/bench-reasoning.mjs` imported the deleted `localityModule.ts` and could not run. The script is removed (it stays in git history).
 - Removed the unused `@radix-ui/react-popover` dependency and the dead React Flow code (`EdgeParams`, `node-tooltip`, `edgeStyle`, `createEdge`).
 
 The full list with commits is in [CHANGELOG.md](../CHANGELOG.md).
