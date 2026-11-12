@@ -34,6 +34,7 @@ A correctness and speed release on top of 1.8.0. **Reasoning in the browser is a
 - Repair assessment skipped every `owl:AllDisjointClasses` group, and repair, weaken and axiom-level explanations split restrictions and RDF lists into one-triple "axioms" (the reasoner library reads real blank nodes only; the store had held skolem IRIs since the copy was removed in 1.8.0).
 - `explainEntailment` after a reasoning run (see Highlights).
 - Typed literals written through `syncBatch` had no datatype IRI (`"1"^^undefined` in the store), so datatype constraints on authored values could misfire.
+- `explainDiagnostics` kept SHACL honest only on reasoner 0.9.3/0.9.4: 0.9.5's `validate()` rewrites the inferred graph with the class hierarchy, which dropped the individual-level inferences before SHACL ran. `validate()` now writes to a scratch graph that is emptied right after, so the inferences of the last `runReasoning` stay.
 - The MCP tool texts no longer say "directly asserted" for an entailed axiom that has no justification.
 
 ## Performance (8 cores, headless Chromium, `runReasoning` wall time, 3 runs, `scripts/bench-reasoner-phases.mjs`)

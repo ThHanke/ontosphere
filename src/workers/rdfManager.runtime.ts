@@ -59,6 +59,13 @@ export function reskolemizeQuad(q: N3.Quad): N3.Quad {
 const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
   (quads ?? []).map((q) => reskolemizeQuad(q as N3.Quad));
 
+/**
+ * Where the reasoner's validate() may write. Since rdf-reasoner-konclude 0.9.5 validate() clears the inferred graph it is
+ * given and fills it with the class hierarchy, which drops the individual-level inferences of runReasoning (types, inverse
+ * links) that SHACL needs. validate() therefore gets this scratch graph, emptied again right after the call.
+ */
+export const VALIDATE_SCRATCH_GRAPH = "urn:vg:validate-scratch";
+
 /** How long the exact (guaranteed-minimal) entailment search may run before the app falls back to "fast". */
 export const ENTAILMENT_EXACT_TIMEOUT_MS = 60_000;
 
@@ -68,6 +75,7 @@ export const ENTAILMENT_EXACT_TIMEOUT_MS = 60_000;
  */
 export const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
   INFERRED_GRAPH,
+  VALIDATE_SCRATCH_GRAPH,
   "urn:konclude:explanations",
   "urn:vg:shapes",
   "urn:vg:provenance",
@@ -136,7 +144,13 @@ export class DlReasoner {
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
-    const result = (await this._reasoner.validate(store, { inferredGraph: INFERRED_GRAPH })) as ValidationResult;
+    let result: ValidationResult;
+    try {
+      result = (await this._reasoner.validate(store, { inferredGraph: VALIDATE_SCRATCH_GRAPH })) as ValidationResult;
+    } finally {
+      // whatever validate() wrote stays out of the store: urn:vg:inferred keeps the last runReasoning's inferences
+      store.removeQuads(store.getQuads(null, null, null, N3.DataFactory.namedNode(VALIDATE_SCRATCH_GRAPH)));
+    }
     return { ...result, errors: (result.errors ?? []).map((j) => reskolemizeAll(j)) } as ValidationResult;
   }
 
