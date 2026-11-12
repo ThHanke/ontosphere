@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.1] — unreleased
+
+### Fixed
+
+- **Repair assessment and axiom-level explanations saw no blank nodes.** Since the reasoner stopped receiving a de-skolemized copy of the store (1.8.0 branch, commit 34fd069), `assessEdit` skipped every `owl:AllDisjointClasses` group (PMDco: 21 of 169 asserted disjointness pairs checked) and `repair`, `weaken` and `explainInconsistencyAxioms` split restrictions and RDF lists into one-triple "axioms", because the reasoner library's TypeScript readers only recognise real blank nodes. The worker's store now holds real blank nodes again; `urn:vg:bnode:<label>` is the id the canvas, the MCP tools and SPARQL use and is mapped only at the worker boundary. SPARQL patterns, `INSERT DATA` and `DELETE DATA` with such an id address the blank node it names. No change for users; ids and results keep their form. Details: `docs/solutions/architecture-patterns/reasoner-reads-the-live-store-no-copy-2026-11-11.md`.
+- **`loadRdf` with inline Turtle no longer rewrites your own `@prefix` for a built-in prefix name.** `@prefix ex: <http://my.org/band-gap#> .` used to be deleted and replaced by `http://example.org/`, silently changing every IRI that used the prefix (same for `schema`, `dc`, `dcterms`, `foaf`, `skos`, `rdf`, `rdfs`, `owl`, `xsd`). A well-formed declaration of your own is kept; only a malformed one or an exact copy of the built-in mapping is dropped. Loading from a URL or file was not affected.
+
 ## [1.8.0] — 2026-11-11
 
 Reasoning moves to rdf-reasoner-konclude 0.9.x (pinned 0.9.3): results change (see *Upgrade notes*), and repair suggestions are now computed by the reasoner. Startup is stricter: MCP tools answer only once startup loading has finished. Large graphs reason and render faster: `runReasoning` returns when the reasoner is done (LUBM-1: 126 s to 12 s), and the canvas finishes loading sooner.
