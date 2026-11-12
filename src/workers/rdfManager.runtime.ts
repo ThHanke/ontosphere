@@ -59,6 +59,9 @@ export function reskolemizeQuad(q: N3.Quad): N3.Quad {
 const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
   (quads ?? []).map((q) => reskolemizeQuad(q as N3.Quad));
 
+/** How long the exact (guaranteed-minimal) entailment search may run before the app falls back to "fast". */
+export const ENTAILMENT_EXACT_TIMEOUT_MS = 60_000;
+
 /**
  * Graphs that are not reasoning input: the reasoner's own output, SHACL shapes, the edit
  * journal and workflow state. None of them are OWL axioms about the data.
@@ -79,15 +82,20 @@ export const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
 // ---------------------------------------------------------------------------
 
 
-class DlReasoner {
+export class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
 
-  constructor() {
-    const base = (import.meta as any).env?.BASE_URL ?? "/";
-    const workerUrl = new URL(`${base}rdf-reasoner-konclude/worker.js`, self.location.href);
-    // The reasoner reads the live store; graphs that are not ontology content never reach it.
-    this._reasoner = new RdfReasoner({ workerUrl, excludeGraphs: NON_AXIOM_GRAPHS });
+  /** `reasoner` is for tests that run this class against a Node reasoner; the app builds its own. */
+  constructor(reasoner?: RdfReasoner) {
+    if (reasoner) {
+      this._reasoner = reasoner;
+    } else {
+      const base = (import.meta as any).env?.BASE_URL ?? "/";
+      const workerUrl = new URL(`${base}rdf-reasoner-konclude/worker.js`, self.location.href);
+      // The reasoner reads the live store; graphs that are not ontology content never reach it.
+      this._reasoner = new RdfReasoner({ workerUrl, excludeGraphs: NON_AXIOM_GRAPHS });
+    }
     this.ready = this._reasoner.ready;
   }
 
@@ -157,6 +165,7 @@ class DlReasoner {
     justifications: N3.Quad[][];
     ontologyInconsistent?: boolean;
     vacuous?: boolean;
+    justificationUnavailable?: boolean;
     reason?: string;
   }> {
     const result = (await this._reasoner.explainEntailment(
@@ -164,12 +173,13 @@ class DlReasoner {
       subjectIri,
       predicateIri,
       objectIri,
-      { inferredGraph: INFERRED_GRAPH, justificationMode: 'causal', ...opts },
+      { inferredGraph: INFERRED_GRAPH, ...opts },
     )) as {
       isEntailed: boolean | null;
       justifications: N3.Quad[][];
       ontologyInconsistent?: boolean;
       vacuous?: boolean;
+      justificationUnavailable?: boolean;
       reason?: string;
     };
     return { ...result, justifications: (result.justifications ?? []).map((j) => reskolemizeAll(j)) };
@@ -230,6 +240,7 @@ export interface DlReasonerLike {
     justifications: N3.Quad[][];
     ontologyInconsistent?: boolean;
     vacuous?: boolean;
+    justificationUnavailable?: boolean;
     reason?: string;
   }>;
   /**
@@ -3174,7 +3185,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             objectIri: "",
           }) as RDFWorkerCommandPayloads["explainEntailment"];
           const n = typeof p.maxJustifications === "number" ? p.maxJustifications : 1;
-          const cacheKey = `${p.subjectIri}\0${p.predicateIri}\0${p.objectIri}\0${p.objectIsLiteral}\0${n}`;
+          // "exact" is the default: the guaranteed-minimal search never takes the reasoner's cached
+          // shortcut, which after a reasoning run can hand back an inferred edge. "fast" returns one
+          // verified candidate or says that none is available.
+          const requestedMode = p.justificationMode ?? "exact";
+          const timeoutMs =
+            typeof p.timeoutMs === "number" && p.timeoutMs >= 0 ? p.timeoutMs : ENTAILMENT_EXACT_TIMEOUT_MS;
+          const cacheKey = `${p.subjectIri}\0${p.predicateIri}\0${p.objectIri}\0${p.objectIsLiteral}\0${n}\0${requestedMode}\0${timeoutMs}`;
           const computedAt = reasoningInputGeneration;
           const cached = entailmentCache.get(cacheKey, computedAt);
           if (cached) {
@@ -3184,14 +3201,35 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const konclude = getDlReasoner();
           await konclude.ready;
           const objectIsClassLike = p.objectIsLiteral !== true;
-          const { isEntailed, justifications, ontologyInconsistent, vacuous, reason } =
-            await konclude.explainEntailment(
-              getSharedStore(),
-              p.subjectIri,
-              p.predicateIri,
-              p.objectIri,
-              { objectIsClassLike, maxJustifications: n },
-            );
+          const store = getSharedStore();
+          const ask = (mode: "fast" | "exact") =>
+            konclude.explainEntailment(store, p.subjectIri, p.predicateIri, p.objectIri, {
+              objectIsClassLike,
+              maxJustifications: n,
+              justificationMode: mode,
+              ...(mode === "exact" ? { timeout: timeoutMs } : {}),
+            });
+          // A final answer: not entailed, vacuous, inconsistent, at least one justification, or the
+          // reasoner says that none is available.
+          const settled = (r: Awaited<ReturnType<typeof ask>>) =>
+            r.isEntailed !== true || r.ontologyInconsistent === true || r.vacuous === true ||
+            r.justifications.length > 0 || r.justificationUnavailable === true;
+
+          let usedMode: "fast" | "exact" = requestedMode;
+          let answer = await ask(requestedMode);
+          let note: string | undefined;
+          if (requestedMode === "exact" && !settled(answer)) {
+            // The exact search ended without a justification (its time limit): one verified candidate.
+            usedMode = "fast";
+            answer = await ask("fast");
+            const seconds = Math.round(timeoutMs / 1000);
+            note = answer.justifications.length > 0
+              ? `The exact search did not finish within ${seconds} s; this justification is verified (asserted axioms only, and it alone entails the axiom) but not guaranteed minimal.`
+              : `No justification was found within ${seconds} s.`;
+            if (!settled(answer)) answer = { ...answer, justificationUnavailable: true };
+          }
+          const { isEntailed, justifications, ontologyInconsistent, vacuous, justificationUnavailable } = answer;
+          const reason = answer.reason ?? note;
           const termValue = (t: { value: string; termType?: string }) =>
             t.termType === "BlankNode" ? `_:${t.value}` : t.value;
           result = {
@@ -3199,8 +3237,10 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             justifications: justifications.map((j) =>
               j.map((q) => ({ subject: termValue(q.subject), predicate: q.predicate.value, object: termValue(q.object) })),
             ),
+            justificationMode: usedMode,
             ...(ontologyInconsistent ? { ontologyInconsistent: true } : {}),
             ...(vacuous ? { vacuous: true } : {}),
+            ...(justificationUnavailable ? { justificationUnavailable: true } : {}),
             ...(reason ? { reason } : {}),
           };
           entailmentCache.set(cacheKey, result, computedAt, reasoningInputGeneration);
