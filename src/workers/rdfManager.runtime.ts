@@ -30,6 +30,7 @@ import { GenerationCache } from "./generationCache.ts";
 import { RdfReasoner, type AxiomJustification, type ValidationResult, type ExplainEntailmentOptions, type InferenceDelta, type Axiom as LibAxiom, type RepairOptions, type RepairResult, type Edit, type AssessEditOptions, type EditAssessment, type WeakenOptions, type WeakenResult } from "rdf-reasoner-konclude";
 
 import { QueryEngine } from "@comunica/query-sparql-rdfjs";
+import { ShaclStoreView } from "./shaclStoreView.ts";
 const KONCLUDE_INFERRED_GRAPH_IRI = "urn:vg:inferred";
 
 const INFERRED_GRAPH = KONCLUDE_INFERRED_GRAPH_IRI;
@@ -1166,65 +1167,37 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const store = getSharedStore();
 
     const shapesGraph = DataFactory.namedNode("urn:vg:shapes");
-    const shapesQuads = store.getQuads(null, null, null, shapesGraph) || [];
-    if (shapesQuads.length === 0) {
+    const dataGraph = DataFactory.namedNode("urn:vg:data");
+    if (store.countQuads(null, null, null, shapesGraph) === 0) {
       return { conforms: true, violations: [], shapeCount: 0 };
     }
 
-    const dataGraph = DataFactory.namedNode("urn:vg:data");
-    const inferredGraph = DataFactory.namedNode("urn:vg:inferred");
-    // The engine reads data, imported ontologies and inferred triples, so class hierarchies and
-    // types from imports apply to sh:targetClass / sh:class. Findings are then reported only for
-    // nodes that are subjects in the data graph (see dataSubjects below).
-    const ontologiesGraph = DataFactory.namedNode("urn:vg:ontologies");
-    const dataQuads = [
-      ...(store.getQuads(null, null, null, dataGraph) || []),
-      ...(store.getQuads(null, null, null, ontologiesGraph) || []),
-      ...(store.getQuads(null, null, null, inferredGraph) || []),
-    ];
-
-    const [shaclMod, sparqlMod, dataModelMod, datasetMod] = await Promise.all([
+    const [shaclMod, sparqlMod, dataModelMod] = await Promise.all([
       import("shacl-engine") as Promise<any>,
       import("shacl-engine/sparql.js") as Promise<any>,
       import("@rdfjs/data-model") as Promise<any>,
-      import("@rdfjs/dataset") as Promise<any>,
     ]);
     const { Validator } = shaclMod;
     const { targetResolvers, validations } = sparqlMod;
     const factory = dataModelMod.default ?? dataModelMod;
-    const dataset = datasetMod.default?.dataset ?? datasetMod.dataset;
 
-    // The store keeps blank nodes skolemized (urn:vg:bnode:*). SHACL has to see real blank nodes,
-    // otherwise isIRI(), sh:nodeKind and the like treat them as IRIs. Results are mapped back below.
-    function convertTerm(term: any) {
-      if (term.termType === "BlankNode") return factory.blankNode(term.value);
-      if (term.termType === "NamedNode" && term.value.startsWith(SKOLEM_PREFIX))
-        return factory.blankNode(term.value.slice(SKOLEM_PREFIX.length));
-      if (term.termType === "Literal")
-        return factory.literal(term.value, term.language || (term.datatype ? factory.namedNode(term.datatype.value) : undefined));
-      return factory.namedNode(term.value);
-    }
+    // No copy: the engine reads the store through a view that merges shapes, data, imported
+    // ontologies and inferred triples into one triple set (the shapes graph may be part of the
+    // data graph in SHACL) and presents urn:vg:bnode:* skolem IRIs as real blank nodes, so
+    // isIRI(), sh:nodeKind and the class hierarchy behave as the spec says. Findings are then
+    // reported only for nodes that are subjects in the data graph (see below).
+    const view = new ShaclStoreView(store);
 
-    const shapesDs = dataset();
-    for (const q of shapesQuads) {
-      shapesDs.add(factory.quad(convertTerm(q.subject), factory.namedNode(q.predicate.value), convertTerm(q.object)));
-    }
-
-    const dataDs = dataset();
-    for (const q of dataQuads) {
-      dataDs.add(factory.quad(convertTerm(q.subject), factory.namedNode(q.predicate.value), convertTerm(q.object)));
-    }
-
+    const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
     const SH_NODESHAPE = "http://www.w3.org/ns/shacl#NodeShape";
+    const shapeCount = store.countQuads(
+      null, DataFactory.namedNode(RDF_TYPE_IRI), DataFactory.namedNode(SH_NODESHAPE), shapesGraph,
+    );
 
-    const shapeCount = [...shapesDs].filter(
-      (q: any) => q.predicate.value === RDF_TYPE && q.object.value === SH_NODESHAPE,
-    ).length;
-
-    const validator = new Validator(shapesDs, { factory, targetResolvers, validations });
+    const validator = new Validator(view, { factory, targetResolvers, validations });
     let report: any;
     try {
-      report = await validator.validate({ dataset: dataDs });
+      report = await validator.validate({ dataset: view });
     } catch (valErr: any) {
       const msg = valErr?.message ?? String(valErr);
       return {
@@ -1242,21 +1215,21 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const storeValue = (t: any): string | null =>
       !t ? null : t.termType === "BlankNode" ? `${SKOLEM_PREFIX}${t.value}` : t.value;
 
-    // Build reverse map: property shape (blank node) → parent NodeShape IRI
+    // Reverse map: property shape (blank node) → parent NodeShape IRI
     const SH_PROPERTY = "http://www.w3.org/ns/shacl#property";
     const propShapeToNodeShape = new Map<string, string>();
-    for (const q of [...shapesDs] as any[]) {
-      if (q.predicate.value === SH_PROPERTY && q.subject.termType === "NamedNode") {
+    for (const q of store.getQuads(null, DataFactory.namedNode(SH_PROPERTY), null, shapesGraph) || []) {
+      if (q.subject.termType === "NamedNode" && !q.subject.value.startsWith(SKOLEM_PREFIX)) {
         propShapeToNodeShape.set(storeValue(q.object)!, q.subject.value);
       }
     }
 
-    // Collect subjects present in user data so we can exclude ontology classes
-    // that reasoning materialized into the inferred graph.
-    const dataSubjects = new Set<string>();
-    for (const q of store.getQuads(null, null, null, dataGraph) || []) {
-      if (q.subject?.value) dataSubjects.add(q.subject.value);
-    }
+    // Report only nodes that are subjects in the data graph: not imported ontology entities, not
+    // classes that reasoning materialized into the inferred graph.
+    const inDataGraph = (id: string): boolean => {
+      const subj = id.startsWith(SKOLEM_PREFIX) ? [DataFactory.namedNode(id), DataFactory.blankNode(id.slice(SKOLEM_PREFIX.length))] : [DataFactory.namedNode(id)];
+      return subj.some((t) => store.countQuads(t, null, null, dataGraph) > 0);
+    };
 
     const violations: ShaclViolation[] = (report.results ?? []).map((r: any) => {
       let shapeVal = storeValue(r.shape?.ptr?.term);
@@ -1276,7 +1249,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         constraint: r.constraintComponent?.value ?? null,
         source: "shacl" as const,
       };
-    }).filter((v: ShaclViolation) => !v.focusNode || dataSubjects.has(v.focusNode));
+    }).filter((v: ShaclViolation) => !v.focusNode || inDataGraph(v.focusNode));
 
     return { conforms: report.conforms, violations, shapeCount };
   }

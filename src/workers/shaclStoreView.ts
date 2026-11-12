@@ -43,10 +43,18 @@ export class ShaclStoreView {
     this.graphs = graphs.map((g) => DataFactory.namedNode(g));
   }
 
+  // The engine reads size per focus node and countQuads(graph) walks the index, so cache the
+  // count; it can only change when the store's own size does (the store is not edited mid-run).
+  private sizeAt = -1;
+  private sizeCached = 0;
   get size(): number {
-    let n = 0;
-    for (const g of this.graphs) n += this.store.countQuads(null, null, null, g);
-    return n;
+    const at = this.store.size;
+    if (at !== this.sizeAt) {
+      let n = 0;
+      for (const g of this.graphs) n += this.store.countQuads(null, null, null, g);
+      this.sizeAt = at; this.sizeCached = n;
+    }
+    return this.sizeCached;
   }
 
   has(q: any): boolean { return this.match(q.subject, q.predicate, q.object).size > 0; }
