@@ -4,7 +4,7 @@ A correctness and speed release on top of 1.8.0. **Reasoning in the browser is a
 
 ## Highlights
 
-- **PMDCO reasoning in the browser: 14.9 s → 2.5 s.** 1.8.0 shipped reasoner 0.9.3, which was about eight times slower in the browser than the release before it (1.7.7: 2.4 s). rdf-reasoner-konclude 0.9.4 removes the cause (a C++ exception thrown on every OR branch, 77 µs each in Chromium) and 0.9.5 is the version pinned here. Same inferred triples as 0.9.3 (289 on PMDCO, checked on 0.9.4).
+- **PMDCO reasoning in the browser: 14.9 s → 2.5 s.** 1.8.0 shipped reasoner 0.9.3, which was about eight times slower in the browser than the release before it (1.7.7: 2.4 s). rdf-reasoner-konclude 0.9.4 removes the cause (a C++ exception thrown on every OR branch, 77 µs each in Chromium) and 0.9.5 is the version pinned here. Same inferred triples as 0.9.3 (counted on all five benchmark ontologies).
 - **Correct explanations after a reasoning run.** `explainEntailment` returned an inferred class-hierarchy edge or an unrelated axiom once `runReasoning` had run, and printed "directly asserted" for the empty answers. It now searches for the guaranteed-minimal justification by default and returns HermiT's two justifications on the Fe-Si case.
 - **Repair assessment and axiom-level explanations see blank nodes again.** `assessEdit` checked 21 of 169 asserted disjointness pairs on PMDco; it now checks all of them. Restrictions and lists are one axiom in `repair`, `weaken` and `explainInconsistencyAxioms` instead of one-triple fragments.
 - **SHACL on the spec:** blank nodes are validated as blank nodes, shapes see imported ontologies and the class hierarchy, the default shapes check labels only, and validation reads the store without copying it (LUBM-1: 32 MB held instead of 464 MB).
@@ -15,7 +15,7 @@ A correctness and speed release on top of 1.8.0. **Reasoning in the browser is a
 - **Browser requirement: WebAssembly exception handling** (Chrome 95+, Firefox 100+, Safari 15.2+, Node 17+). Older runtimes cannot instantiate the reasoner module.
 - **SHACL findings change.** The default shapes check labels only (`rdfs:label`, `skos:prefLabel` or `dcterms:title`; at most one per language; no `rdfs:subClassOf` cycles). Comments, domain, range and `skos:inScheme` moved to the opt-in `ontology-documentation.shacl.ttl` ("Ontology Documentation" preset). `sh:Info` findings are no longer warnings: they appear in the Warnings tab on request and as `infoCount`, and draw no canvas badges. Anonymous classes no longer get label findings (on PMD Core as data: 570 findings, 285 of them warnings, gone). The "SKOS Quality" preset is removed; its label checks are in the default shapes.
 - **`loadRdf` with inline Turtle keeps your own `@prefix` for a built-in prefix name** (`ex`, `schema`, `dc`, `dcterms`, `foaf`, `skos`, `rdf`, `rdfs`, `owl`, `xsd`). Before, `@prefix ex: <http://my.org/band-gap#> .` was replaced by `http://example.org/`. Loading from a URL or file was never affected.
-- **Inferred triples are unchanged** from 1.8.0 on PMDco (289, checked on 0.9.4; not re-counted on 0.9.5). The reasoner's release notes report identical results on GALEN, LUBM and Roberts.
+- **Inferred triples are unchanged** from 1.8.0 on reasoning-demo (53), Pizza (170), PMDco (289), GALEN (1,386) and LUBM-1 (71,025), counted on 0.9.5. The reasoner's release notes also report identical results on Roberts.
 
 ## Features and improvements
 
@@ -36,15 +36,17 @@ A correctness and speed release on top of 1.8.0. **Reasoning in the browser is a
 - Typed literals written through `syncBatch` had no datatype IRI (`"1"^^undefined` in the store), so datatype constraints on authored values could misfire.
 - The MCP tool texts no longer say "directly asserted" for an entailed axiom that has no justification.
 
-## Performance (8 cores, headless Chromium, `runReasoning` wall time, 3 runs)
+## Performance (8 cores, headless Chromium, `runReasoning` wall time, 3 runs, `scripts/bench-reasoner-phases.mjs`)
 
-| Ontology | 1.8.0 (reasoner 0.9.3) | 1.8.1 (reasoner 0.9.5) |
-|---|---|---|
-| PMDCO | 14.8–15.3 s | 2.5 s |
-| Pizza | 1.3–1.4 s | 1.1 s |
-| GALEN | 3.9–4.0 s | 3.0 s |
+| Ontology | 1.8.0 (reasoner 0.9.3) | 1.8.1 (reasoner 0.9.5) | Inferred |
+|---|---|---|---|
+| reasoning-demo | 1.1 s | 0.85–0.95 s | 53 |
+| Pizza | 1.3–1.4 s | 1.0–1.1 s | 170 |
+| PMDCO | 14.8–15.3 s | 2.5–2.6 s | 289 |
+| GALEN | 3.9–4.0 s | 3.0–3.1 s | 1,386 |
+| LUBM-1 with data | 11.4–11.7 s | 9.7–9.9 s (reasoner 7.1–7.2 s) | 71,025 |
 
-The 1.8.0 column is the README's figure (measured with a different script, worker time plus start-up); the 1.8.1 column is `scripts/bench-paper-table2.mjs`. LUBM-1 is not in this table yet. The release before 1.8.0 (1.7.7, reasoner 0.8.0) took 2.4 s on PMDCO with the same script, but 0.8.0 left some true subsumptions untested (2 on PMDco, 70 on Pizza), which 0.9.0 fixed at a cost in time that 0.9.4 buys back.
+The inferred counts are identical in both columns. Peak renderer memory including the reasoner worker: 0.5–1.0 GB for the first four, 6.7 GB for LUBM-1 (17,174 individuals; the canvas keeps the page busy for about 64 s after the reasoner returns). The release before 1.8.0 (1.7.7, reasoner 0.8.0) took 2.4 s on PMDCO with a different script, but 0.8.0 left some true subsumptions untested (2 on PMDco, 70 on Pizza), which 0.9.0 fixed at a cost in time that 0.9.4 buys back.
 
 ## Known limits
 
