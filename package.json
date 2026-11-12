@@ -65,7 +65,10 @@
     "ui-overview:full": "bash -c 'npm run dev & DEV_PID=$!; sleep 5; node scripts/generate-ui-overview.mjs; kill $DEV_PID'"
   },
   "overrides": {
-    "esbuild": "0.25.0"
+    "esbuild": "0.25.0",
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.8"
+    }
   },
   "dependencies": {
     "@comunica/query-sparql-rdfjs": "^5.2.1",
