@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import { HelpCircle } from 'lucide-react';
 import { rdfManager } from '../../utils/rdfManager';
 import { PrefixContext } from '../../providers/PrefixContext';
-import { prefixShorten } from '../../providers/prefixShorten';
+import { abbreviateIri } from '../../utils/iriAbbreviation';
 import { dataProvider } from './ReactodiaCanvas';
 
 const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
@@ -23,7 +23,7 @@ function formatAxiom(
   axiom: { subject: string; predicate: string; object: string },
   prefixes: Record<string, string>,
 ): string {
-  const shorten = (iri: string) => prefixShorten(iri, prefixes);
+  const shorten = (iri: string) => abbreviateIri(iri, prefixes);
   const s = shorten(axiom.subject);
   const o = shorten(axiom.object);
   if (axiom.predicate === SUBCLASS_OF || axiom.predicate === SUBPROPERTY_OF) return `${s} ⊑ ${o}`;
@@ -31,19 +31,21 @@ function formatAxiom(
   return `${s} ${shorten(axiom.predicate)} ${o}`;
 }
 
-function labelOrLocal(iri: string): string {
-  return dataProvider.labelForIri(iri) ?? iri.split(/[/#]/).pop() ?? iri;
+// rdfs:label when the ontology has one, else the prefixed name or full IRI (never a bare local name).
+function labelOrName(iri: string, prefixes: Record<string, string>): string {
+  return dataProvider.labelForIri(iri) ?? abbreviateIri(iri, prefixes);
 }
 
 function formatAxiomReadable(
   axiom: { subject: string; predicate: string; object: string },
+  prefixes: Record<string, string>,
 ): string {
-  const s = labelOrLocal(axiom.subject);
-  const o = labelOrLocal(axiom.object);
+  const s = labelOrName(axiom.subject, prefixes);
+  const o = labelOrName(axiom.object, prefixes);
   if (axiom.predicate === SUBCLASS_OF) return `${s} is a subclass of ${o}`;
   if (axiom.predicate === SUBPROPERTY_OF) return `${s} is a subproperty of ${o}`;
   if (axiom.predicate === RDF_TYPE) return `${s} is a ${o}`;
-  return `${s} ${labelOrLocal(axiom.predicate)} ${o}`;
+  return `${s} ${labelOrName(axiom.predicate, prefixes)} ${o}`;
 }
 
 interface FormattedLine {
@@ -62,16 +64,19 @@ function formatResult(
   if (result.vacuous)
     return { header: 'Holds vacuously (unsatisfiable class).', lines: [] };
   const justs = (result.justifications ?? []).filter(j => Array.isArray(j) && j.length > 0);
-  if (justs.length === 0)
-    return { header: 'Inferred (no justification available).', lines: [] };
+  if (justs.length === 0) {
+    const why = result.reason ? ` ${result.reason}` : '';
+    return { header: `Inferred, but no justification could be produced.${why}`, lines: [] };
+  }
   const lines: FormattedLine[] = [];
   for (const j of justs)
     for (const ax of j)
       lines.push({
         formal: formatAxiom(ax, prefixes),
-        readable: formatAxiomReadable(ax),
+        readable: formatAxiomReadable(ax, prefixes),
       });
-  return { header: 'Inferred because:', lines };
+  const note = result.justificationMode === 'fast' && result.reason ? ` (${result.reason})` : '';
+  return { header: `Inferred because:${note}`, lines };
 }
 
 export interface EntailmentExplanationProps {
@@ -140,7 +145,7 @@ export function EntailmentExplanation(
       >
         <HelpCircle size={12} aria-hidden />
       </button>
-      {hovered && tooltip && ReactDOM.createPortal(
+      {hovered && ReactDOM.createPortal(
         <div style={{
           position: 'fixed',
           left: pos.x,
@@ -159,8 +164,8 @@ export function EntailmentExplanation(
           border: '1px solid rgba(255,255,255,0.1)',
           boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
         }}>
-          <div>{tooltip.header}</div>
-          {tooltip.lines.map((line, i) => (
+          <div>{tooltip ? tooltip.header : 'Computing justification…'}</div>
+          {tooltip?.lines.map((line, i) => (
             <div key={i} style={{ marginTop: 2 }}>
               <div style={{ color: '#a0a0b8' }}>{`  • ${line.formal}`}</div>
               <div style={{ fontStyle: 'italic', color: '#c8c8e0', marginLeft: 16 }}>{line.readable}</div>

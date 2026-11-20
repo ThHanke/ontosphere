@@ -1,10 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
-vi.mock('../../../providers/prefixShorten', () => ({
-  prefixShorten: (iri: string) => iri,
-}));
-
 import { EntailmentExplanation } from '../EntailmentExplanation';
 
 const TRIPLE = {
@@ -152,5 +148,31 @@ describe('EntailmentExplanation', () => {
     fireEvent.mouseEnter(getButton());
     await waitFor(() => expect(explain).toHaveBeenCalledTimes(1));
     expect(explain).toHaveBeenCalledWith('Alice', 'ex:age', '42', { objectIsLiteral: true });
+  });
+
+  it('shows a pending line while the exact search runs', async () => {
+    const explain = vi.fn().mockReturnValue(new Promise(() => {}));
+    render(<EntailmentExplanation triple={TRIPLE} explain={explain as any} />);
+    fireEvent.mouseEnter(getButton());
+    await waitFor(() => expect(getTooltipText()).toContain('Computing'));
+  });
+
+  it('shows the reason when the justification is unavailable', async () => {
+    const explain = vi.fn().mockResolvedValue({
+      isEntailed: true, justifications: [], justificationUnavailable: true, reason: 'No justification was found within 60 s.',
+    });
+    render(<EntailmentExplanation triple={TRIPLE} explain={explain as any} />);
+    fireEvent.mouseEnter(getButton());
+    await waitFor(() => expect(getTooltipText()).toContain('within 60 s'));
+  });
+
+  it('names axioms by prefixed name or full IRI, not by local name', async () => {
+    const explain = vi.fn().mockResolvedValue({
+      isEntailed: true,
+      justifications: [[{ subject: 'http://unmapped.example/ns#Person', predicate: 'http://www.w3.org/2000/01/rdf-schema#subClassOf', object: 'http://www.w3.org/2002/07/owl#Thing' }]],
+    });
+    render(<EntailmentExplanation triple={TRIPLE} explain={explain as any} />);
+    fireEvent.mouseEnter(getButton());
+    await waitFor(() => expect(getTooltipText()).toContain('http://unmapped.example/ns#Person ⊑ owl:Thing'));
   });
 });
