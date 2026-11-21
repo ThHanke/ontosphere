@@ -16,7 +16,7 @@
 - Shape files are parsed with their URL as base IRI. A file that cannot be fetched or parsed is skipped with a warning and a notice; `loadShaclFromUrl` then names the failed and the loaded files.
 - SPARQL updates run through `queryGraph` are journaled as agent edits.
 - Loaded-from bookkeeping lives in `urn:vg:loaded-from`, which is excluded from reasoning and from the SHACL view and exported as its own graph. Named graphs of imported TriG and N-Quads files other than the `urn:vg:*` graphs go to the import's target graph.
-- Weakening is offered for repair sets of several axioms.
+- Weakening is offered for repair sets of several axioms when the installed reasoner accepts `WeakenOptions.alsoRemove` (`WEAKEN_ACCEPTS_ALSO_REMOVE` in `reasonerCapabilities.ts`, off for `rdf-reasoner-konclude` 0.9.6). Without it a culprit is weakened on its own, as before.
 
 ## [1.8.1] — 2026-11-12
 

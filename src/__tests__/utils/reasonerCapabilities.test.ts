@@ -34,6 +34,22 @@ describe('missingRepairMethods', () => {
   });
 });
 
+describe('WEAKEN_ACCEPTS_ALSO_REMOVE', () => {
+  it('matches what the installed rdf-reasoner-konclude declares for WeakenOptions', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const { WEAKEN_ACCEPTS_ALSO_REMOVE } = await import('../../utils/reasonerCapabilities');
+    const types = readFileSync(resolve(__dirname, '../../../node_modules/rdf-reasoner-konclude/dist/types.d.ts'), 'utf8');
+    const start = types.indexOf('interface WeakenOptions');
+    const block = types.slice(start, types.indexOf('export interface', start + 10));
+    const declared = /alsoRemove\?\s*:/.test(block);
+    expect(
+      WEAKEN_ACCEPTS_ALSO_REMOVE,
+      'flip WEAKEN_ACCEPTS_ALSO_REMOVE in src/utils/reasonerCapabilities.ts together with the reasoner upgrade',
+    ).toBe(declared);
+  });
+});
+
 describe('REPAIR_ACCEPTS_JUSTIFICATIONS', () => {
   it('matches what the installed rdf-reasoner-konclude declares for RepairOptions', async () => {
     const { readFileSync } = await import('node:fs');

@@ -278,7 +278,7 @@ describe('suggestDeletionRepairs — weakening', () => {
     const j1 = [t('Penguin', SUBCLASS, 'Mammal'), { subject: `${EX}Mammal`, predicate: OWL_DISJOINT, object: `${EX}Bird` }, t('Penguin', SUBCLASS, 'Bird')];
     const j2 = [t('Shark', SUBCLASS, 'Fish'), { subject: `${EX}Fish`, predicate: OWL_DISJOINT, object: `${EX}Mammal` }, t('Shark', SUBCLASS, 'Mammal')];
     const lib = fakeRepairLibrary([j1, j2], { weakenings: (c) => (c.principal.object.value === `${EX}Mammal` && c.principal.subject.value === `${EX}Penguin` ? [generalize(c)] : []) });
-    const res = await suggestDeletionRepairs({ lib, reskolemize: identity, namespaces: { ex: EX } });
+    const res = await suggestDeletionRepairs({ lib, reskolemize: identity, namespaces: { ex: EX }, weakenAlsoRemove: true });
     expect(lib.chosen.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Penguin ${EX}Mammal`, `${EX}Shark ${EX}Fish`]);
     const i = lib.calls.weaken.findIndex((a) => a.principal.subject.value === `${EX}Penguin` && a.principal.object.value === `${EX}Mammal`);
     expect(lib.calls.weakenOpts[i]?.alsoRemove?.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Shark ${EX}Fish`]);
@@ -289,6 +289,14 @@ describe('suggestDeletionRepairs — weakening', () => {
       { subject: `${EX}Shark`, predicate: SUBCLASS, object: `${EX}Fish`, graph: 'urn:vg:data' },
     ]);
     expect(w[0].rationale).toContain('together with removing the other 1 axiom(s)');
+  });
+
+  it('passes no alsoRemove when the installed reasoner does not accept it', async () => {
+    const j1 = [t('Penguin', SUBCLASS, 'Mammal'), { subject: `${EX}Mammal`, predicate: OWL_DISJOINT, object: `${EX}Bird` }, t('Penguin', SUBCLASS, 'Bird')];
+    const j2 = [t('Shark', SUBCLASS, 'Fish'), { subject: `${EX}Fish`, predicate: OWL_DISJOINT, object: `${EX}Mammal` }, t('Shark', SUBCLASS, 'Mammal')];
+    const lib = fakeRepairLibrary([j1, j2]);
+    await suggestDeletionRepairs({ lib, reskolemize: identity, weakenAlsoRemove: false });
+    expect(lib.calls.weakenOpts.every((o) => !o || !('alsoRemove' in o))).toBe(true);
   });
 
   it('passes no alsoRemove when the repair set has one axiom', async () => {

@@ -24,6 +24,7 @@ import type {
   WeakenResult,
 } from 'rdf-reasoner-konclude';
 import { assessRepairImpact, type RepairImpact } from '../../workers/repairImpact.ts';
+import { WEAKEN_ACCEPTS_ALSO_REMOVE } from '../../utils/reasonerCapabilities';
 import {
   axiomKey,
   hasIriObject,
@@ -78,6 +79,11 @@ export interface SuggestDeletionRepairsInput {
    * assessEdit per repair, over the asserted disjointness pairs of the store).
    */
   assessGuardCost?: boolean;
+  /**
+   * Does the reasoner's weaken() accept `alsoRemove`? Default: WEAKEN_ACCEPTS_ALSO_REMOVE. Without it,
+   * a culprit is weakened on its own, which only works when removing it alone restores consistency.
+   */
+  weakenAlsoRemove?: boolean;
 }
 
 export interface SuggestRepairsResult {
@@ -410,6 +416,7 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
   // the deletion repair above is that. weaken() supports named-class subClassOf culprits only
   // and splits conjuncts itself.
   let weakenIncomplete = false;
+  const alsoRemoveSupported = input.weakenAlsoRemove ?? WEAKEN_ACCEPTS_ALSO_REMOVE;
   if (input.weaken !== false) {
     const culprits = new Map<string, LibAxiom>();
     for (const j of result.justifications) {
@@ -422,7 +429,7 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
       // Several justifications: weaken the culprit relative to the rest of the repair set it belongs to,
       // whose other axioms are removed together with it (reasoner option alsoRemove).
       const inSet = entries.some((e) => axiomKey(e.triple) === key);
-      const others = inSet && entries.length > 1 ? entries.filter((e) => axiomKey(e.triple) !== key) : [];
+      const others = inSet && entries.length > 1 && alsoRemoveSupported ? entries.filter((e) => axiomKey(e.triple) !== key) : [];
       let weakened: WeakenResult;
       try {
         weakened = await input.lib.weaken(culprit, {

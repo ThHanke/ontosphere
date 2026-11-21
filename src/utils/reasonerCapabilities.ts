@@ -36,3 +36,12 @@ export function assertRepairCapabilities(reasoner: unknown): void {
  * fails when they disagree: flip it together with the library upgrade.
  */
 export const REPAIR_ACCEPTS_JUSTIFICATIONS = true;
+
+/**
+ * Does the installed `weaken()` accept `WeakenOptions.alsoRemove` (the other axioms of a repair set,
+ * removed together with the culprit)? An older library ignores the option and would verify a
+ * weakening against the wrong ontology, so the adapter passes it, and offers weakenings for repair
+ * sets of several axioms, only when this is true. Flip it together with the library upgrade; the
+ * test in reasonerCapabilities.test.ts compares it with the installed type declarations.
+ */
+export const WEAKEN_ACCEPTS_ALSO_REMOVE = false;
