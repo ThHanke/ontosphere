@@ -1,5 +1,23 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Focus counts in validation.** `validateGraph` returns `focus` (`nodeShapes`, `shapesWithFocus`, `perShape`) and, once validation ran with and without inferred triples, `focusComparison`; `runReasoning` returns `shaclFocus` and `shaclFocusComparison`. The reasoning report shows one line with the counts, so a shape that selects nothing is told apart from a conforming one.
+- **`explainEntailment` returns `verdict`:** `entailed`, `not-entailed` (a decided answer) or `undetermined` (the check could not decide; `isEntailed` is `null`, `undeterminedKind` and `reason` say why). An undecided answer is not cached.
+- **`explainDiagnostics` takes `assessGuardCost`.** Each deletion repair that restores consistency on its own then carries `guardImpact`: the declared class-disjointness guards it destroys, with the verdict `restores-consistency-with-collateral` when it deletes a constraint the ontology used to reject modelling errors with.
+- **`exportGraph` format `jsonld-dataset`:** one JSON-LD graph object per named graph.
+- **`owl:imports` are followed transitively**, with a visited set and limits.
+
+### Changes to behaviour
+
+- A shape whose validation throws is reported as one violation naming the shape; the other shapes are still validated.
+- Shape files are parsed with their URL as base IRI. A file that cannot be fetched or parsed is skipped with a warning and a notice; `loadShaclFromUrl` then names the failed and the loaded files.
+- SPARQL updates run through `queryGraph` are journaled as agent edits.
+- Loaded-from bookkeeping lives in `urn:vg:loaded-from`, which is excluded from reasoning and from the SHACL view and exported as its own graph. Named graphs of imported TriG and N-Quads files other than the `urn:vg:*` graphs go to the import's target graph.
+- Weakening is offered for repair sets of several axioms.
+
 ## [1.8.1] — 2026-11-12
 
 SHACL validation now follows the spec on blank nodes and class hierarchies, reads the store without copying it, and the default shapes are smaller and quieter.
