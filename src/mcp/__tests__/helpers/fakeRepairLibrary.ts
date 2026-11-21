@@ -38,6 +38,7 @@ export interface FakeRepairLibrary extends RepairLibrary {
     repair: Parameters<RepairLibrary['repair']>[0][];
     assessEdit: { remove: RdfQuad[]; opts?: Parameters<RepairLibrary['assessEdit']>[1] }[];
     weaken: Axiom[];
+    weakenOpts: (Parameters<RepairLibrary['weaken']>[1])[];
   };
   /** The axioms of the repair set the fake returned. */
   chosen: Axiom[];
@@ -66,7 +67,7 @@ export function fakeRepairLibrary(mips: SerializedTriple[][], opts: FakeRepairOp
     covers.push(i);
   });
   const wholeKeys = new Set(chosen.flatMap((a) => a.quads.map(qk)));
-  const calls: FakeRepairLibrary['calls'] = { repair: [], assessEdit: [], weaken: [] };
+  const calls: FakeRepairLibrary['calls'] = { repair: [], assessEdit: [], weaken: [], weakenOpts: [] };
 
   return {
     calls,
@@ -98,8 +99,9 @@ export function fakeRepairLibrary(mips: SerializedTriple[][], opts: FakeRepairOp
         incomplete: false,
       };
     },
-    async weaken(culprit) {
+    async weaken(culprit, o) {
       calls.weaken.push(culprit);
+      calls.weakenOpts.push(o);
       const weakenings = opts.weakenings?.(culprit) ?? [];
       return {
         weakenings,

@@ -60,7 +60,7 @@ function parseTocLinks(markdown: string): [string, string][] {
 
 const README_TOC = parseTocLinks(readmeSrc);
 
-export type RdfExportFormat = 'turtle' | 'json-ld' | 'rdf-xml' | 'nquads' | 'trig';
+export type RdfExportFormat = 'turtle' | 'json-ld' | 'rdf-xml' | 'nquads' | 'trig' | 'json-ld-dataset';
 
 function buildBookmarkletHref(origin: string, pageHref: string): string {
   const relayUrl = new URL('relay.html', pageHref).href;
@@ -258,6 +258,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onExportRdf('trig')}>
                   TriG (dataset) (.trig)
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onExportRdf('json-ld-dataset')}>
+                  JSON-LD (dataset) (.jsonld)
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -502,6 +505,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => onExportRdf('trig')}>
                     TriG (dataset) (.trig)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onExportRdf('json-ld-dataset')}>
+                    JSON-LD (dataset) (.jsonld)
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

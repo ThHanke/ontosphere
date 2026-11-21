@@ -385,9 +385,16 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
       }
     }
     for (const [key, culprit] of culprits) {
+      // Several justifications: weaken the culprit relative to the rest of the repair set it belongs to,
+      // whose other axioms are removed together with it (reasoner option alsoRemove).
+      const inSet = entries.some((e) => axiomKey(e.triple) === key);
+      const others = inSet && entries.length > 1 ? entries.filter((e) => axiomKey(e.triple) !== key) : [];
       let weakened: WeakenResult;
       try {
-        weakened = await input.lib.weaken(culprit, input.timeoutMs !== undefined ? { timeout: input.timeoutMs } : undefined);
+        weakened = await input.lib.weaken(culprit, {
+          ...(input.timeoutMs !== undefined ? { timeout: input.timeoutMs } : {}),
+          ...(others.length > 0 ? { alsoRemove: others.map((e) => e.axiom) } : {}),
+        });
       } catch {
         weakenIncomplete = true; // oracle unavailable: deletion repairs still stand
         continue;
@@ -417,6 +424,12 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
             return { subject: t.subject, predicate: t.predicate, object: t.object, ...(t.graph ? { graph: t.graph } : {}) };
           });
         const verified = w.verifiedConsistent === true;
+        const alsoRemoved = others.flatMap((e) => e.axiom.quads);
+        const withOthers =
+          others.length > 0
+            ? ` Applies together with removing the other ${others.length} axiom(s) of repair set ${owner?.id ?? ''}: ` +
+              others.map((e) => `${name(e.triple.subject)} ${name(e.triple.predicate)} ${hasIriObject(e.triple) ? name(e.triple.object) : e.triple.object}`).join('; ') + '.'
+            : '';
         repairs.push({
           id: `W${repairs.filter((r) => r.kind === 'weaken').length + 1}`,
           issue: 'inconsistency',
@@ -433,9 +446,9 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
               ...(culpritTriple.graph ? { graph: culpritTriple.graph } : {}),
             },
           },
-          batch: { removes: triples(w.remove), adds: triples(w.add) },
+          batch: { removes: triples([...w.remove, ...alsoRemoved]), adds: triples(w.add) },
           weakerThan: `${A} ⊑ ${original}`,
-          rationale: `${rationale} (less destructive than deletion — apply as a remove+add batch).`,
+          rationale: `${rationale}${withOthers} (less destructive than deletion — apply as a remove+add batch).`,
           justificationsCovered: covered,
           weakeningVerified: verified,
           weakeningNote: verified

@@ -92,7 +92,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'queryGraph',
-    description: 'Run a SPARQL query or update against the RDF store. Workspace namespace prefixes are injected automatically so you can use short prefix:local notation. Asserted data is in urn:vg:data; inferred triples (after runReasoning) are in urn:vg:inferred — plain BGP patterns match both. Supported forms: SELECT (returns {rows, total, truncated}), CONSTRUCT (returns {triples, total, truncated}), INSERT DATA, DELETE DATA, DELETE WHERE, DELETE…INSERT…WHERE (returns {updated:true}). Results are capped at limit (default 200, max 1000); truncated:true means more rows exist — use SPARQL OFFSET for pagination. For DL reasoning (Konclude) use runReasoning instead.',
+    description: 'Run a SPARQL query or update against the RDF store. Workspace namespace prefixes are injected automatically so you can use short prefix:local notation. Queries run over the union of all graphs: asserted data (urn:vg:data), loaded ontologies (urn:vg:ontologies), inferred triples (urn:vg:inferred, after runReasoning), shapes (urn:vg:shapes) — plain BGP patterns match all of them; use GRAPH <…> to restrict. Updates without a GRAPH clause write to and match in urn:vg:data; a GRAPH clause targets that graph. Every update is journaled as an agent edit (listAgentEdits / revertAgentBatch). Supported forms: SELECT (returns {rows, total, truncated}), CONSTRUCT (returns {triples, total, truncated}), INSERT DATA, DELETE DATA, DELETE WHERE, DELETE…INSERT…WHERE (returns {updated:true, added, removed}). Results are capped at limit (default 200, max 1000); truncated:true means more rows exist — use SPARQL OFFSET for pagination. For DL reasoning (Konclude) use runReasoning instead.',
     inputSchema: {
       type: 'object',
       required: ['sparql'],
@@ -106,13 +106,14 @@ export const mcpManifest: McpToolManifestEntry[] = [
     name: 'exportGraph',
     description:
       'Export the current RDF graph. turtle | jsonld | rdfxml flatten the store into a single ' +
-      'default graph (named-graph structure is lost). nquads | trig are dataset-faithful: they ' +
-      'collect quads from every urn:vg:* graph (data, inferred, shapes, ontologies, workflows) ' +
-      'and preserve each graph IRI, so the multi-graph partition round-trips on re-import.',
+      'default graph (named-graph structure is lost). nquads | trig | jsonld-dataset are dataset-faithful: they ' +
+      'collect quads from every urn:vg:* graph (data, inferred, shapes, ontologies, workflows, loaded-from) ' +
+      'and preserve each graph IRI, so the multi-graph partition round-trips on re-import ' +
+      '(jsonld-dataset: one JSON-LD graph object {"@id": graph IRI, "@graph": [...]} per graph).',
     inputSchema: {
       type: 'object',
       properties: {
-        format: { type: 'string', enum: ['turtle', 'jsonld', 'rdfxml', 'nquads', 'trig'] },
+        format: { type: 'string', enum: ['turtle', 'jsonld', 'rdfxml', 'nquads', 'trig', 'jsonld-dataset'] },
       },
       required: ['format'],
     },
@@ -388,7 +389,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'runReasoning',
-    description: "Run OWL reasoning over the loaded graph and infer new triples. Default backend is 'konclude' (full OWL 2 DL). Pass reasonerBackend='n3' to use N3 rule-based inference instead. Pass clearBefore=true to clear previous inferences first. SHACL validation runs by default after reasoning if shapes are loaded; pass shaclValidation=false to skip.",
+    description: "Run OWL reasoning over the loaded graph and infer new triples. Default backend is 'konclude' (full OWL 2 DL). Pass reasonerBackend='n3' to use N3 rule-based inference instead. Pass clearBefore=true to clear previous inferences first. SHACL validation runs by default after reasoning if shapes are loaded; pass shaclValidation=false to skip. The response includes shaclFocus / shaclFocusComparison: how many node shapes select focus nodes in the record after reasoning, compared with the last validation without inferred triples.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -547,18 +548,19 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'loadShacl',
-    description: 'Load SHACL shapes from inline Turtle text into the shapes graph (urn:vg:shapes). Call validateGraph to run validation after loading.',
+    description: 'Load SHACL shapes from inline Turtle text into the shapes graph (urn:vg:shapes). Invalid Turtle fails the call and loads nothing. Pass baseIri to resolve relative IRIs. Call validateGraph to run validation after loading.',
     inputSchema: {
       type: 'object',
       required: ['turtle'],
       properties: {
         turtle: { type: 'string' },
+        baseIri: { type: 'string', description: 'Base IRI for relative IRIs in the Turtle (optional).' },
       },
     },
   },
   {
     name: 'validateGraph',
-    description: 'Validate the data graph (urn:vg:data: everything loaded or authored as data, TBox and ABox) plus the inferred graph (urn:vg:inferred) against SHACL shapes loaded in urn:vg:shapes. Loaded ontologies (urn:vg:ontologies) are not validated. Returns conforms flag and structured violation list.',
+    description: 'Validate the data graph (urn:vg:data: everything loaded or authored as data, TBox and ABox) plus the inferred graph (urn:vg:inferred) against SHACL shapes loaded in urn:vg:shapes. Loaded ontologies (urn:vg:ontologies) are not validated. Returns { conforms, violations, focus, focusComparison? }: conforms is true exactly when violations is empty; focus = { nodeShapes, shapesWithFocus, perShape, afterReasoning } counts the node shapes that select at least one focus node in the record (subjects in urn:vg:data); focusComparison compares the last validation without inferred triples with the last one after reasoning. A shape whose validation throws is reported as one violation naming the shape; the other shapes are still validated.',
     inputSchema: {
       type: 'object',
       properties: {},
@@ -566,7 +568,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   },
   {
     name: 'loadShaclFromUrl',
-    description: 'Load SHACL shapes from a URL into urn:vg:shapes. Supports direct .ttl file URLs, GitHub folder tree URLs (auto-discovers .ttl/.shacl files), and comma-separated mixes.',
+    description: 'Load SHACL shapes from a URL into urn:vg:shapes. Supports direct .ttl file URLs, GitHub folder tree URLs (auto-discovers .ttl/.shacl files), and comma-separated mixes. Each file is parsed with its URL as base IRI; success is false when any file failed to fetch or parse (the error names them; the other files stay loaded).',
     inputSchema: {
       type: 'object',
       required: ['url'],
@@ -578,7 +580,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
   {
     name: 'listAgentEdits',
     description:
-      'List recorded agent edit batches (provenance of mutations) most-recent-first. Each mutating tool call (addNode/updateNode/removeNode/addTriple/removeLink/loadRdf) is recorded as a PROV-O Activity in the urn:vg:provenance sidecar graph. Returns [{batchId, tool, agent, timestamp, addedCount, removedCount, reverted}]. Use diffAgentEdits to inspect triples and revertAgentBatch to undo. The journal is in-memory and volatile (cleared on page reload).',
+      'List recorded agent edit batches (provenance of mutations) most-recent-first. Each mutating tool call (addNode/updateNode/removeNode/addTriple/removeLink/loadRdf, and SPARQL Update via queryGraph) is recorded as a PROV-O Activity in the urn:vg:provenance sidecar graph. Returns [{batchId, tool, agent, timestamp, addedCount, removedCount, reverted}]. Use diffAgentEdits to inspect triples and revertAgentBatch to undo. The journal is in-memory and volatile (cleared on page reload).',
     inputSchema: {
       type: 'object',
       properties: {

@@ -42,9 +42,9 @@ const q = (s: string, p: string, o: string) => N3.DataFactory.quad(nn(s), nn(p),
 describe('inference after axioms are removed', () => {
   it('unloading an ontology empties the inferred graph', async () => {
     const { runtime, add, send, inferred } = setup();
-    await add('urn:vg:ontologies',
-      q(`${EX}A`, RDFS_SUBCLASS, `${EX}B`),
-      q(`${EX}A`, 'urn:vg:loadedFrom', ONT));
+    await add('urn:vg:ontologies', q(`${EX}A`, RDFS_SUBCLASS, `${EX}B`));
+    // the loader's bookkeeping graph (LOADED_FROM_GRAPH)
+    await add('urn:vg:loaded-from', q(`${EX}A`, 'urn:vg:loadedFrom', ONT));
     await add('urn:vg:inferred', q(`${EX}A`, RDFS_SUBCLASS, `${EX}Thing`));
     expect(await inferred()).toBe(1);
 

@@ -58,6 +58,8 @@ export interface ImportSerializedPayload {
   ontologyUrl?: string;
   /** Further documents in the same format, loaded in the same worker step as `content`. */
   additionalContents?: string[];
+  /** Base IRI of each of `additionalContents` (index-aligned); `baseIri` when missing. */
+  additionalBaseIris?: string[];
   /** Write only into an empty target graph. The check and the writes happen in one worker step. */
   onlyIfEmpty?: boolean;
 }
@@ -612,8 +614,9 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
   },
   importSerialized(payload) {
     assertPlainObject(payload, "importSerialized payload must be an object");
-    const { content, graphName, contentType, filename, baseIri, additionalContents, onlyIfEmpty } =
+    const { content, graphName, contentType, filename, baseIri, additionalContents, additionalBaseIris, onlyIfEmpty } =
       payload as unknown as ImportSerializedPayload;
+    assertOptionalStringArray(additionalBaseIris, "importSerialized.additionalBaseIris must be a string array when provided");
     assertString(content, "importSerialized.content must be a string");
     assertOptionalStringArray(additionalContents, "importSerialized.additionalContents must be a string array when provided");
     if (onlyIfEmpty !== undefined && typeof onlyIfEmpty !== "boolean") {

@@ -602,7 +602,13 @@ export const ConfigurationPanel = ({
                           useShaclResultStore.getState().clearShaclResults();
                           const { loadShaclShapes } = await import('../../utils/shaclShapeLoader');
                           const manifest = await loadShaclShapes(url);
-                          if (manifest.loaded.length > 0) {
+                          if (manifest.loaded.length > 0 && manifest.errors.length > 0) {
+                            toast.warning(`Loaded ${manifest.loaded.length} shape file(s); ${manifest.errors.length} failed`, {
+                              id: 'shacl-reload',
+                              description: manifest.errors.map(e => `${e.url.split('/').pop()}: ${e.error}`).join('; '),
+                            });
+                            useShaclResultStore.getState().setShaclShapesLoaded(true);
+                          } else if (manifest.loaded.length > 0) {
                             toast.success(`Loaded ${manifest.loaded.length} shape file(s)`, { id: 'shacl-reload' });
                             useShaclResultStore.getState().setShaclShapesLoaded(true);
                           } else if (manifest.errors.length > 0) {

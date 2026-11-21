@@ -274,6 +274,29 @@ describe('suggestDeletionRepairs — weakening', () => {
     expect(lib.calls.weaken.map((a) => a.principal.object.value).sort()).toEqual([`${EX}Bird`, `${EX}Mammal`]);
   });
 
+  it('with a repair set of several axioms, weakens each relative to the others and removes them in the batch', async () => {
+    const j1 = [t('Penguin', SUBCLASS, 'Mammal'), { subject: `${EX}Mammal`, predicate: OWL_DISJOINT, object: `${EX}Bird` }, t('Penguin', SUBCLASS, 'Bird')];
+    const j2 = [t('Shark', SUBCLASS, 'Fish'), { subject: `${EX}Fish`, predicate: OWL_DISJOINT, object: `${EX}Mammal` }, t('Shark', SUBCLASS, 'Mammal')];
+    const lib = fakeRepairLibrary([j1, j2], { weakenings: (c) => (c.principal.object.value === `${EX}Mammal` && c.principal.subject.value === `${EX}Penguin` ? [generalize(c)] : []) });
+    const res = await suggestDeletionRepairs({ lib, reskolemize: identity, namespaces: { ex: EX } });
+    expect(lib.chosen.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Penguin ${EX}Mammal`, `${EX}Shark ${EX}Fish`]);
+    const i = lib.calls.weaken.findIndex((a) => a.principal.subject.value === `${EX}Penguin` && a.principal.object.value === `${EX}Mammal`);
+    expect(lib.calls.weakenOpts[i]?.alsoRemove?.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Shark ${EX}Fish`]);
+    const w = res.repairs.filter((r) => r.kind === 'weaken');
+    expect(w).toHaveLength(1);
+    expect(w[0].batch!.removes).toEqual([
+      { subject: `${EX}Penguin`, predicate: SUBCLASS, object: `${EX}Mammal`, graph: 'urn:vg:data' },
+      { subject: `${EX}Shark`, predicate: SUBCLASS, object: `${EX}Fish`, graph: 'urn:vg:data' },
+    ]);
+    expect(w[0].rationale).toContain('together with removing the other 1 axiom(s)');
+  });
+
+  it('passes no alsoRemove when the repair set has one axiom', async () => {
+    const lib = fakeRepairLibrary([j]);
+    await suggestDeletionRepairs({ lib, reskolemize: identity });
+    expect(lib.calls.weakenOpts.every((o) => !o || !('alsoRemove' in o))).toBe(true);
+  });
+
   it('puts weakenings after deletions and manual-review markers', async () => {
     const lib = fakeRepairLibrary([j, []], { weakenings: (c) => [generalize(c)] });
     const res = await suggestDeletionRepairs({ lib, reskolemize: identity });

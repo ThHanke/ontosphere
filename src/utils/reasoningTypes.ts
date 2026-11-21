@@ -45,6 +45,30 @@ export interface ShaclViolation {
   source: "shacl";
 }
 
+/** Node shapes that select focus nodes in the record (subjects in urn:vg:data), per validation. */
+export interface ShaclFocusSummary {
+  nodeShapes: number;
+  shapesWithFocus: number;
+  /** focus-node count per node shape that selects at least one node */
+  perShape: Record<string, number>;
+  /** the inferred graph held quads when this validation ran */
+  afterReasoning: boolean;
+}
+
+/** The last asserted-only validation against the last validation after reasoning. */
+export interface ShaclFocusComparison {
+  nodeShapes: number;
+  asserted: number;
+  reasoned: number;
+  /** shapes that select nodes only after reasoning */
+  newlyActive: string[];
+}
+
+export interface ShaclFocusInfo {
+  focus?: ShaclFocusSummary;
+  focusComparison?: ShaclFocusComparison;
+}
+
 export interface ReasoningResult {
   id: string;
   timestamp: number;
@@ -55,6 +79,8 @@ export interface ReasoningResult {
   inferences: ReasoningInference[];
   inferredQuads?: { subject: string; predicate: string; object: string; graph?: string }[];
   isConsistent?: boolean | null;
+  /** SHACL focus-node counts of the validation that ran after reasoning */
+  shaclFocus?: ShaclFocusInfo;
   meta?: {
     usedReasoner?: boolean;
     workerDurationMs?: number;

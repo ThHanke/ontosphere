@@ -73,7 +73,8 @@ async function fetchShapeFile(url: string): Promise<string> {
 }
 
 async function writeShapeFile(turtle: string, url: string, name: string): Promise<ShapeLoadEntry> {
-  await rdfManager.loadRDFIntoGraph(turtle, SHACL_GRAPH, 'text/turtle');
+  // the file URL is the base IRI for relative IRIs in the shapes
+  await rdfManager.loadRDFIntoGraph(turtle, SHACL_GRAPH, 'text/turtle', undefined, undefined, url);
   const SH_NODESHAPE = 'http://www.w3.org/ns/shacl#NodeShape';
   const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
   const { items } = await rdfManager.fetchQuadsPage({ graphName: SHACL_GRAPH, limit: 0 });
@@ -114,9 +115,19 @@ async function resolveShapeFiles(
   return files;
 }
 
+/** Logs every failed file, so a shape file that does not parse is never dropped silently. */
 export async function loadShaclShapes(
   urlInput: string,
   options: ShapeLoadOptions = {},
+): Promise<ShapeLoadManifest> {
+  const manifest = await loadShaclShapesUnlogged(urlInput, options);
+  for (const e of manifest.errors) console.warn(`[SHACL] shape file not loaded: ${e.url}: ${e.error}`);
+  return manifest;
+}
+
+async function loadShaclShapesUnlogged(
+  urlInput: string,
+  options: ShapeLoadOptions,
 ): Promise<ShapeLoadManifest> {
   const loaded: ShapeLoadEntry[] = [];
   const errors: ShapeLoadError[] = [];
@@ -135,7 +146,9 @@ export async function loadShaclShapes(
       }
     }
     if (fetched.length === 0) return { loaded, errors };
-    const written = await rdfManager.loadRDFIntoGraphIfEmpty(fetched.map(f => f.turtle), SHACL_GRAPH, 'text/turtle');
+    const written = await rdfManager.loadRDFIntoGraphIfEmpty(
+      fetched.map(f => f.turtle), SHACL_GRAPH, 'text/turtle', fetched.map(f => f.url),
+    );
     if (!written) return { loaded, errors, skipped: true };
     return { loaded: fetched.map(({ name, url, shapeCount }) => ({ name, url, shapeCount })), errors };
   }

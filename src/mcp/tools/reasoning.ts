@@ -35,7 +35,7 @@ async function loadDataProfileTriples(): Promise<ProfileTriple[]> {
 // ---------------------------------------------------------------------------
 const runReasoning: McpTool = {
   name: 'runReasoning',
-  description: "Run OWL reasoning over the loaded graph and infer new triples. Default backend is 'konclude' (full OWL 2 DL). Pass reasonerBackend='n3' to use N3 rule-based inference instead. Pass clearBefore=true to clear previous inferences first. SHACL validation runs by default after reasoning if shapes are loaded (shaclValidation=true); pass shaclValidation=false to skip it. Response: { inferredTriples, isConsistent: boolean|null, errors: ReasoningError[] }. isConsistent=false means the ontology is logically contradictory — inferences were skipped and errors contains per-entity clash details (nodeId: individual IRI, rule, message). isConsistent=null when using the n3 backend or when validation was unavailable.",
+  description: "Run OWL reasoning over the loaded graph and infer new triples. Default backend is 'konclude' (full OWL 2 DL). Pass reasonerBackend='n3' to use N3 rule-based inference instead. Pass clearBefore=true to clear previous inferences first. SHACL validation runs by default after reasoning if shapes are loaded (shaclValidation=true); pass shaclValidation=false to skip it. Response: { inferredTriples, isConsistent: boolean|null, errors: ReasoningError[], shaclFocus?, shaclFocusComparison? } (shaclFocus / shaclFocusComparison: focus-node counts of the SHACL run after reasoning, as validateGraph's focus / focusComparison). isConsistent=false means the ontology is logically contradictory — inferences were skipped and errors contains per-entity clash details (nodeId: individual IRI, rule, message). isConsistent=null when using the n3 backend or when validation was unavailable.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -83,6 +83,9 @@ const runReasoning: McpTool = {
         data: {
           inferredTriples,
           isConsistent: (result as any)?.isConsistent ?? null,
+          // SHACL focus-node counts of the validation after reasoning (as in validateGraph)
+          ...((result as any)?.shaclFocus?.focus ? { shaclFocus: (result as any).shaclFocus.focus } : {}),
+          ...((result as any)?.shaclFocus?.focusComparison ? { shaclFocusComparison: (result as any).shaclFocus.focusComparison } : {}),
           errors: ((result as any)?.errors ?? []).map((e: any) => ({
             nodeId: e.nodeId ?? null,
             rule: e.rule ?? 'unknown',
