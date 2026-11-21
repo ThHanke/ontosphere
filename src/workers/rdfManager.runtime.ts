@@ -17,6 +17,7 @@ import type {
   WorkerReconcileSubjectSnapshotPayload,
 } from "../utils/rdfManager.workerProtocol.ts";
 import type { ReasoningResult } from "../utils/reasoningTypes.ts";
+import { classifyEntailment } from "./entailmentVerdict.ts";
 import {
   SKOLEM_PREFIX,
   deserializeQuadFromUi as deserializeQuad,
@@ -3310,6 +3311,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             maxJustifications: p.maxJustifications,
             timeoutMs: p.timeoutMs,
             weaken: p.weaken,
+            assessGuardCost: p.assessGuardCost,
           });
           result = { ...suggested, libTimingsMs };
           break;
@@ -3377,8 +3379,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const reason = answer.reason ?? note;
           const termValue = (t: { value: string; termType?: string }) =>
             t.termType === "BlankNode" ? `_:${t.value}` : t.value;
+          // verdict tells a decided "not entailed" apart from a check that could not decide.
+          const verdict = classifyEntailment({ isEntailed, ontologyInconsistent, vacuous, reason });
           result = {
             isEntailed,
+            verdict: verdict.verdict,
+            ...(verdict.undeterminedKind ? { undeterminedKind: verdict.undeterminedKind } : {}),
             justifications: justifications.map((j) =>
               j.map((q) => ({ subject: termValue(q.subject), predicate: q.predicate.value, object: termValue(q.object) })),
             ),
@@ -3386,9 +3392,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             ...(ontologyInconsistent ? { ontologyInconsistent: true } : {}),
             ...(vacuous ? { vacuous: true } : {}),
             ...(justificationUnavailable ? { justificationUnavailable: true } : {}),
-            ...(reason ? { reason } : {}),
+            ...(verdict.reason ?? reason ? { reason: verdict.reason ?? reason } : {}),
           };
-          entailmentCache.set(cacheKey, result, computedAt, reasoningInputGeneration);
+          // An undecided answer (the reasoner did not return one) is not kept: asking again may succeed.
+          if (verdict.undeterminedKind !== "reasoner-unavailable") {
+            entailmentCache.set(cacheKey, result, computedAt, reasoningInputGeneration);
+          }
           break;
         }
         default:

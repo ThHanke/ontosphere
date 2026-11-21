@@ -424,6 +424,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
       properties: {
         maxJustifications: { type: 'number', default: 3, description: 'Max independent inconsistency justifications (MIPS) to return.' },
         includeTimings: { type: 'boolean', default: false, description: 'Add timingsMs: wall time in ms of each stage and of each reasoner call. For diagnosing slow runs.' },
+        assessGuardCost: { type: 'boolean', default: false, description: "Also measure what each deletion repair costs in declared class-disjointness guards (one extra classification per repair). Each repair that restores consistency on its own then carries guardImpact { verdict, classGuardsDestroyed, summary }; verdict 'restores-consistency-with-collateral' means it deletes a constraint the ontology used to reject modelling errors with." },
       },
     },
   },
@@ -432,7 +433,7 @@ export const mcpManifest: McpToolManifestEntry[] = [
     description:
       "Explain WHY a specific entailed axiom holds — Horridge-style justifications for an ARBITRARY entailed axiom (not just inconsistency). " +
       "Ask 'why is A rdfs:subClassOf B?' or 'why is x rdf:type C?' and get the minimal set(s) of asserted axioms whose conjunction logically entails it. " +
-      "Returns { isEntailed, justifications, summary }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; justifications is a list of minimal axiom sets (each { subject, predicate, object }[]). " +
+      "Returns { isEntailed, verdict, justifications, summary }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; verdict is entailed, not-entailed (a decided answer) or undetermined (the check could not decide; isEntailed=null, see reason); justifications is a list of minimal axiom sets (each { subject, predicate, object }[]). " +
       "An axiom that is directly asserted comes back as its own one-axiom justification. isEntailed=true with justificationUnavailable=true means the axiom is entailed but no sound justification could be produced (see reason); ask again with justificationMode 'exact'. justificationMode in the result says which search produced the justifications ('exact' = guaranteed minimal, 'fast' = one verified candidate, not necessarily minimal). isEntailed=false ⇒ not entailed. summary is a plain-language 'Inferred because: …' explanation. " +
       "Supported shapes: rdfs:subClassOf and rdf:type with an IRI object (e.g. transitive subclass, domain/range-driven type inference). Read-only: never mutates asserted data.",
     inputSchema: {

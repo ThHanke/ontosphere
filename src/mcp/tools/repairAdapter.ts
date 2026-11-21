@@ -23,6 +23,7 @@ import type {
   WeakenOptions,
   WeakenResult,
 } from 'rdf-reasoner-konclude';
+import { assessRepairImpact, type RepairImpact } from '../../workers/repairImpact.ts';
 import {
   axiomKey,
   hasIriObject,
@@ -72,6 +73,11 @@ export interface SuggestDeletionRepairsInput {
   timeoutMs?: number;
   /** Also offer weakenings of rdfs:subClassOf culprits (default true). */
   weaken?: boolean;
+  /**
+   * Also report what each deletion repair costs in declared class-disjointness guards (one extra
+   * assessEdit per repair, over the asserted disjointness pairs of the store).
+   */
+  assessGuardCost?: boolean;
 }
 
 export interface SuggestRepairsResult {
@@ -297,6 +303,33 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
     }
   }
 
+  // Guard cost per deletion repair: the declared disjointness pairs that no longer hold once this
+  // axiom is gone. The baseline is the declared pool, which a consistent version enforces in full.
+  const guardImpacts = new Map<number, RepairImpact>();
+  if (input.assessGuardCost) {
+    for (let i = 0; i < entries.length; i++) {
+      try {
+        const a = await lib.assessEdit({ remove: entries[i].axiom.quads });
+        // Disjointness can only be judged on a consistent result. With several independent contradictions
+        // one removal does not restore consistency alone, so such a repair gets no guard verdict.
+        if (!a.consistent || a.incomplete) continue;
+        const lost = new Set((a.lostDisjointPairs ?? []).map((p) => `${p.a}|${p.b}`));
+        const before = a.pairsChecked.map((pair) => ({ pair, enforced: true, vacuous: false }));
+        const after = a.pairsChecked.map((pair) => ({
+          pair, enforced: !lost.has(`${pair.a}|${pair.b}`), vacuous: false,
+        }));
+        guardImpacts.set(i, assessRepairImpact({
+          wasInconsistent: true,
+          consistencyRestored: true,
+          classGuardsBefore: before,
+          classGuardsAfter: after,
+        }));
+      } catch {
+        // oracle unavailable: no guard verdict for this repair
+      }
+    }
+  }
+
   const repairs: RepairSuggestion[] = entries.map(({ axiom, triple, covered }, i) => {
     const kind = isTBoxAxiom(triple)
       ? 'a TBox/structural axiom (more invasive — verify intent before applying)'
@@ -335,6 +368,7 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
       rationale,
       justificationsCovered: covered,
       ...(verified !== undefined ? { verifiedConsistent: verified } : {}),
+      ...(guardImpacts.has(i) ? { guardImpact: guardImpacts.get(i) } : {}),
       ...(setVerified !== null ? { verifiedSet: setVerified } : {}),
       ...(minimal !== null ? { minimalityVerified: minimal } : {}),
     };

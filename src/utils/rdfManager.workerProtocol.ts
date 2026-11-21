@@ -166,6 +166,8 @@ export type RDFWorkerCommandPayloads = {
     timeoutMs?: number;
     /** Also offer weakenings of rdfs:subClassOf culprits (default true). */
     weaken?: boolean;
+    /** Also report what each deletion repair costs in class-disjointness guards (one extra assessEdit per repair). */
+    assessGuardCost?: boolean;
   };
   /**
    * Search existing ontology terms (classes / properties / individuals) by
@@ -723,6 +725,7 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
       invariant(typeof p[k] === "undefined" || (typeof p[k] === "number" && Number.isFinite(p[k] as number)), `suggestRepairs.${k} must be a finite number when provided`);
     }
     invariant(typeof p.weaken === "undefined" || typeof p.weaken === "boolean", "suggestRepairs.weaken must be a boolean when provided");
+    invariant(typeof p.assessGuardCost === "undefined" || typeof p.assessGuardCost === "boolean", "suggestRepairs.assessGuardCost must be a boolean when provided");
   },
   searchTerms(payload) {
     assertPlainObject(payload, "searchTerms payload must be an object");

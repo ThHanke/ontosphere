@@ -877,6 +877,9 @@ export class RDFManagerImpl {
     justificationUnavailable?: boolean;
     /** The mode the justifications come from ("exact" = guaranteed minimal). */
     justificationMode?: "fast" | "exact";
+    /** entailed | not-entailed (a decided answer) | undetermined (the check could not decide; isEntailed is null). */
+    verdict?: "entailed" | "not-entailed" | "undetermined";
+    undeterminedKind?: "ontology-inconsistent" | "vacuous" | "reasoner-unavailable";
     reason?: string;
   }> {
     const response = await this.worker.call("explainEntailment", {
@@ -894,8 +897,14 @@ export class RDFManagerImpl {
     // null (do NOT coerce to false) so the tool can distinguish "vacuous, fix
     // consistency first" from "not entailed".
     const ontologyInconsistent = safe.ontologyInconsistent === true;
+    // A null from the reasoner means it did not decide; it must not read as "not entailed".
+    const undecided = safe.isEntailed === null && safe.verdict === "undetermined";
     return {
-      isEntailed: ontologyInconsistent ? null : safe.isEntailed === true,
+      isEntailed: ontologyInconsistent || undecided ? null : safe.isEntailed === true,
+      ...(safe.verdict === "entailed" || safe.verdict === "not-entailed" || safe.verdict === "undetermined" ? { verdict: safe.verdict } : {}),
+      ...(safe.undeterminedKind === "ontology-inconsistent" || safe.undeterminedKind === "vacuous" || safe.undeterminedKind === "reasoner-unavailable"
+        ? { undeterminedKind: safe.undeterminedKind }
+        : {}),
       justifications: Array.isArray(safe.justifications)
         ? (safe.justifications as { subject: string; predicate: string; object: string }[][])
         : [],

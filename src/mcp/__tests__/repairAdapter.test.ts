@@ -319,6 +319,45 @@ describe('suggestDeletionRepairs — weakening', () => {
     expect(res.repairs.some((r) => r.kind !== 'weaken')).toBe(true);
   });
 
+  describe('assessGuardCost', () => {
+    const pair = { a: `${EX}A`, b: `${EX}B` };
+    const other = { a: `${EX}C`, b: `${EX}D` };
+    const withGuards = (lost: { a: string; b: string }[]) => {
+      const lib = fakeRepairLibrary([clash]);
+      const base = lib.assessEdit.bind(lib);
+      lib.assessEdit = async (edit, o) => ({ ...(await base(edit, o)), pairsChecked: [pair, other], lostDisjointPairs: lost });
+      return lib;
+    };
+
+    it('adds no guardImpact unless asked, and makes no extra assessEdit call', async () => {
+      const lib = withGuards([pair]);
+      const res = await suggestDeletionRepairs({ lib, reskolemize: identity });
+      expect(res.repairs[0].guardImpact).toBeUndefined();
+      expect(lib.calls.assessEdit.every((c) => c.opts?.pairs !== undefined)).toBe(true); // only the pairs: [] checks
+    });
+
+    it('marks a repair that deletes a declared disjointness as restoring consistency with collateral', async () => {
+      const res = await suggestDeletionRepairs({ lib: withGuards([pair]), reskolemize: identity, assessGuardCost: true });
+      const g = res.repairs[0].guardImpact!;
+      expect(g.verdict).toBe('restores-consistency-with-collateral');
+      expect(g.classGuardsBefore).toBe(2);
+      expect(g.classGuardsAfter).toBe(1);
+      expect(g.classGuardsDestroyed).toMatchObject([{ a: pair.a, b: pair.b }]);
+      expect(g.summary).toContain('1 modelling error');
+    });
+
+    it('marks a repair that keeps every guard as verified', async () => {
+      const res = await suggestDeletionRepairs({ lib: withGuards([]), reskolemize: identity, assessGuardCost: true });
+      expect(res.repairs[0].guardImpact).toMatchObject({ verdict: 'verified', classGuardsBefore: 2, classGuardsAfter: 2 });
+    });
+
+    it('gives no verdict to a repair that does not restore consistency on its own', async () => {
+      const lib = fakeRepairLibrary([clash], { consistentAfter: () => false });
+      const res = await suggestDeletionRepairs({ lib, reskolemize: identity, assessGuardCost: true });
+      expect(res.repairs[0].guardImpact).toBeUndefined();
+    });
+  });
+
   it('quadToTriple keeps literal datatype and language', () => {
     const q = quad(namedNode(`${EX}s`), namedNode(`${EX}p`), literal('7', namedNode(XSD_INT)), namedNode('urn:vg:data'));
     expect(quadToTriple(q)).toEqual({ subject: `${EX}s`, predicate: `${EX}p`, object: '7', objectTermType: 'Literal', objectDatatype: XSD_INT, graph: 'urn:vg:data' });
