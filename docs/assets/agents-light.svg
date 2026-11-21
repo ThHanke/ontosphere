@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380" role="img" aria-labelledby="t d">
+  <title id="t">Ontosphere for AI agents</title>
+  <desc id="d">An agent edits through 42 MCP tools; the browser tab verifies with a complete reasoner and returns one structured diagnosis.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1f5f8b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+  <rect x="24.5" y="40.5" width="299" height="299" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <text x="52" y="82" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">AI AGENT</text>
+  <rect x="52.5" y="112" width="3" height="48" rx="1.5" fill="#1f5f8b"/>
+  <text x="72" y="134" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">Claude Code, Playwright</text>
+  <text x="72" y="156" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">full automation</text>
+  <rect x="52.5" y="184" width="3" height="48" rx="1.5" fill="#1f5f8b"/>
+  <text x="72" y="206" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">ChatGPT, Gemini, Claude.ai</text>
+  <text x="72" y="228" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">through the relay bridge</text>
+  <rect x="52.5" y="256" width="3" height="48" rx="1.5" fill="#1f5f8b"/>
+  <text x="72" y="278" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">WebMCP</text>
+  <text x="72" y="300" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">native in Chrome 153 and later</text>
+  <line x1="334" y1="150" x2="406" y2="150" stroke="#1f5f8b" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="370" y="134" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#515b66" text-anchor="middle">author, query,</text>
+  <text x="370" y="172" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#515b66" text-anchor="middle">select a repair</text>
+  <rect x="416.5" y="40.5" width="367" height="299" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <rect x="436" y="40.5" width="328" height="4" rx="2" fill="#1f5f8b"/>
+  <text x="600" y="100" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="56" font-weight="700" fill="#1f2328" text-anchor="middle" letter-spacing="-1">42</text>
+  <text x="600" y="132" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#515b66" text-anchor="middle">MCP tools in nine categories</text>
+  <rect x="442" y="170" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="492" y="192" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Graph</text>
+  <rect x="554" y="170" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="604" y="192" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Nodes</text>
+  <rect x="666" y="170" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="716" y="192" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Links</text>
+  <rect x="442" y="222" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="492" y="244" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Layout</text>
+  <rect x="554" y="222" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="604" y="244" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Reasoning</text>
+  <rect x="666" y="222" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="716" y="244" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Namespaces</text>
+  <rect x="442" y="274" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="492" y="296" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">SHACL</text>
+  <rect x="554" y="274" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="604" y="296" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Provenance</text>
+  <rect x="666" y="274" width="100" height="34" rx="17" fill="#ffffff" stroke="#d0d7de" stroke-width="1"/>
+  <text x="716" y="296" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="600" fill="#1f2328" text-anchor="middle">Metadata</text>
+  <line x1="794" y1="150" x2="866" y2="150" stroke="#1f5f8b" stroke-width="2"/>
+  <path d="M794 150 l9 -5 v10 z" fill="#1f5f8b"/>
+  <text x="830" y="134" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#515b66" text-anchor="middle">verified,</text>
+  <text x="830" y="172" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="12" font-weight="400" fill="#515b66" text-anchor="middle">never hidden</text>
+  <rect x="876.5" y="40.5" width="299" height="299" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <text x="904" y="82" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">ONE DIAGNOSIS</text>
+  <circle cx="912" cy="114" r="5" fill="#1f5f8b"/>
+  <text x="930" y="119" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">Verdict</text>
+  <text x="930" y="139" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#515b66" text-anchor="start">consistent or not</text>
+  <circle cx="912" cy="170" r="5" fill="#1f5f8b"/>
+  <text x="930" y="175" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">Justifications</text>
+  <text x="930" y="195" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#515b66" text-anchor="start">minimal axiom sets</text>
+  <circle cx="912" cy="226" r="5" fill="#1f5f8b"/>
+  <text x="930" y="231" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">Verified repairs</text>
+  <text x="930" y="251" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#515b66" text-anchor="start">deletion or weakening</text>
+  <circle cx="912" cy="282" r="5" fill="#1f5f8b"/>
+  <text x="930" y="287" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">SHACL findings</text>
+  <text x="930" y="307" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#515b66" text-anchor="start">per shape and focus node</text>
+</svg>

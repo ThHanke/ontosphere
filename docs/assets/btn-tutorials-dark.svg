@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 48" width="190" height="48" role="img" aria-labelledby="t d">
+  <title id="t">Video tutorials</title>
+  <desc id="d">Video tutorials</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#62aee8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+  <rect x="0.5" y="0.5" width="189" height="47" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="95.0" y="30" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#f0f6fc" text-anchor="middle">Video tutorials</text>
+</svg>
