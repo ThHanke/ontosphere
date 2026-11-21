@@ -281,7 +281,7 @@ describe('suggestDeletionRepairs — weakening', () => {
     const res = await suggestDeletionRepairs({ lib, reskolemize: identity, namespaces: { ex: EX }, weakenAlsoRemove: true });
     expect(lib.chosen.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Penguin ${EX}Mammal`, `${EX}Shark ${EX}Fish`]);
     const i = lib.calls.weaken.findIndex((a) => a.principal.subject.value === `${EX}Penguin` && a.principal.object.value === `${EX}Mammal`);
-    expect(lib.calls.weakenOpts[i]?.alsoRemove?.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Shark ${EX}Fish`]);
+    expect((lib.calls.weakenOpts[i] as { alsoRemove?: Axiom[] } | undefined)?.alsoRemove?.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Shark ${EX}Fish`]);
     const w = res.repairs.filter((r) => r.kind === 'weaken');
     expect(w).toHaveLength(1);
     expect(w[0].batch!.removes).toEqual([
