@@ -23,8 +23,8 @@ const loadShacl: McpTool = {
       const { turtle, baseIri } = params as { turtle: string; baseIri?: string };
       if (!turtle?.trim()) return { success: false, error: 'turtle is required' };
 
-      if (baseIri) await rdfManager.loadRDFIntoGraph(turtle, SHACL_GRAPH, 'text/turtle', undefined, undefined, baseIri);
-      else await rdfManager.loadRDFIntoGraph(turtle, SHACL_GRAPH, 'text/turtle');
+      const { loadShaclTurtle } = await import('@/utils/shaclShapeLoader');
+      await loadShaclTurtle(turtle, baseIri);
 
       const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
       const SH_NODESHAPE = 'http://www.w3.org/ns/shacl#NodeShape';

@@ -42,6 +42,7 @@ export function ShaclShapesPanel() {
   const shaclWarnings = useShaclResultStore(s => s.warnings);
   const activeMessageKey = useShaclResultStore(s => s.activeMessageKey);
   const highlightMessage = useShaclResultStore(s => s.highlightMessage);
+  const shapeLoadErrors = useShaclResultStore(s => s.shapeLoadErrors);
   const hasResults = shaclErrors.length > 0 || shaclWarnings.length > 0;
 
   const activeRef = useRef<HTMLButtonElement>(null);
@@ -209,9 +210,25 @@ export function ShaclShapesPanel() {
     return allMessages.filter(m => msgSet.has(m.message));
   };
 
+  const loadErrorBox = shapeLoadErrors.length > 0 && (
+    <div role="alert" data-testid="shacl-load-errors" className="rounded-md border border-destructive/50 bg-destructive/10 px-2 py-1.5 text-xs space-y-1">
+      <div className="flex items-center gap-1.5 font-medium text-destructive">
+        <XCircle className="w-3 h-3 shrink-0" />
+        {shapeLoadErrors.length} shape file{shapeLoadErrors.length !== 1 ? 's' : ''} could not be loaded
+      </div>
+      {shapeLoadErrors.map((e, i) => (
+        <div key={i} className="break-words text-muted-foreground">
+          <span className="font-medium" title={e.url}>{e.url.split('/').pop() || e.url}</span>: {e.error}
+        </div>
+      ))}
+      <div className="text-muted-foreground/80">Its shapes are missing, so data is not checked against them.</div>
+    </div>
+  );
+
   if (shapeCount === 0 && !hasResults) {
     return (
-      <div className="px-3 py-4 text-center">
+      <div className="px-3 py-4 text-center space-y-2">
+        {loadErrorBox}
         <Shield className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground mb-1">No shapes loaded</p>
         <p className="text-xs text-muted-foreground">
@@ -255,6 +272,7 @@ export function ShaclShapesPanel() {
 
   return (
     <div className="space-y-2 px-2">
+      {loadErrorBox}
       <div className="flex items-center justify-between px-1">
         <span className="text-xs text-muted-foreground">
           {shapeCount} shape{shapeCount !== 1 ? 's' : ''} loaded

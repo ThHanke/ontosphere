@@ -1,5 +1,6 @@
 import { Parser } from 'n3';
 import { rdfManager } from './rdfManager';
+import { useShaclResultStore } from '../stores/shaclResultStore';
 
 const SHACL_GRAPH = 'urn:vg:shapes';
 const SHAPE_EXTENSIONS = ['.ttl', '.shacl', '.turtle'];
@@ -122,6 +123,9 @@ export async function loadShaclShapes(
 ): Promise<ShapeLoadManifest> {
   const manifest = await loadShaclShapesUnlogged(urlInput, options);
   for (const e of manifest.errors) console.warn(`[SHACL] shape file not loaded: ${e.url}: ${e.error}`);
+  // Kept in the store so the SHACL panel shows a badge: a toast is gone after a few seconds.
+  // A startup load that found shapes already present changed nothing, so it keeps the earlier state.
+  if (!manifest.skipped) useShaclResultStore.getState().setShapeLoadErrors(manifest.errors);
   return manifest;
 }
 
@@ -163,4 +167,21 @@ async function loadShaclShapesUnlogged(
     }
   }
   return { loaded, errors };
+}
+
+/**
+ * Loads inline Turtle shapes into the shapes graph (adds to what is there). The same track as the file loader:
+ * a failure is logged and kept in the store for the SHACL panel badge, then rethrown to the caller.
+ */
+export async function loadShaclTurtle(turtle: string, baseIri?: string): Promise<void> {
+  try {
+    if (baseIri) await rdfManager.loadRDFIntoGraph(turtle, SHACL_GRAPH, 'text/turtle', undefined, undefined, baseIri);
+    else await rdfManager.loadRDFIntoGraph(turtle, SHACL_GRAPH, 'text/turtle');
+  } catch (e) {
+    const entry = { url: baseIri ?? 'inline Turtle', error: String(e) };
+    console.warn(`[SHACL] shape file not loaded: ${entry.url}: ${entry.error}`);
+    const store = useShaclResultStore.getState();
+    store.setShapeLoadErrors([...store.shapeLoadErrors, entry]);
+    throw e;
+  }
 }

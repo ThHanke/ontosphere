@@ -10,6 +10,21 @@ const RDF_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type';
 const SUBCLASS_OF = 'http://www.w3.org/2000/01/rdf-schema#subClassOf';
 const SUBPROPERTY_OF = 'http://www.w3.org/2000/01/rdf-schema#subPropertyOf';
 
+/** "Computing justification" with dots that add up, so a slow search visibly keeps working. */
+function PendingDots() {
+  const [n, setN] = React.useState(1);
+  React.useEffect(() => {
+    const id = setInterval(() => setN(v => (v % 3) + 1), 400);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <>
+      Computing justification
+      <span style={{ display: 'inline-block', width: '1.2em', textAlign: 'left' }}>{'.'.repeat(n)}</span>
+    </>
+  );
+}
+
 export interface ExplainTriple {
   subject: string;
   predicate: string;
@@ -164,7 +179,7 @@ export function EntailmentExplanation(
           border: '1px solid rgba(255,255,255,0.1)',
           boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
         }}>
-          <div>{tooltip ? tooltip.header : 'Computing justification…'}</div>
+          <div>{tooltip ? tooltip.header : <PendingDots />}</div>
           {tooltip?.lines.map((line, i) => (
             <div key={i} style={{ marginTop: 2 }}>
               <div style={{ color: '#a0a0b8' }}>{`  • ${line.formal}`}</div>

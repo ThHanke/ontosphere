@@ -1575,7 +1575,7 @@ export default function ReactodiaCanvas() {
 
       // Build raw error/warning maps and set them immediately so canvas badges appear
       // without waiting for the async label resolution that follows.
-      const buildMaps = (errors: typeof result.errors, warnings: typeof result.warnings, msgFn: (e: typeof result.errors[0]) => string) => {
+      const buildMaps = (errors: typeof result.errors, warnings: typeof result.warnings, msgFn: (e: typeof result.errors[0] | typeof result.warnings[0]) => string) => {
         const errMap = new Map<string, string[]>();
         for (const err of errors ?? []) {
           if (err.nodeId) {

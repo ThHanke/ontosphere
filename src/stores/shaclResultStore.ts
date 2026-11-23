@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ShapeLoadError } from "../utils/shaclShapeLoader";
 import type { ReasoningError, ReasoningWarning } from "../utils/reasoningTypes";
 
 export interface ShaclResultState {
@@ -7,6 +8,9 @@ export interface ShaclResultState {
   activeMessageKey: string | null;
   panelOpenRequest: number;
   shaclShapesLoaded: boolean;
+  /** Shape files of the last load that could not be read or parsed; shown as a badge and list in the SHACL panel. */
+  shapeLoadErrors: ShapeLoadError[];
+  setShapeLoadErrors: (errors: ShapeLoadError[]) => void;
   setShaclResults: (errors: ReasoningError[], warnings: ReasoningWarning[]) => void;
   clearShaclResults: () => void;
   highlightMessage: (key: string) => void;
@@ -29,6 +33,8 @@ export const useShaclResultStore = create<ShaclResultState>((set) => ({
   activeMessageKey: null,
   panelOpenRequest: 0,
   shaclShapesLoaded: false,
+  shapeLoadErrors: [],
+  setShapeLoadErrors: (errors) => set({ shapeLoadErrors: errors }),
   setShaclResults: (errors, warnings) => set({ errors, warnings }),
   clearShaclResults: () => set({ errors: [], warnings: [], activeMessageKey: null }),
   highlightMessage: (key) => set({ activeMessageKey: key }),

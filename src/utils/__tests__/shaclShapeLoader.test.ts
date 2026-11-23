@@ -15,7 +15,8 @@ vi.mock('../rdfManager', () => ({
   },
 }));
 
-import { loadShaclShapes } from '../shaclShapeLoader';
+import { loadShaclShapes, loadShaclTurtle } from '../shaclShapeLoader';
+import { useShaclResultStore } from '../../stores/shaclResultStore';
 
 const GOOD = '@prefix sh: <http://www.w3.org/ns/shacl#> . <#S> a sh:NodeShape .';
 const BAD = '@prefix : shape: . :S a :T .';
@@ -47,6 +48,24 @@ describe('loadShaclShapes', () => {
     const m = await loadShaclShapes('https://ex.org/bad.ttl,https://ex.org/good.ttl', { onlyIfEmpty: true });
     expect(m.errors.map((e) => e.url)).toEqual(['https://ex.org/bad.ttl']);
     expect(loadRDFIntoGraphIfEmpty).toHaveBeenCalledWith([GOOD], 'urn:vg:shapes', 'text/turtle', ['https://ex.org/good.ttl']);
+    warn.mockRestore();
+  });
+
+  it('keeps the failed files in the store for the panel badge, and clears them after a clean load', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await loadShaclShapes('https://ex.org/good.ttl, https://ex.org/bad.ttl');
+    expect(useShaclResultStore.getState().shapeLoadErrors.map((e) => e.url)).toEqual(['https://ex.org/bad.ttl']);
+    await loadShaclShapes('https://ex.org/good.ttl');
+    expect(useShaclResultStore.getState().shapeLoadErrors).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it('inline Turtle (loadShacl) goes through the same track: a parse failure is kept for the badge and rethrown', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    useShaclResultStore.getState().setShapeLoadErrors([]);
+    await expect(loadShaclTurtle(BAD)).rejects.toThrow('Unexpected');
+    expect(useShaclResultStore.getState().shapeLoadErrors).toEqual([{ url: 'inline Turtle', error: expect.stringContaining('Unexpected') }]);
+    await loadShaclTurtle(GOOD, 'https://ex.org/x.ttl');
     warn.mockRestore();
   });
 });
