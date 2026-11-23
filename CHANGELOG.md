@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.2] — 2026-11-23
+
+Reasoner 0.9.7, SHACL focus counts and an entailment verdict, repair weakening for several axioms, and warnings where the reasoner or a shape file silently dropped input.
+
 ### Added
 
 - **Focus counts in validation.** `validateGraph` returns `focus` (`nodeShapes`, `shapesWithFocus`, `perShape`) and, once validation ran with and without inferred triples, `focusComparison`; `runReasoning` returns `shaclFocus` and `shaclFocusComparison`. The reasoning report shows one line with the counts, so a shape that selects nothing is told apart from a conforming one.

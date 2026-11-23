@@ -34,7 +34,7 @@
 
 <div align="center">
 
-[![version](https://img.shields.io/badge/version-1.8.1-1f5f8b?style=flat-square)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.8.2-1f5f8b?style=flat-square)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-1f5f8b?style=flat-square)](LICENSE)
 [![doi](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19605270-1f5f8b?style=flat-square)](https://doi.org/10.5281/zenodo.19605270)
 ![reasoner](https://img.shields.io/badge/reasoner-Konclude_%C2%B7_WebAssembly-1f5f8b?style=flat-square)
