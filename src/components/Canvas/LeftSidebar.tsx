@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { WorkflowTemplateCard } from './WorkflowTemplateCard';
+import { Badge } from '../ui/badge';
 import { ShaclShapesPanel } from './ShaclShapesPanel';
 import { AgentEditsPanel } from './AgentEditsPanel';
 import { SparqlPanel } from './SparqlPanel';
@@ -60,7 +61,7 @@ function parseTocLinks(markdown: string): [string, string][] {
 
 const README_TOC = parseTocLinks(readmeSrc);
 
-export type RdfExportFormat = 'turtle' | 'json-ld' | 'rdf-xml' | 'nquads' | 'trig';
+export type RdfExportFormat = 'turtle' | 'json-ld' | 'rdf-xml' | 'nquads' | 'trig' | 'json-ld-dataset';
 
 function buildBookmarkletHref(origin: string, pageHref: string): string {
   const relayUrl = new URL('relay.html', pageHref).href;
@@ -94,6 +95,7 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [openAccordions, setOpenAccordions] = useState<string[]>(['ai-relay']);
   const panelOpenRequest = useShaclResultStore(s => s.panelOpenRequest);
+  const shapeLoadErrorCount = useShaclResultStore(s => s.shapeLoadErrors.length);
   const lastHandledRequest = useRef(0);
   const workflowCatalogEnabled = useAppConfigStore((s) => s.config.workflowCatalogEnabled);
   const { connected, callLog } = useRelayBridge(true);
@@ -259,13 +261,21 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 <DropdownMenuItem onSelect={() => onExportRdf('trig')}>
                   TriG (dataset) (.trig)
                 </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onExportRdf('json-ld-dataset')}>
+                  JSON-LD (dataset) (.jsonld)
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
             <TooltipPrimitive.Root>
               <TooltipPrimitive.Trigger asChild>
                 <button className="rail-btn" onClick={() => { setOpenAccordions(['shacl-shapes']); onToggle(); }} aria-label="SHACL Shapes">
-                  <Shield className="h-[18px] w-[18px]" />
+                  <span className="relative inline-flex">
+                    <Shield className="h-[18px] w-[18px]" />
+                    {shapeLoadErrorCount > 0 && (
+                      <span data-testid="shacl-load-error-dot" className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-destructive" />
+                    )}
+                  </span>
                   <span>SHACL</span>
                 </button>
               </TooltipPrimitive.Trigger>
@@ -503,6 +513,9 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                   <DropdownMenuItem onSelect={() => onExportRdf('trig')}>
                     TriG (dataset) (.trig)
                   </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => onExportRdf('json-ld-dataset')}>
+                    JSON-LD (dataset) (.jsonld)
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
@@ -582,6 +595,11 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                   <div className="flex items-center gap-2 text-foreground">
                     <Shield className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium">SHACL Shapes</span>
+                    {shapeLoadErrorCount > 0 && (
+                      <Badge variant="destructive" data-testid="shacl-load-error-badge" className="text-[10px] h-4 px-1" title="Some shape files could not be loaded">
+                        {shapeLoadErrorCount} failed
+                      </Badge>
+                    )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pb-2">

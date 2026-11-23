@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" width="1200" height="520" role="img" aria-labelledby="t d">
+  <title id="t">Named graphs of the Ontosphere store</title>
+  <desc id="d">Which named graph is read by reasoning, read by validation and kept in dataset exports.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#62aee8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+  <rect x="24.5" y="24.5" width="1151" height="471" rx="16" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <text x="52" y="66" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#62aee8" text-anchor="start" letter-spacing="2">NAMED GRAPH</text>
+  <text x="760" y="66" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#62aee8" text-anchor="middle" letter-spacing="2">REASONING</text>
+  <text x="920" y="66" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#62aee8" text-anchor="middle" letter-spacing="2">VALIDATION</text>
+  <text x="1080" y="66" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#62aee8" text-anchor="middle" letter-spacing="2">DATASET EXPORT</text>
+  <line x1="24" y1="84" x2="1176" y2="84" stroke="#62aee8" stroke-width="1.5"/>
+  <text x="52" y="118" font-family="ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace" font-size="18" font-weight="600" fill="#f0f6fc" text-anchor="start">urn:vg:data</text>
+  <text x="52" y="140" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a7b0ba" text-anchor="start">The record: everything loaded or authored as data</text>
+  <text x="760" y="128" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#f0f6fc" text-anchor="middle">reads</text>
+  <text x="920" y="128" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#f0f6fc" text-anchor="middle">reads</text>
+  <circle cx="1080" cy="123" r="7" fill="#62aee8"/>
+  <line x1="52" y1="156" x2="1148" y2="156" stroke="#30363d" stroke-width="1"/>
+  <text x="52" y="180" font-family="ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace" font-size="18" font-weight="600" fill="#f0f6fc" text-anchor="start">urn:vg:ontologies</text>
+  <text x="52" y="202" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a7b0ba" text-anchor="start">Loaded ontologies and their imports</text>
+  <text x="760" y="190" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#f0f6fc" text-anchor="middle">reads</text>
+  <text x="920" y="190" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#f0f6fc" text-anchor="middle">reads</text>
+  <circle cx="1080" cy="185" r="7" fill="#62aee8"/>
+  <line x1="52" y1="218" x2="1148" y2="218" stroke="#30363d" stroke-width="1"/>
+  <text x="52" y="242" font-family="ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace" font-size="18" font-weight="600" fill="#f0f6fc" text-anchor="start">urn:vg:inferred</text>
+  <text x="52" y="264" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a7b0ba" text-anchor="start">Statements derived by the reasoner</text>
+  <text x="760" y="252" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#f0f6fc" text-anchor="middle">writes</text>
+  <text x="920" y="252" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#f0f6fc" text-anchor="middle">reads</text>
+  <circle cx="1080" cy="247" r="7" fill="#62aee8"/>
+  <line x1="52" y1="280" x2="1148" y2="280" stroke="#30363d" stroke-width="1"/>
+  <text x="52" y="304" font-family="ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace" font-size="18" font-weight="600" fill="#f0f6fc" text-anchor="start">urn:vg:shapes</text>
+  <text x="52" y="326" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a7b0ba" text-anchor="start">SHACL shapes</text>
+  <text x="760" y="314" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#6e7681" text-anchor="middle">not read</text>
+  <text x="920" y="314" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#f0f6fc" text-anchor="middle">reads</text>
+  <circle cx="1080" cy="309" r="7" fill="#62aee8"/>
+  <line x1="52" y1="342" x2="1148" y2="342" stroke="#30363d" stroke-width="1"/>
+  <text x="52" y="366" font-family="ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace" font-size="18" font-weight="600" fill="#f0f6fc" text-anchor="start">urn:vg:workflows</text>
+  <text x="52" y="388" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a7b0ba" text-anchor="start">Optional catalog of reusable plans</text>
+  <text x="760" y="376" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#6e7681" text-anchor="middle">not read</text>
+  <text x="920" y="376" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#6e7681" text-anchor="middle">not read</text>
+  <circle cx="1080" cy="371" r="7" fill="#62aee8"/>
+  <line x1="52" y1="404" x2="1148" y2="404" stroke="#30363d" stroke-width="1"/>
+  <text x="52" y="428" font-family="ui-monospace,'Cascadia Mono',Consolas,'Courier New',monospace" font-size="18" font-weight="600" fill="#f0f6fc" text-anchor="start">urn:vg:loaded-from</text>
+  <text x="52" y="450" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#a7b0ba" text-anchor="start">Which ontology file each subject came from</text>
+  <text x="760" y="438" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#6e7681" text-anchor="middle">not read</text>
+  <text x="920" y="438" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#6e7681" text-anchor="middle">not read</text>
+  <circle cx="1080" cy="433" r="7" fill="#62aee8"/>
+</svg>

@@ -21,6 +21,82 @@ function classifyProvObjectType(value: string): ProvQuad['ot'] {
   return 'literal';
 }
 
+/** Graphs the reasoner's output and app bookkeeping live in: never journaled as edits. */
+const UNJOURNALED_GRAPHS = new Set(['urn:vg:inferred', 'urn:vg:provenance', 'urn:vg:validate-scratch', 'urn:konclude:explanations']);
+
+/**
+ * Named graphs a parsed SPARQL Update writes to, or null when that cannot be read off the
+ * update (a GRAPH ?var pattern, LOAD/CLEAR/DROP/ADD/MOVE/COPY): then every graph is diffed.
+ * Unscoped patterns were already wrapped into GRAPH <urn:vg:data> by the caller.
+ */
+export function sparqlUpdateGraphs(parsed: { updates?: any[] }): string[] | null {
+  const graphs = new Set<string>();
+  for (const u of parsed.updates ?? []) {
+    if (!u || !('updateType' in u)) return null;
+    for (const p of [...(u.delete ?? []), ...(u.insert ?? [])]) {
+      if (p?.type === 'graph') {
+        if (p.name?.termType !== 'NamedNode') return null;
+        graphs.add(p.name.value);
+      } else if (p?.type === 'bgp') {
+        graphs.add(u.graph?.value ?? 'urn:vg:data');
+      } else {
+        return null;
+      }
+    }
+  }
+  return [...graphs];
+}
+
+type SerializedQuad = { subject: any; predicate: any; object: any };
+
+function toProvQuad(q: SerializedQuad, g: string): ProvQuad {
+  const val = (t: any): string => (typeof t === 'string' ? t : t?.value ?? '');
+  const o = q.object;
+  const termType = typeof o === 'string' ? undefined : o?.termType;
+  const ot: ProvQuad['ot'] =
+    termType === 'Literal' ? 'literal'
+    : termType === 'BlankNode' ? 'bnode'
+    : termType === 'NamedNode' ? 'iri'
+    : classifyProvObjectType(val(o));
+  return {
+    s: val(q.subject), p: val(q.predicate), o: val(o), ot, g,
+    ...(ot === 'literal' && o?.datatype ? { dt: typeof o.datatype === 'string' ? o.datatype : o.datatype.value } : {}),
+    ...(ot === 'literal' && o?.language ? { lang: o.language } : {}),
+  };
+}
+
+const provKey = (q: ProvQuad) => JSON.stringify([q.s, q.p, q.ot, q.o, q.dt ?? '', q.lang ?? '']);
+
+async function snapshotGraphs(graphs: string[]): Promise<Map<string, Map<string, ProvQuad>>> {
+  const out = new Map<string, Map<string, ProvQuad>>();
+  for (const g of graphs) {
+    const page = await rdfManager.fetchQuadsPage({ graphName: g, limit: 0, serialize: true });
+    const m = new Map<string, ProvQuad>();
+    for (const q of (page?.items ?? []) as SerializedQuad[]) {
+      const pq = toProvQuad(q, g);
+      m.set(provKey(pq), pq);
+    }
+    out.set(g, m);
+  }
+  return out;
+}
+
+/** Quads added and removed per graph between two snapshots. */
+export function diffSnapshots(
+  before: Map<string, Map<string, ProvQuad>>,
+  after: Map<string, Map<string, ProvQuad>>,
+): { added: ProvQuad[]; removed: ProvQuad[] } {
+  const added: ProvQuad[] = [];
+  const removed: ProvQuad[] = [];
+  for (const g of new Set([...before.keys(), ...after.keys()])) {
+    const b = before.get(g) ?? new Map();
+    const a = after.get(g) ?? new Map();
+    for (const [k, q] of a) if (!b.has(k)) added.push(q);
+    for (const [k, q] of b) if (!a.has(k)) removed.push(q);
+  }
+  return { added, removed };
+}
+
 /** Fix PREFIX declarations where the IRI is bare (no angle brackets): PREFIX rdf: http://... → PREFIX rdf: <http://...> */
 function normalizePrefixIris(sparql: string): string {
   return sparql.replace(
@@ -324,7 +400,7 @@ const loadOntology: McpTool = {
 // ---------------------------------------------------------------------------
 const queryGraph: McpTool = {
   name: 'queryGraph',
-  description: 'Run a SPARQL query or update against asserted data (urn:vg:data). Namespace prefixes are injected automatically. Unscoped UPDATE patterns (without an explicit GRAPH clause) are automatically scoped to urn:vg:data. Supported: SELECT (return bindings), CONSTRUCT (return triples), ASK (return boolean), INSERT DATA, DELETE DATA, DELETE WHERE, DELETE...INSERT...WHERE. Inferred triples are in GRAPH urn:vg:inferred.',
+  description: 'Run a SPARQL query or update. Queries (SELECT, CONSTRUCT, ASK) run over the union of all graphs (urn:vg:data, urn:vg:ontologies, urn:vg:inferred, urn:vg:shapes, ...) as the default graph; use GRAPH <urn:vg:data> or GRAPH <urn:vg:inferred> to restrict a pattern to asserted data or to inferred triples. Namespace prefixes are injected automatically. Updates: patterns without an explicit GRAPH clause are scoped to urn:vg:data (inserts and deletes there, WHERE matches there); a GRAPH clause targets that graph (e.g. urn:vg:ontologies). Supported: INSERT DATA, DELETE DATA, DELETE WHERE, DELETE...INSERT...WHERE. Every update is journaled as an agent edit (quads added/removed per graph; see listAgentEdits / revertAgentBatch) and returns { updated, added, removed }.',
   inputSchema: {
     type: 'object',
     required: ['sparql'],
@@ -379,6 +455,19 @@ const queryGraph: McpTool = {
         try { sparql = new SparqlGenerator().stringify(parsed); } catch (_) { /* keep original */ }
       }
 
+      // Journal an update like the other mutating tools: diff the graphs it writes to.
+      let journalGraphs: string[] | undefined;
+      let before: Map<string, Map<string, ProvQuad>> | undefined;
+      if (parsed.type === 'update') {
+        try {
+          journalGraphs = (sparqlUpdateGraphs(parsed)
+            ?? Object.keys(await rdfManager.getGraphCounts())).filter((g) => !UNJOURNALED_GRAPHS.has(g));
+          before = await snapshotGraphs(journalGraphs);
+        } catch (err) {
+          console.warn('[queryGraph] provenance snapshot failed (update still runs)', err);
+        }
+      }
+
       const workerResult = await rdfManager.sparqlQuery(sparql, { limit: effectiveLimit });
 
       if (workerResult.type === 'select') {
@@ -405,7 +494,21 @@ const queryGraph: McpTool = {
       }
 
       if (workerResult.type === 'update') {
-        return { success: true, data: { updated: true } };
+        let added = 0;
+        let removed = 0;
+        if (journalGraphs && before) {
+          try {
+            const diff = diffSnapshots(before, await snapshotGraphs(journalGraphs));
+            added = diff.added.length;
+            removed = diff.removed.length;
+            await getProvenanceRecorder().recordEdit({
+              tool: 'queryGraph', added: diff.added, removed: diff.removed, note: 'SPARQL Update',
+            });
+          } catch (err) {
+            console.warn('[queryGraph] provenance recordEdit failed (update still applied)', err);
+          }
+        }
+        return { success: true, data: { updated: true, added, removed } };
       }
 
       if (workerResult.type === 'ask') {
@@ -427,19 +530,20 @@ const exportGraph: McpTool = {
   description:
     'Export the current RDF graph in the requested serialisation format. ' +
     'turtle | jsonld | rdfxml flatten the store into a single default graph (named-graph ' +
-    'structure is lost). nquads | trig are DATASET-FAITHFUL: they collect quads from every ' +
-    'urn:vg:* graph (data, inferred, shapes, ontologies, workflows) and preserve each graph ' +
-    'IRI, so the multi-graph partition round-trips on re-import.',
+    'structure is lost). nquads | trig | jsonld-dataset are DATASET-FAITHFUL: they collect quads from every ' +
+    'urn:vg:* graph (data, inferred, shapes, ontologies, workflows, loaded-from) and preserve each graph ' +
+    'IRI, so the multi-graph partition round-trips on re-import (jsonld-dataset: one JSON-LD graph object ' +
+    '{"@id": graph IRI, "@graph": [...]} per graph).',
   inputSchema: {
     type: 'object',
     required: ['format'],
     properties: {
       format: {
         type: 'string',
-        enum: ['turtle', 'jsonld', 'rdfxml', 'nquads', 'trig'],
+        enum: ['turtle', 'jsonld', 'rdfxml', 'nquads', 'trig', 'jsonld-dataset'],
         description:
           'Serialisation format: turtle | jsonld | rdfxml (single-graph) | ' +
-          'nquads | trig (dataset-faithful, preserve named graphs)',
+          'nquads | trig | jsonld-dataset (dataset-faithful, preserve named graphs)',
       },
     },
   },
@@ -457,6 +561,8 @@ const exportGraph: McpTool = {
         content = await rdfManager.exportToNQuads();
       } else if (format === 'trig') {
         content = await rdfManager.exportToTriG();
+      } else if (format === 'jsonld-dataset') {
+        content = await rdfManager.exportToJsonLDDataset();
       } else {
         return { success: false, error: `Unknown format: ${format}` };
       }

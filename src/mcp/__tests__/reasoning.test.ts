@@ -292,6 +292,26 @@ describe('explainEntailment', () => {
     expect((result as any).data.summary).toContain('unsatisfiable');
   });
 
+  it('reports an undetermined verdict, not "not entailed", when the reasoner gave no decision', async () => {
+    mockExplainEntailment.mockResolvedValueOnce({
+      isEntailed: null,
+      verdict: 'undetermined',
+      undeterminedKind: 'reasoner-unavailable',
+      justifications: [],
+      reason: 'The reasoner did not answer in time.',
+    });
+    const result = await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
+    expect(result).toMatchObject({ success: true, data: { isEntailed: null, verdict: 'undetermined', justifications: [] } });
+    expect((result as any).data.summary).toContain('Could not decide');
+    expect((result as any).data.summary).not.toContain('NOT entailed');
+  });
+
+  it('passes the verdict of a decided answer through', async () => {
+    mockExplainEntailment.mockResolvedValueOnce({ isEntailed: false, verdict: 'not-entailed', justifications: [] });
+    const no = await tool('explainEntailment').handler({ subjectIri: SUB, predicateIri: PRED, objectIri: OBJ });
+    expect((no as any).data).toMatchObject({ isEntailed: false, verdict: 'not-entailed' });
+  });
+
   it('returns NOT entailed when the axiom does not hold', async () => {
     mockExplainEntailment.mockResolvedValueOnce({
       isEntailed: false,

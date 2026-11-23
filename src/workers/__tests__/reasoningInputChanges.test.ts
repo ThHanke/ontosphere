@@ -131,6 +131,7 @@ describe('NON_AXIOM_GRAPHS', () => {
   it('lists the graphs that are not OWL axioms and are kept away from the reasoner', () => {
     expect([...NON_AXIOM_GRAPHS].sort()).toEqual([
       INFERRED, 'urn:konclude:explanations', 'urn:vg:provenance', 'urn:vg:shapes', 'urn:vg:validate-scratch', 'urn:vg:workflows',
+      'urn:vg:loaded-from',
     ].sort());
   });
 });

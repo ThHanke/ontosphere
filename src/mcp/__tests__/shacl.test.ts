@@ -110,3 +110,34 @@ describe('validateGraph', () => {
     expect(result.data.violations).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('validateGraph focus counts and loadShaclFromUrl failures', () => {
+  it('passes the focus-node summary and the asserted/reasoned comparison through', async () => {
+    const focus = { nodeShapes: 3, shapesWithFocus: 2, perShape: { [EX + 'S']: 4, [EX + 'T']: 1 }, afterReasoning: true };
+    const focusComparison = { nodeShapes: 3, asserted: 1, reasoned: 2, newlyActive: [EX + 'T'] };
+    mockRunShaclValidation.mockResolvedValue({ conforms: true, violations: [], shapeCount: 3, focus, focusComparison });
+    const result = await validateGraph.handler({}) as any;
+    expect(result.data).toEqual({ conforms: true, violations: [], focus, focusComparison });
+  });
+
+  it('loadShaclFromUrl fails when a file does not parse and names it', async () => {
+    vi.doMock('@/utils/shaclShapeLoader', () => ({
+      loadShaclShapes: vi.fn().mockResolvedValue({
+        loaded: [{ name: 'good.ttl', url: 'https://ex.org/good.ttl', shapeCount: 1 }],
+        errors: [{ url: 'https://ex.org/bad.ttl', error: 'Unexpected "shape:"' }],
+      }),
+    }));
+    const tool = shaclTools.find(t => t.name === 'loadShaclFromUrl')!;
+    const result = await tool.handler({ url: 'https://ex.org/good.ttl,https://ex.org/bad.ttl' }) as any;
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('https://ex.org/bad.ttl');
+    expect(result.error).toContain('good.ttl');
+    vi.doUnmock('@/utils/shaclShapeLoader');
+  });
+
+  it('loadShacl passes baseIri to the parser', async () => {
+    await loadShacl.handler({ turtle: '<#S> a <http://www.w3.org/ns/shacl#NodeShape> .', baseIri: 'https://ex.org/s.ttl' });
+    expect(mockLoadRDFIntoGraph).toHaveBeenCalledWith(expect.any(String), SHACL_GRAPH, 'text/turtle', undefined, undefined, 'https://ex.org/s.ttl');
+  });
+});

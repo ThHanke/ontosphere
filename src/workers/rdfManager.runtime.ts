@@ -17,6 +17,7 @@ import type {
   WorkerReconcileSubjectSnapshotPayload,
 } from "../utils/rdfManager.workerProtocol.ts";
 import type { ReasoningResult } from "../utils/reasoningTypes.ts";
+import { classifyEntailment } from "./entailmentVerdict.ts";
 import {
   SKOLEM_PREFIX,
   deserializeQuadFromUi as deserializeQuad,
@@ -66,6 +67,13 @@ const reskolemizeAll = (quads: readonly unknown[] | undefined): N3.Quad[] =>
  */
 export const VALIDATE_SCRATCH_GRAPH = "urn:vg:validate-scratch";
 
+/**
+ * Which loaded ontology file each subject came from (`<s> urn:vg:loadedFrom <file>`). App
+ * bookkeeping for unloading an ontology: not an axiom, not SHACL data, kept apart from
+ * urn:vg:ontologies so neither the reasoner nor sh:closed shapes see it.
+ */
+export const LOADED_FROM_GRAPH = "urn:vg:loaded-from";
+
 /** How long the exact (guaranteed-minimal) entailment search may run before the app falls back to "fast". */
 export const ENTAILMENT_EXACT_TIMEOUT_MS = 60_000;
 
@@ -80,6 +88,7 @@ export const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
   "urn:vg:shapes",
   "urn:vg:provenance",
   "urn:vg:workflows",
+  LOADED_FROM_GRAPH,
 ]);
 
 // ---------------------------------------------------------------------------
@@ -89,6 +98,10 @@ export const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
 // nodes and returns them in the same form.
 // ---------------------------------------------------------------------------
 
+
+export interface LiteralIssueLike {
+  subject: string; predicate: string; lexical: string; datatype: string; reason: string; detail: string;
+}
 
 export class DlReasoner {
   readonly ready: Promise<void>;
@@ -116,7 +129,7 @@ export class DlReasoner {
    * Konclude worked, the result is stale: the inferred graph it wrote is dropped and the
    * previous run's inferred quads, which the canvas still shows, are reported as removed.
    */
-  async reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }> {
+  async reason(store: N3.Store, isCurrent?: () => boolean, opts?: { closure?: boolean }): Promise<{ delta: InferenceDelta }> {
     const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
     // Only a reference list: the package replaces the inferred graph before we can check isCurrent.
     const previous = isCurrent ? store.getQuads(null, null, null, inferredGraph) : [];
@@ -125,6 +138,7 @@ export class DlReasoner {
     const t = performance.now();
     const result = (await this._reasoner.materialize(store, {
       includeClassHierarchy: true,
+      closure: opts?.closure === true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
     })) as { delta: InferenceDelta };
@@ -141,6 +155,11 @@ export class DlReasoner {
 
   checkConsistency(store: N3.Store): Promise<boolean> {
     return this._reasoner.checkConsistency(store);
+  }
+
+  /** Numeric/boolean literals of the last synced store that the kernel drops (ill-typed, out of range). */
+  literalIssues(): { issues: LiteralIssueLike[]; total: number } {
+    return this._reasoner.lastLiteralIssues;
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
@@ -235,7 +254,7 @@ export interface DlReasonerLike {
   readonly timings?: Record<string, number>;
   checkConsistency(store: N3.Store): Promise<boolean>;
   /** Publishes into `store` only while `isCurrent()` holds, when given. */
-  reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }>;
+  reason(store: N3.Store, isCurrent?: () => boolean, opts?: { closure?: boolean }): Promise<{ delta: InferenceDelta }>;
   validate(store: N3.Store): Promise<ValidationResult>;
   explainInconsistency(store: N3.Store, maxJustifications?: number): Promise<N3.Quad[][]>;
   /**
@@ -357,6 +376,7 @@ type ReasoningResultMessage = {
   workerDurationMs?: number;
   ruleQuadCount?: number;
   isConsistent?: boolean | null;
+  shaclFocus?: { focus?: unknown; focusComparison?: unknown };
 };
 
 type ReasoningErrorMessage = {
@@ -1187,10 +1207,51 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     source: "shacl";
   }
 
+  /**
+   * Focus nodes per node shape (sh:NodeShape, or a shape with a target that is not only a
+   * sh:PropertyShape), counted as the engine resolves targets (implicit class targets,
+   * sh:targetClass through rdfs:subClassOf of the validated view, sh:targetNode,
+   * sh:targetSubjectsOf/ObjectsOf, SPARQL targets) and restricted, like the reported findings, to
+   * subjects in urn:vg:data. Same definition as eval/focus_counts.py (nodeShapesRestrictedToDataSubjects).
+   */
+  interface ShaclFocusSummary {
+    nodeShapes: number;
+    shapesWithFocus: number;
+    /** focus-node count per node shape that selects at least one node */
+    perShape: Record<string, number>;
+    /** urn:vg:inferred held quads when this validation ran */
+    afterReasoning: boolean;
+  }
+
+  interface ShaclFocusComparison {
+    nodeShapes: number;
+    asserted: number;
+    reasoned: number;
+    /** shapes that select nodes only after reasoning */
+    newlyActive: string[];
+  }
+
   interface ShaclValidationResult {
     conforms: boolean;
     violations: ShaclViolation[];
     shapeCount: number;
+    focus?: ShaclFocusSummary;
+    /** last asserted-only vs last reasoned validation, once both exist */
+    focusComparison?: ShaclFocusComparison;
+  }
+
+  // ponytail: kept for the whole session; after loading another record both runs must be repeated for a fair comparison
+  const lastFocus: { asserted?: ShaclFocusSummary; reasoned?: ShaclFocusSummary } = {};
+
+  function focusComparison(): ShaclFocusComparison | undefined {
+    const { asserted, reasoned } = lastFocus;
+    if (!asserted || !reasoned) return undefined;
+    return {
+      nodeShapes: reasoned.nodeShapes,
+      asserted: asserted.shapesWithFocus,
+      reasoned: reasoned.shapesWithFocus,
+      newlyActive: Object.keys(reasoned.perShape).filter((k) => !(k in asserted.perShape)).sort(),
+    };
   }
 
   async function runShaclValidation(): Promise<ShaclValidationResult> {
@@ -1222,25 +1283,68 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
     const RDF_TYPE_IRI = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
     const SH_NODESHAPE = "http://www.w3.org/ns/shacl#NodeShape";
+    const SH_PROPERTYSHAPE = "http://www.w3.org/ns/shacl#PropertyShape";
     const shapeCount = store.countQuads(
       null, DataFactory.namedNode(RDF_TYPE_IRI), DataFactory.namedNode(SH_NODESHAPE), shapesGraph,
     );
 
-    const validator = new Validator(view, { factory, targetResolvers, validations });
-    let report: any;
+    // Report only nodes that are subjects in the data graph: not imported ontology entities, not
+    // classes that reasoning materialized into the inferred graph.
+    const inData = new Map<string, boolean>();
+    const inDataGraph = (id: string): boolean => {
+      let v = inData.get(id);
+      if (v === undefined) {
+        v = store.countQuads(idToTerm(DataFactory, id), null, null, dataGraph) > 0;
+        inData.set(id, v);
+      }
+      return v;
+    };
+
+    // Every top-level shape records the focus nodes the engine itself resolves for it, so the
+    // counts cost no extra validation run. Shapes typed only sh:PropertyShape are not node shapes.
+    const makeValidator = () => {
+      const validator = new Validator(view, { factory, targetResolvers, validations });
+      const focus = new Map<string, number>();
+      const rdfType = DataFactory.namedNode(RDF_TYPE_IRI);
+      for (const shape of [...validator.shapes.values()] as any[]) {
+        const term = shape.ptr.term;
+        const typed = (t: string) => view.match(term, rdfType, DataFactory.namedNode(t)).size > 0;
+        if (typed(SH_PROPERTYSHAPE) && !typed(SH_NODESHAPE)) continue;
+        const id = termToId(term);
+        focus.set(id, 0);
+        const resolve = shape.resolveTargets.bind(shape);
+        shape.resolveTargets = async (ctx: any) => {
+          const targets = await resolve(ctx);
+          focus.set(id, (targets.terms as any[]).filter((t) => inDataGraph(termToId(t))).length);
+          return targets;
+        };
+      }
+      return { validator, focus };
+    };
+
+    let { validator, focus } = makeValidator();
+    let results: any[];
+    const engineErrors: ShaclViolation[] = [];
     try {
-      report = await validator.validate({ dataset: view });
+      results = (await validator.validate({ dataset: view })).results ?? [];
     } catch (valErr: any) {
-      const msg = valErr?.message ?? String(valErr);
-      return {
-        conforms: false,
-        violations: [{
-          focusNode: null, path: null, severity: "sh:Violation",
-          message: `Validation engine error: ${msg}`,
-          sourceShape: null, constraint: null, source: "shacl" as const,
-        }],
-        shapeCount,
-      };
+      // One failing shape (e.g. a SPARQL constraint whose query does not parse) must not hide the
+      // others: validate shape by shape and report each failing shape as its own finding.
+      console.warn("[SHACL] validation engine error, validating shape by shape:", valErr?.message ?? valErr);
+      ({ validator, focus } = makeValidator());
+      results = [];
+      for (const shape of [...validator.shapes.values()] as any[]) {
+        try {
+          results.push(...((await validator.validate({ dataset: view }, [{ terms: [shape.ptr.term] }])).results ?? []));
+        } catch (shapeErr: any) {
+          const shapeId = termToId(shape.ptr.term);
+          engineErrors.push({
+            focusNode: null, path: null, severity: "sh:Violation",
+            message: `Validation engine error in shape ${shapeId}: ${shapeErr?.message ?? String(shapeErr)}`,
+            sourceShape: shapeId, constraint: null, source: "shacl" as const,
+          });
+        }
+      }
     }
 
     // Results carry real blank nodes; termToId gives them the urn:vg:bnode:<label> id the UI uses.
@@ -1254,12 +1358,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       }
     }
 
-    // Report only nodes that are subjects in the data graph: not imported ontology entities, not
-    // classes that reasoning materialized into the inferred graph.
-    const inDataGraph = (id: string): boolean =>
-      store.countQuads(idToTerm(DataFactory, id), null, null, dataGraph) > 0;
-
-    const violations: ShaclViolation[] = (report.results ?? []).map((r: any) => {
+    const violations: ShaclViolation[] = results.map((r: any) => {
       let shapeVal = r.shape?.ptr?.term ? termToId(r.shape.ptr.term) : null;
       if (shapeVal && propShapeToNodeShape.has(shapeVal)) {
         shapeVal = propShapeToNodeShape.get(shapeVal)!;
@@ -1278,8 +1377,21 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         source: "shacl" as const,
       };
     }).filter((v: ShaclViolation) => !v.focusNode || inDataGraph(v.focusNode));
+    violations.push(...engineErrors);
 
-    return { conforms: report.conforms, violations, shapeCount };
+    const perShape: Record<string, number> = {};
+    for (const [k, n] of focus) if (n > 0) perShape[k] = n;
+    const summary: ShaclFocusSummary = {
+      nodeShapes: focus.size,
+      shapesWithFocus: Object.keys(perShape).length,
+      perShape,
+      afterReasoning: store.countQuads(null, null, null, DataFactory.namedNode(INFERRED_GRAPH)) > 0,
+    };
+    lastFocus[summary.afterReasoning ? "reasoned" : "asserted"] = summary;
+
+    // conforms follows the reported list: the engine's own verdict also counts findings on nodes
+    // that are filtered out above (ontology entities, inferred-only nodes).
+    return { conforms: violations.length === 0, violations, shapeCount, focus: summary, focusComparison: focusComparison() };
   }
 
   function collectGraphCountsFromStore(store: any): Record<string, number> {
@@ -1636,6 +1748,10 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
    */
   function normalizeExportFormat(format?: string) {
     const raw = typeof format === "string" ? format.toLowerCase().trim() : "";
+    // JSON-LD dataset: one graph object ({"@id": graph IRI, "@graph": [...]}) per urn:vg:* graph
+    if (raw === "application/ld+json;dataset" || raw === "jsonld-dataset" || raw === "json-ld-dataset") {
+      return { writerFormat: "application/ld+json", mediaType: "application/ld+json", dropGraph: false, dataset: true };
+    }
     if (raw === "application/ld+json" || raw === "ld+json" || raw === "jsonld" || raw === "json-ld") {
       return { writerFormat: "application/ld+json", mediaType: "application/ld+json", dropGraph: true, dataset: false };
     }
@@ -1662,7 +1778,17 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     "urn:vg:shapes",
     "urn:vg:ontologies",
     "urn:vg:workflows",
+    // ontology-file bookkeeping, exported as before (it used to sit in urn:vg:ontologies)
+    LOADED_FROM_GRAPH,
   ] as const;
+
+  /**
+   * Graphs an imported TriG / N-Quads file may write to by name (an Ontosphere export read back).
+   * Any other named graph in the file goes into the import's target graph: the reasoner reads
+   * every graph not in NON_AXIOM_GRAPHS, so a foreign graph would be reasoned over but neither
+   * validated (SHACL_VIEW_GRAPHS) nor exported (VG_DATASET_GRAPHS).
+   */
+  const IMPORT_KEEPS_GRAPHS: ReadonlySet<string> = new Set(VG_DATASET_GRAPHS);
 
 
 
@@ -1977,21 +2103,24 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const parsedBuffer: Quad[] = [];
 
           const documents = [content, ...((payload as ImportSerializedPayload).additionalContents ?? [])];
-          for (const document of documents) {
+          const documentBases = [baseIri, ...((payload as ImportSerializedPayload).additionalBaseIris ?? [])];
+          for (const [docIndex, document] of documents.entries()) {
+            const docBase = documentBases[docIndex] || baseIri;
             const readable = createReadableFromString(document);
             if (!readable) throw new Error("importSerialized.readable-unavailable");
             await new Promise<void>((resolve, reject) => {
               const opts: Record<string, unknown> = {};
               if (contentType) opts.contentType = contentType;
               if (filename) opts.path = filename;
-              if (baseIri) opts.baseIRI = baseIri;
+              if (docBase) opts.baseIRI = docBase;
               const quadStream = parserImpl.parse(readable, opts);
 
               quadStream.on("data", (incoming: Quad) => {
                 try {
                   const graphTerm =
                     (payload as any).forceGraph ||
-                    !incoming.graph || !incoming.graph.termType || incoming.graph.termType === "DefaultGraph"
+                    !incoming.graph || !incoming.graph.termType || incoming.graph.termType === "DefaultGraph" ||
+                    !IMPORT_KEEPS_GRAPHS.has(incoming.graph.value)
                       ? targetGraph
                       : incoming.graph;
                   parsedBuffer.push(DataFactory.quad(
@@ -2090,7 +2219,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           if (ontologyUrl && touchedSubjects.size > 0) {
             const ontUrlNode = DataFactory.namedNode(ontologyUrl);
             const loadedFromNode = DataFactory.namedNode(VG_LOADED_FROM);
-            const ontGraphTerm = DataFactory.namedNode("urn:vg:ontologies");
+            const ontGraphTerm = DataFactory.namedNode(LOADED_FROM_GRAPH);
             for (const subj of touchedSubjects) {
               try {
                 const subjNode = idToTerm(DataFactory, subj);
@@ -2172,13 +2301,14 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           if (!unloadUrl) { result = { removed: 0, removedSubjects: [] }; break; }
 
           const ontGraphTerm = DataFactory.namedNode("urn:vg:ontologies");
+          const loadedFromGraph = DataFactory.namedNode(LOADED_FROM_GRAPH);
           const loadedFromNode = DataFactory.namedNode(VG_LOADED_FROM);
           const ontUrlNode = DataFactory.namedNode(unloadUrl);
 
           // Find all subjects annotated with this ontology URL
           const annotatedSubjects: string[] = [];
           try {
-            const annQuads = store.getQuads(null, loadedFromNode, ontUrlNode, ontGraphTerm) || [];
+            const annQuads = store.getQuads(null, loadedFromNode, ontUrlNode, loadedFromGraph) || [];
             for (const q of annQuads) {
               const s = subjectTermToString(q.subject);
               if (s) annotatedSubjects.push(s);
@@ -2192,9 +2322,9 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             try {
               const subjNode = idToTerm(DataFactory, subj);
               // Remove this ontology's loadedFrom annotation
-              store.removeQuad(DataFactory.quad(subjNode, loadedFromNode, ontUrlNode, ontGraphTerm));
+              store.removeQuad(DataFactory.quad(subjNode, loadedFromNode, ontUrlNode, loadedFromGraph));
               // Check if any other loadedFrom annotation remains
-              const remaining = store.getQuads(subjNode, loadedFromNode, null, ontGraphTerm) || [];
+              const remaining = store.getQuads(subjNode, loadedFromNode, null, loadedFromGraph) || [];
               if (remaining.length === 0) {
                 // No other ontology claims this subject — remove all its quads from ontologies graph
                 const subjQuads = store.getQuads(subjNode, null, null, ontGraphTerm) || [];
@@ -2341,8 +2471,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
 
           if (formatInfo.mediaType === "application/ld+json") {
             // N3.js Writer does not support JSON-LD — build expanded JSON-LD manually.
-            const nodeMap = new Map<string, Record<string, any[]>>();
+            // A dataset export keeps one node map per named graph (a graph object each);
+            // a single-graph export has only the default graph ("").
+            const graphMaps = new Map<string, Map<string, Record<string, any[]>>>();
             for (const q of toWrite) {
+              const graphId = q.graph.termType === "DefaultGraph" ? "" : q.graph.value;
+              let nodeMap = graphMaps.get(graphId);
+              if (!nodeMap) { nodeMap = new Map(); graphMaps.set(graphId, nodeMap); }
               const subjId =
                 q.subject.termType === "BlankNode"
                   ? `_:${q.subject.value}`
@@ -2368,7 +2503,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
                 node[predId].push(lit);
               }
             }
-            output = JSON.stringify(Array.from(nodeMap.values()), null, 2);
+            const nodes = (m?: Map<string, Record<string, any[]>>) => Array.from(m?.values() ?? []);
+            output = formatInfo.dataset
+              ? JSON.stringify([
+                  ...nodes(graphMaps.get("")),
+                  ...[...graphMaps].filter(([g]) => g !== "").map(([g, m]) => ({ "@id": g, "@graph": nodes(m) })),
+                ], null, 2)
+              : JSON.stringify(nodes(graphMaps.get("")), null, 2);
           } else if (formatInfo.mediaType === "application/rdf+xml") {
             // N3.js Writer does not support RDF/XML — build it manually.
             const xe = (s: string) =>
@@ -3051,6 +3192,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             emitSubjects: payload.emitSubjects,
             reasonerBackend: payload.reasonerBackend,
             shaclEnabled: payload.shaclEnabled,
+            closure: payload.closure,
           };
           const outcome = await runReasoningOnCurrentInput(reasoningRequest, {
             mutateSharedStore: true,
@@ -3071,6 +3213,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             workerDurationMs: outcome.workerDurationMs,
             ruleQuadCount: outcome.ruleQuadCount,
             isConsistent: outcome.isConsistent,
+            ...(outcome.shaclFocus ? { shaclFocus: outcome.shaclFocus } : {}),
           };
           break;
         }
@@ -3179,6 +3322,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             maxJustifications: p.maxJustifications,
             timeoutMs: p.timeoutMs,
             weaken: p.weaken,
+            assessGuardCost: p.assessGuardCost,
           });
           result = { ...suggested, libTimingsMs };
           break;
@@ -3246,8 +3390,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
           const reason = answer.reason ?? note;
           const termValue = (t: { value: string; termType?: string }) =>
             t.termType === "BlankNode" ? `_:${t.value}` : t.value;
+          // verdict tells a decided "not entailed" apart from a check that could not decide.
+          const verdict = classifyEntailment({ isEntailed, ontologyInconsistent, vacuous, reason });
           result = {
             isEntailed,
+            verdict: verdict.verdict,
+            ...(verdict.undeterminedKind ? { undeterminedKind: verdict.undeterminedKind } : {}),
             justifications: justifications.map((j) =>
               j.map((q) => ({ subject: termValue(q.subject), predicate: q.predicate.value, object: termValue(q.object) })),
             ),
@@ -3255,9 +3403,12 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             ...(ontologyInconsistent ? { ontologyInconsistent: true } : {}),
             ...(vacuous ? { vacuous: true } : {}),
             ...(justificationUnavailable ? { justificationUnavailable: true } : {}),
-            ...(reason ? { reason } : {}),
+            ...(verdict.reason ?? reason ? { reason: verdict.reason ?? reason } : {}),
           };
-          entailmentCache.set(cacheKey, result, computedAt, reasoningInputGeneration);
+          // An undecided answer (the reasoner did not return one) is not kept: asking again may succeed.
+          if (verdict.undeterminedKind !== "reasoner-unavailable") {
+            entailmentCache.set(cacheKey, result, computedAt, reasoningInputGeneration);
+          }
           break;
         }
         default:
@@ -3350,14 +3501,30 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         const kStart = Date.now();
         kInputGeneration = reasoningInputGeneration;
         const kConsistencyResult = await konclude.checkConsistency(kStore);
+        let kRealizationInconsistent: string | null = null;
         if (kConsistencyResult) {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-start", meta: { backend: 'konclude' } });
-          const result = await konclude.reason(kStore, () => reasoningInputGeneration === kInputGeneration);
-          kDelta = result.delta;
+          try {
+            const result = await konclude.reason(kStore, () => reasoningInputGeneration === kInputGeneration, { closure: msg.closure === true });
+            kDelta = result.delta;
+            kReasonerDuration = Date.now() - kStart;
+            kUsedReasoner = true;
+            kIsConsistent = true;
+            reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-complete", meta: { durationMs: kReasonerDuration, backend: 'konclude', ...konclude.timings } });
+          } catch (e) {
+            // The reasoner's consistency step can miss a named individual of an unsatisfiable class; realization then
+            // reports it (rdf-reasoner-konclude InconsistentOntologyError). Shown as an inconsistency, not as a failure.
+            if ((e as Error)?.name !== 'InconsistentOntologyError') throw e;
+            kRealizationInconsistent = (e as Error).message;
+          }
+        }
+        if (kRealizationInconsistent !== null) {
           kReasonerDuration = Date.now() - kStart;
-          kUsedReasoner = true;
-          kIsConsistent = true;
-          reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-complete", meta: { durationMs: kReasonerDuration, backend: 'konclude', ...konclude.timings } });
+          kIsConsistent = false;
+          kMipsErrors = [{ rule: "inconsistency", severity: "error", message: `The ontology is inconsistent: ${kRealizationInconsistent}` }];
+          reasoningStage({ type: "reasoningStage", id: msg.id, stage: "inconsistent", meta: { durationMs: kReasonerDuration, mipsCount: 0 } });
+        } else if (kConsistencyResult) {
+          // consistent and realized above
         } else {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "inconsistent-detected", meta: { durationMs: Date.now() - kStart } });
           const DEFAULT_UI_MAX_JUSTIFICATIONS = 3;
@@ -3447,6 +3614,25 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       }
 
       const { warnings: kWarnings, errors: kShaclErrors } = collectShaclResults(kAddedQuads);
+      // Literals the kernel drops silently (ill-typed, out of range): reasoning ignores them, so say so.
+      if (kUsedReasoner) {
+        const lit = (getDlReasoner() as { literalIssues?: () => { issues: LiteralIssueLike[]; total: number } }).literalIssues?.();
+        for (const i of lit?.issues ?? []) {
+          kWarnings.push({
+            rule: "reasoner:ill-typed-literal",
+            severity: "warning",
+            nodeId: i.subject,
+            message: `Literal "${i.lexical}" is ${i.reason === "out-of-range" ? "out of range for" : i.reason === "ill-typed" ? "ill-typed for" : "too large for the reasoner as"} <${i.datatype}> (${i.detail}); the reasoner ignores it.`,
+          });
+        }
+        if (lit && lit.total > lit.issues.length) {
+          kWarnings.push({
+            rule: "reasoner:ill-typed-literal",
+            severity: "warning",
+            message: `${lit.total - lit.issues.length} more ill-typed or out-of-range literals not listed.`,
+          });
+        }
+      }
       if (kInputChanged) {
         kWarnings.push({
           rule: "reasoning-input-changed",
@@ -3456,11 +3642,13 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       }
 
       // Run SHACL validation against urn:vg:shapes if shapes are loaded
+      let kShaclFocus: ReasoningResultMessage["shaclFocus"];
       // A failed run (stall, crash) skips SHACL: the inferred graph is empty, so a "conforms"
       // verdict would look like a successful run.
       if (msg.shaclEnabled !== false && !kFailed) {
         try {
           const shaclResult = await runShaclValidation();
+          if (shaclResult.focus) kShaclFocus = { focus: shaclResult.focus, focusComparison: shaclResult.focusComparison };
           if (!shaclResult.conforms) {
             for (const v of shaclResult.violations) {
               const entry = shaclViolationToEntry(v, workerNamespaces);
@@ -3521,6 +3709,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         workerDurationMs: kReasonerDuration,
         ruleQuadCount: 0,
         isConsistent: kIsConsistent,
+        ...(kShaclFocus ? { shaclFocus: kShaclFocus } : {}),
       };
 
       if (emitResultEvent) {
@@ -3935,9 +4124,11 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
     const { warnings, errors } = collectShaclResults(effectiveAdded);
 
     // Run SHACL validation against urn:vg:shapes if shapes are loaded
+    let shaclFocus: ReasoningResultMessage["shaclFocus"];
     if (msg.shaclEnabled !== false) {
       try {
         const shaclResult = await runShaclValidation();
+        if (shaclResult.focus) shaclFocus = { focus: shaclResult.focus, focusComparison: shaclResult.focusComparison };
         if (!shaclResult.conforms) {
           for (const v of shaclResult.violations) {
             const entry = shaclViolationToEntry(v, workerNamespaces);
@@ -4019,6 +4210,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       workerDurationMs: reasonerDuration,
       ruleQuadCount: ruleDiagnostics.reduce((acc, item) => acc + item.quadCount, 0),
       isConsistent: null,
+      ...(shaclFocus ? { shaclFocus } : {}),
     };
 
     if (emitResultEvent) {

@@ -106,7 +106,8 @@ describe('justification cache (one explain per input state)', () => {
 
   it('explains again after unloading an ontology', async () => {
     const { runtime, calls, add, send, runReasoning } = setup();
-    await add('urn:vg:ontologies', q(`${EX}A`, SUBCLASS, `${EX}B`), q(`${EX}A`, 'urn:vg:loadedFrom', ONT));
+    await add('urn:vg:ontologies', q(`${EX}A`, SUBCLASS, `${EX}B`));
+    await add('urn:vg:loaded-from', q(`${EX}A`, 'urn:vg:loadedFrom', ONT));
     await runReasoning();
 
     await send('unloadOntologySubjects', { ontologyUrl: ONT });
@@ -172,7 +173,8 @@ describe('entailment explanation cache follows the same invalidation', () => {
 
   it('drops it on unload and on graph removal', async () => {
     const { runtime, calls, add, send, entail } = setup();
-    await add('urn:vg:ontologies', q(`${EX}A`, SUBCLASS, `${EX}B`), q(`${EX}A`, 'urn:vg:loadedFrom', ONT));
+    await add('urn:vg:ontologies', q(`${EX}A`, SUBCLASS, `${EX}B`));
+    await add('urn:vg:loaded-from', q(`${EX}A`, 'urn:vg:loadedFrom', ONT));
     await add('urn:vg:data', q(`${EX}x`, TYPE, `${EX}A`));
     await entail();
 

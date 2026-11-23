@@ -274,6 +274,37 @@ describe('suggestDeletionRepairs — weakening', () => {
     expect(lib.calls.weaken.map((a) => a.principal.object.value).sort()).toEqual([`${EX}Bird`, `${EX}Mammal`]);
   });
 
+  it('with a repair set of several axioms, weakens each relative to the others and removes them in the batch', async () => {
+    const j1 = [t('Penguin', SUBCLASS, 'Mammal'), { subject: `${EX}Mammal`, predicate: OWL_DISJOINT, object: `${EX}Bird` }, t('Penguin', SUBCLASS, 'Bird')];
+    const j2 = [t('Shark', SUBCLASS, 'Fish'), { subject: `${EX}Fish`, predicate: OWL_DISJOINT, object: `${EX}Mammal` }, t('Shark', SUBCLASS, 'Mammal')];
+    const lib = fakeRepairLibrary([j1, j2], { weakenings: (c) => (c.principal.object.value === `${EX}Mammal` && c.principal.subject.value === `${EX}Penguin` ? [generalize(c)] : []) });
+    const res = await suggestDeletionRepairs({ lib, reskolemize: identity, namespaces: { ex: EX }, weakenAlsoRemove: true });
+    expect(lib.chosen.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Penguin ${EX}Mammal`, `${EX}Shark ${EX}Fish`]);
+    const i = lib.calls.weaken.findIndex((a) => a.principal.subject.value === `${EX}Penguin` && a.principal.object.value === `${EX}Mammal`);
+    expect((lib.calls.weakenOpts[i] as { alsoRemove?: Axiom[] } | undefined)?.alsoRemove?.map((a) => a.principal.subject.value + ' ' + a.principal.object.value)).toEqual([`${EX}Shark ${EX}Fish`]);
+    const w = res.repairs.filter((r) => r.kind === 'weaken');
+    expect(w).toHaveLength(1);
+    expect(w[0].batch!.removes).toEqual([
+      { subject: `${EX}Penguin`, predicate: SUBCLASS, object: `${EX}Mammal`, graph: 'urn:vg:data' },
+      { subject: `${EX}Shark`, predicate: SUBCLASS, object: `${EX}Fish`, graph: 'urn:vg:data' },
+    ]);
+    expect(w[0].rationale).toContain('together with removing the other 1 axiom(s)');
+  });
+
+  it('passes no alsoRemove when the installed reasoner does not accept it', async () => {
+    const j1 = [t('Penguin', SUBCLASS, 'Mammal'), { subject: `${EX}Mammal`, predicate: OWL_DISJOINT, object: `${EX}Bird` }, t('Penguin', SUBCLASS, 'Bird')];
+    const j2 = [t('Shark', SUBCLASS, 'Fish'), { subject: `${EX}Fish`, predicate: OWL_DISJOINT, object: `${EX}Mammal` }, t('Shark', SUBCLASS, 'Mammal')];
+    const lib = fakeRepairLibrary([j1, j2]);
+    await suggestDeletionRepairs({ lib, reskolemize: identity, weakenAlsoRemove: false });
+    expect(lib.calls.weakenOpts.every((o) => !o || !('alsoRemove' in o))).toBe(true);
+  });
+
+  it('passes no alsoRemove when the repair set has one axiom', async () => {
+    const lib = fakeRepairLibrary([j]);
+    await suggestDeletionRepairs({ lib, reskolemize: identity });
+    expect(lib.calls.weakenOpts.every((o) => !o || !('alsoRemove' in o))).toBe(true);
+  });
+
   it('puts weakenings after deletions and manual-review markers', async () => {
     const lib = fakeRepairLibrary([j, []], { weakenings: (c) => [generalize(c)] });
     const res = await suggestDeletionRepairs({ lib, reskolemize: identity });
@@ -294,6 +325,45 @@ describe('suggestDeletionRepairs — weakening', () => {
     const res = await suggestDeletionRepairs({ lib, reskolemize: identity });
     expect(res.weakenIncomplete).toBe(true);
     expect(res.repairs.some((r) => r.kind !== 'weaken')).toBe(true);
+  });
+
+  describe('assessGuardCost', () => {
+    const pair = { a: `${EX}A`, b: `${EX}B` };
+    const other = { a: `${EX}C`, b: `${EX}D` };
+    const withGuards = (lost: { a: string; b: string }[]) => {
+      const lib = fakeRepairLibrary([clash]);
+      const base = lib.assessEdit.bind(lib);
+      lib.assessEdit = async (edit, o) => ({ ...(await base(edit, o)), pairsChecked: [pair, other], lostDisjointPairs: lost });
+      return lib;
+    };
+
+    it('adds no guardImpact unless asked, and makes no extra assessEdit call', async () => {
+      const lib = withGuards([pair]);
+      const res = await suggestDeletionRepairs({ lib, reskolemize: identity });
+      expect(res.repairs[0].guardImpact).toBeUndefined();
+      expect(lib.calls.assessEdit.every((c) => c.opts?.pairs !== undefined)).toBe(true); // only the pairs: [] checks
+    });
+
+    it('marks a repair that deletes a declared disjointness as restoring consistency with collateral', async () => {
+      const res = await suggestDeletionRepairs({ lib: withGuards([pair]), reskolemize: identity, assessGuardCost: true });
+      const g = res.repairs[0].guardImpact!;
+      expect(g.verdict).toBe('restores-consistency-with-collateral');
+      expect(g.classGuardsBefore).toBe(2);
+      expect(g.classGuardsAfter).toBe(1);
+      expect(g.classGuardsDestroyed).toMatchObject([{ a: pair.a, b: pair.b }]);
+      expect(g.summary).toContain('1 modelling error');
+    });
+
+    it('marks a repair that keeps every guard as verified', async () => {
+      const res = await suggestDeletionRepairs({ lib: withGuards([]), reskolemize: identity, assessGuardCost: true });
+      expect(res.repairs[0].guardImpact).toMatchObject({ verdict: 'verified', classGuardsBefore: 2, classGuardsAfter: 2 });
+    });
+
+    it('gives no verdict to a repair that does not restore consistency on its own', async () => {
+      const lib = fakeRepairLibrary([clash], { consistentAfter: () => false });
+      const res = await suggestDeletionRepairs({ lib, reskolemize: identity, assessGuardCost: true });
+      expect(res.repairs[0].guardImpact).toBeUndefined();
+    });
   });
 
   it('quadToTriple keeps literal datatype and language', () => {

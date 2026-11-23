@@ -501,7 +501,7 @@ interface OntologyStore {
     results?: { url: string; status: "ok" | "fail"; error?: string }[];
   }>;
   clearOntologies: () => void;
-  exportGraph: (format: "turtle" | "json-ld" | "rdf-xml" | "nquads" | "trig") => Promise<string>;
+  exportGraph: (format: "turtle" | "json-ld" | "rdf-xml" | "nquads" | "trig" | "json-ld-dataset") => Promise<string>;
   getRdfManager: () => RDFManager;
   removeLoadedOntology: (url: string) => void;
   // Namespace registry (joined prefix -> namespace -> color) persisted after reconcile
@@ -872,7 +872,8 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
 
       // Fire-and-forget owl:imports discovery into the ontology graph.
       // Guard with !discovered to prevent mutual recursion: inner loadOntology calls
-      // triggered by discovery set discovered:true and must not re-trigger.
+      // triggered by discovery set discovered:true and must not re-trigger; discovery itself
+      // follows the imports of the loaded imports transitively (see discoverReferencedOntologies).
       if (!options?.discovered) {
         void get().discoverReferencedOntologies!({
           graphName: "urn:vg:ontologies",
@@ -1297,7 +1298,7 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
       }
     }
   },
-  exportGraph: async (format: "turtle" | "json-ld" | "rdf-xml" | "nquads" | "trig") => {
+  exportGraph: async (format: "turtle" | "json-ld" | "rdf-xml" | "nquads" | "trig" | "json-ld-dataset") => {
     // Prefer the store-bound rdfManager, but fall back to the module-level rdfManager
     // exported from utils/rdfManager in case the store was mocked without a proper instance.
     const mgrFromState = get().rdfManager;
@@ -1322,6 +1323,9 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
       case "trig":
         // Dataset-faithful: collects all urn:vg:* graphs, preserves graph IRIs.
         return await (mgr as any).exportToTriG();
+      case "json-ld-dataset":
+        // Dataset-faithful: one JSON-LD graph object per urn:vg:* graph.
+        return await (mgr as any).exportToJsonLDDataset();
       default:
         throw new Error(`Unsupported format: ${format}`);
     }
@@ -1431,15 +1435,25 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
 
     // Use imported constants from vocabularies.ts
 
+    // owl:imports are followed transitively: every round reads the imports of the ontologies the
+    // previous round loaded (they land in urn:vg:ontologies). `attempted` keeps each URL to one
+    // attempt; the round and total guards bound a long or cyclic import chain.
+    const MAX_IMPORT_ROUNDS = 10;
+    const MAX_IMPORTED_ONTOLOGIES = 100;
+    const attempted = new Set<string>();
+    const allCandidates: string[] = [];
+    const results: { url: string; status: "ok" | "fail"; error?: string }[] = [];
+    let roundGraph = requestedGraphName;
+    for (let round = 0; round < MAX_IMPORT_ROUNDS; round++) {
     const typeQuads = await fetchSerializedQuads(
       mgr,
-      requestedGraphName,
+      roundGraph,
       { predicate: RDF_TYPE },
       2000,
     );
     const importQuads = await fetchSerializedQuads(
       mgr,
-      requestedGraphName,
+      roundGraph,
       { predicate: OWL_IMPORTS },
       2000,
     );
@@ -1475,7 +1489,7 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
     // JSON-LD @context URLs: treat as ontology candidates the same way as
     // owl:imports. These are passed in explicitly from the JSON-LD loading
     // path so only context URLs from the actual document are included.
-    const ctxUrls = opts.contextUrls || [];
+    const ctxUrls = round === 0 ? opts.contextUrls || [] : [];
     for (const ctxUrl of ctxUrls) {
       if (!ctxUrl || typeof ctxUrl !== "string") continue;
       const url = ctxUrl.trim();
@@ -1511,8 +1525,13 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
       const normLower = norm.toLowerCase();
       if (!normLower.startsWith("http://") && !normLower.startsWith("https://")) continue;
       if (alreadyLoadedNorm.has(normLower)) continue;
+      if (attempted.has(normLower)) continue;
       if (blacklistedPrefixes.some((prefix) => norm.startsWith(prefix))) continue;
       if (!candidates.includes(norm)) candidates.push(norm);
+    }
+    if (attempted.size + candidates.length > MAX_IMPORTED_ONTOLOGIES) {
+      const dropped = candidates.splice(Math.max(0, MAX_IMPORTED_ONTOLOGIES - attempted.size));
+      console.warn(`[ontologyStore] owl:imports: more than ${MAX_IMPORTED_ONTOLOGIES} ontologies, not loaded:`, dropped);
     }
 
     console.debug("[VG_DEBUG] discoverReferencedOntologies.candidates", {
@@ -1522,8 +1541,11 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
     });
 
     if (candidates.length === 0) {
-      vgM && typeof vgM.end === "function" && vgM.end({ reason: "no_candidates", candidateCount: 0 });
-      return { candidates };
+      if (round === 0) {
+        vgM && typeof vgM.end === "function" && vgM.end({ reason: "no_candidates", candidateCount: 0 });
+        return { candidates };
+      }
+      break;
     }
 
     if (loadMode === false) {
@@ -1531,40 +1553,40 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
       return { candidates };
     }
 
-    // Sequentially load candidates so we can track progress and surface errors.
-    const results: { url: string; status: "ok" | "fail"; error?: string }[] = [];
+    // Sequentially load candidates so we can track progress and report errors.
+    for (const c of candidates) { attempted.add(c.toLowerCase()); allCandidates.push(c); }
+    let loadedThisRound = 0;
     for (let i = 0; i < candidates.length; i++) {
       const url = candidates[i];
       const pct = Math.min(95, Math.round(((i) / Math.max(1, candidates.length)) * 90) + 5);
       onProgress && onProgress(pct, `Loading referenced ontology ${i + 1}/${candidates.length}: ${deriveOntologyName(url)}`);
-      const loadRes = await get().loadOntology(url, { autoload: true, discovered: true });
+      let loadRes: unknown;
+      try {
+        loadRes = await get().loadOntology(url, { autoload: true, discovered: true });
+      } catch (e) {
+        loadRes = { success: false, error: e instanceof Error ? e.message : String(e) };
+      }
       if (!loadRes || (loadRes as any).success !== true) {
         const errMsg = loadRes && (loadRes as any).error ? String((loadRes as any).error) : `Load failed for ${url}`;
         results.push({ url, status: "fail", error: errMsg });
         // JSON-LD @context candidates are best-effort: the context URL may not
-        // serve a parseable ontology. Only abort for owl:imports candidates.
+        // serve a parseable ontology.
         const sources = candidateSources[url] || [];
         if (sources.length > 0 && sources.every((s: string) => s === "jsonld:@context")) {
           console.debug("[VG_DEBUG] discoverReferencedOntologies: @context candidate failed (non-fatal)", url, errMsg);
           continue;
         }
-        // Ensure UI progress finishes on failure so callers don't remain stuck at an intermediate percent
-        try {
-          if (typeof onProgress === "function") {
-            try {
-              onProgress(100, `Failed loading referenced ontology: ${deriveOntologyName(url)}`);
-            } catch (_) {
-              try { onProgress(100, "Discovery failed"); } catch (_) { /* ignore */ }
-            }
-          }
-        } catch (_) {
-          /* ignore progress errors */
-        }
-        // Surface the error to the caller instead of swallowing it.
-        vgM && typeof vgM.end === "function" && vgM.end({ reason: "candidate_failed", url, error: errMsg });
-        throw new Error(errMsg);
+        // A failed owl:imports target is reported (loadOntology toasts it and marks it failed);
+        // the remaining imports still load.
+        console.warn(`[ontologyStore] owl:imports target not loaded: ${url}: ${errMsg}`);
+        continue;
       }
       results.push({ url, status: "ok" });
+      loadedThisRound += 1;
+    }
+    if (loadedThisRound === 0) break;
+    // the next round reads the imports of what was just loaded
+    roundGraph = "urn:vg:ontologies";
     }
 
     // After all candidates processed, emit a single authoritative subject emission for the data graph.
@@ -1578,7 +1600,7 @@ export const useOntologyStore = create<OntologyStore>((set, get) => ({
     onProgress && onProgress(100, "Discovery complete");
 
     vgM && typeof vgM.end === "function" && vgM.end({ reason: "complete", resultsCount: results.length });
-    return { candidates, results };
+    return { candidates: allCandidates, results };
   },
 
   getRdfManager: () => {

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { AlertTriangle, CheckCircle, XCircle, Lightbulb, Clock, Shield, ExternalLink, X, Wrench } from 'lucide-react';
 import { isShaclInfo } from '@/utils/shaclInfo';
 import type { ReasoningResult } from '../../utils/rdfManager';
+import { shaclFocusLine } from './shaclFocusLine';
 import { getWorkspaceRefs } from '@/mcp/workspaceContext';
 import { useShaclResultStore, makeShaclMessageKey } from '@/stores/shaclResultStore';
 import { RepairSuggestions } from './RepairSuggestions';
@@ -448,6 +449,12 @@ export const ReasoningReportModal = memo(({ open, onOpenChange, currentReasoning
                 </CardContent>
               </Card>
             </div>
+
+            {shaclFocusLine(currentReasoning.shaclFocus) && (
+              <p className="text-xs text-muted-foreground" data-testid="shacl-focus-line">
+                SHACL: {shaclFocusLine(currentReasoning.shaclFocus)}
+              </p>
+            )}
 
             {isConsistent === false && (
               <Card className="bg-destructive/10 border-destructive/20">

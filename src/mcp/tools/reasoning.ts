@@ -35,7 +35,7 @@ async function loadDataProfileTriples(): Promise<ProfileTriple[]> {
 // ---------------------------------------------------------------------------
 const runReasoning: McpTool = {
   name: 'runReasoning',
-  description: "Run OWL reasoning over the loaded graph and infer new triples. Default backend is 'konclude' (full OWL 2 DL). Pass reasonerBackend='n3' to use N3 rule-based inference instead. Pass clearBefore=true to clear previous inferences first. SHACL validation runs by default after reasoning if shapes are loaded (shaclValidation=true); pass shaclValidation=false to skip it. Response: { inferredTriples, isConsistent: boolean|null, errors: ReasoningError[] }. isConsistent=false means the ontology is logically contradictory — inferences were skipped and errors contains per-entity clash details (nodeId: individual IRI, rule, message). isConsistent=null when using the n3 backend or when validation was unavailable.",
+  description: "Run OWL reasoning over the loaded graph and infer new triples. Default backend is 'konclude' (full OWL 2 DL). Pass reasonerBackend='n3' to use N3 rule-based inference instead. Pass clearBefore=true to clear previous inferences first. SHACL validation runs by default after reasoning if shapes are loaded (shaclValidation=true); pass shaclValidation=false to skip it. Response: { inferredTriples, isConsistent: boolean|null, errors: ReasoningError[], shaclFocus?, shaclFocusComparison? } (shaclFocus / shaclFocusComparison: focus-node counts of the SHACL run after reasoning, as validateGraph's focus / focusComparison). isConsistent=false means the ontology is logically contradictory — inferences were skipped and errors contains per-entity clash details (nodeId: individual IRI, rule, message). isConsistent=null when using the n3 backend or when validation was unavailable.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -83,6 +83,9 @@ const runReasoning: McpTool = {
         data: {
           inferredTriples,
           isConsistent: (result as any)?.isConsistent ?? null,
+          // SHACL focus-node counts of the validation after reasoning (as in validateGraph)
+          ...((result as any)?.shaclFocus?.focus ? { shaclFocus: (result as any).shaclFocus.focus } : {}),
+          ...((result as any)?.shaclFocus?.focusComparison ? { shaclFocusComparison: (result as any).shaclFocus.focusComparison } : {}),
           errors: ((result as any)?.errors ?? []).map((e: any) => ({
             nodeId: e.nodeId ?? null,
             rule: e.rule ?? 'unknown',
@@ -174,11 +177,20 @@ const explainDiagnostics: McpTool = {
         default: false,
         description: 'Add timingsMs: wall time in milliseconds of each stage and of each reasoner call. For diagnosing slow runs.',
       },
+      assessGuardCost: {
+        type: 'boolean',
+        default: false,
+        description:
+          'Also measure what each deletion repair costs in declared class-disjointness guards (one extra classification per repair). ' +
+          "Each repair that restores consistency on its own then carries guardImpact { verdict, classGuardsDestroyed, summary }; verdict 'restores-consistency-with-collateral' " +
+          'means the repair restores consistency by deleting a constraint the ontology used to reject modelling errors with.',
+      },
     },
   },
   async handler(params): Promise<McpResult> {
     try {
-      const { maxJustifications = 3, includeTimings = false } = (params ?? {}) as { maxJustifications?: number; includeTimings?: boolean };
+      const { maxJustifications = 3, includeTimings = false, assessGuardCost = false } =
+        (params ?? {}) as { maxJustifications?: number; includeTimings?: boolean; assessGuardCost?: boolean };
       const stagesMs: Record<string, number> = {};
       const stage = async <T>(name: string, run: () => Promise<T>): Promise<T> => {
         const t0 = Date.now();
@@ -248,6 +260,7 @@ const explainDiagnostics: McpTool = {
         const suggested = await stage('suggestRepairs', () => rdfManager.suggestRepairs({
           unsatisfiableClasses,
           maxJustifications,
+          ...(assessGuardCost ? { assessGuardCost: true } : {}),
         }));
         libTimingsMs = suggested.libTimingsMs;
         justifications = suggested.justifications;
@@ -309,7 +322,8 @@ const explainEntailment: McpTool = {
     "Explain WHY a specific entailed axiom holds — Horridge-style justifications for an ARBITRARY entailed axiom (not just inconsistency). " +
     "Ask 'why is A rdfs:subClassOf B?' or 'why is x rdf:type C?' and get back the minimal set(s) of asserted axioms whose conjunction logically entails it. " +
     "Input: { subjectIri, predicateIri, objectIri, maxJustifications? }. " +
-    "Returns { isEntailed, justifications, summary, ontologyInconsistent?, vacuous?, reason? }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; " +
+    "Returns { isEntailed, verdict, justifications, summary, ontologyInconsistent?, vacuous?, reason? }: isEntailed=true means the OWL 2 DL reasoner derives the axiom; " +
+    "verdict is entailed, not-entailed (a decided answer: under the open world assumption the ontology does not settle it) or undetermined (the check could not decide; isEntailed=null, see reason). " +
     "justifications is a list of minimal axiom sets (each { subject, predicate, object }[]) — every axiom in a set is needed to derive the conclusion. " +
     "A directly asserted axiom comes back as its own one-axiom justification. isEntailed=true with justificationUnavailable=true means the axiom is entailed but no sound justification could be produced (see reason): ask again with justificationMode 'exact'. justificationMode in the result says which search produced the justifications ('exact' = guaranteed minimal, 'fast' = one verified candidate, not necessarily minimal). " +
     "isEntailed=false with empty justifications means the axiom is NOT entailed. " +
@@ -356,7 +370,7 @@ const explainEntailment: McpTool = {
       }
 
       // Ensure the reasoner has the current asserted graph (read-only).
-      const { isEntailed, justifications, ontologyInconsistent, vacuous, reason, justificationUnavailable, justificationMode: usedMode } =
+      const { isEntailed, verdict, justifications, ontologyInconsistent, vacuous, reason, justificationUnavailable, justificationMode: usedMode } =
         await rdfManager.explainEntailment(
           subjectIri,
           predicateIri,
@@ -376,7 +390,7 @@ const explainEntailment: McpTool = {
           `Run explainDiagnostics and fix consistency first.`;
         return {
           success: true,
-          data: { isEntailed: null, ontologyInconsistent: true, justifications: [], reason, summary },
+          data: { isEntailed: null, ...(verdict ? { verdict } : {}), ontologyInconsistent: true, justifications: [], reason, summary },
         };
       }
       if (vacuous) {
@@ -387,8 +401,13 @@ const explainEntailment: McpTool = {
           `fix the unsatisfiable class (see explainDiagnostics / unsatisfiableClasses).`;
         return {
           success: true,
-          data: { isEntailed: true, vacuous: true, justifications, reason, summary },
+          data: { isEntailed: true, ...(verdict ? { verdict } : {}), vacuous: true, justifications, reason, summary },
         };
+      }
+      if (verdict === 'undetermined') {
+        // The reasoner returned no decision (error, time limit, refused input): neither "entailed" nor "not entailed".
+        summary = `Could not decide whether ${axiomText} is entailed${reason ? `: ${reason}` : '.'}`;
+        return { success: true, data: { isEntailed: null, verdict, justifications: [], reason, summary } };
       }
       if (!isEntailed) {
         summary = `${axiomText} is NOT entailed by the current ontology.`;
@@ -399,7 +418,7 @@ const explainEntailment: McpTool = {
           `${axiomText} is entailed, but no sound justification could be produced` +
           `${reason ? ` (${reason})` : ''}.` +
           `${reason?.includes('exact') ? '' : " Ask again with justificationMode 'exact' to search for the axioms."}`;
-        return { success: true, data: { isEntailed, justifications, justificationUnavailable: true, ...(usedMode ? { justificationMode: usedMode } : {}), ...(reason ? { reason } : {}), summary } };
+        return { success: true, data: { isEntailed, ...(verdict ? { verdict } : {}), justifications, justificationUnavailable: true, ...(usedMode ? { justificationMode: usedMode } : {}), ...(reason ? { reason } : {}), summary } };
       } else {
         const sets = justifications
           .map((j, i) => {
@@ -416,7 +435,7 @@ const explainEntailment: McpTool = {
       return {
         success: true,
         data: {
-          isEntailed, justifications, summary,
+          isEntailed, ...(verdict ? { verdict } : {}), justifications, summary,
           ...(usedMode ? { justificationMode: usedMode } : {}),
           ...(justificationUnavailable ? { justificationUnavailable: true } : {}),
           ...(reason ? { reason } : {}),

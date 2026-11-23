@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" width="1280" height="420" role="img" aria-labelledby="t d">
+  <title id="t">Ontosphere</title>
+  <desc id="d">RDF and OWL data in, reasoned and validated knowledge out: inferred statements, justifications, SHACL findings and verified repairs.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1f5f8b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+  <text x="40" y="58" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">YOUR DATA</text>
+  <rect x="40.5" y="80.5" width="299" height="75" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <rect x="40.5" y="94" width="3" height="48" rx="1.5" fill="#1f5f8b"/>
+  <text x="64" y="114" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="17" font-weight="600" fill="#1f2328" text-anchor="start">Turtle · JSON-LD · RDF/XML</text>
+  <text x="64" y="138" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">files and URLs</text>
+  <rect x="40.5" y="172.5" width="299" height="75" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <rect x="40.5" y="186" width="3" height="48" rx="1.5" fill="#1f5f8b"/>
+  <text x="64" y="206" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="17" font-weight="600" fill="#1f2328" text-anchor="start">N-Triples · N-Quads · TriG</text>
+  <text x="64" y="230" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">files and URLs</text>
+  <rect x="40.5" y="264.5" width="299" height="75" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <rect x="40.5" y="278" width="3" height="48" rx="1.5" fill="#1f5f8b"/>
+  <text x="64" y="298" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="17" font-weight="600" fill="#1f2328" text-anchor="start">SPARQL endpoints</text>
+  <text x="64" y="322" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">Fuseki and others</text>
+  <line x1="350" y1="210" x2="418" y2="210" stroke="#1f5f8b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="862" y1="210" x2="930" y2="210" stroke="#1f5f8b" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="430.5" y="40.5" width="419" height="339" rx="18" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <rect x="450" y="40.5" width="380" height="4" rx="2" fill="#1f5f8b"/>
+  <g transform="translate(592 78) scale(0.5714285714285714)">
+    <circle cx="84" cy="84" r="76" fill="#ffffff" stroke="#1f5f8b" stroke-width="5"/>
+    <line x1="63.5" y1="91.5" x2="90" y2="40.5" stroke="#1f5f8b" stroke-width="3.2"/>
+    <line x1="63.5" y1="91.5" x2="76" y2="138.5" stroke="#1f5f8b" stroke-width="3.2"/>
+    <line x1="63.5" y1="91.5" x2="34" y2="73" stroke="#1f5f8b" stroke-width="3.2"/>
+    <line x1="63.5" y1="91.5" x2="120" y2="82" stroke="#1f5f8b" stroke-width="3.2" stroke-dasharray="7 6"/>
+    <circle cx="63.5" cy="91.5" r="13.5" fill="#1f5f8b"/>
+    <circle cx="90" cy="40.5" r="8.5" fill="#1f5f8b"/>
+    <circle cx="76" cy="138.5" r="5" fill="#1f5f8b"/>
+    <circle cx="34" cy="73" r="5" fill="#1f5f8b"/>
+    <circle cx="120" cy="82" r="8.5" fill="#ffffff" stroke="#1f5f8b" stroke-width="3.2"/>
+  </g>
+  <text x="640" y="218" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="34" font-weight="700" fill="#1f2328" text-anchor="middle" letter-spacing="-0.5">Ontosphere</text>
+  <text x="640" y="246" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="400" fill="#515b66" text-anchor="middle">in one browser tab</text>
+  <line x1="480" y1="268" x2="800" y2="268" stroke="#d0d7de" stroke-width="1"/>
+  <text x="480" y="300" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="1.5">01</text>
+  <text x="480" y="322" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#1f2328" text-anchor="start">OWL 2 DL</text>
+  <text x="480" y="342" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">reasoning</text>
+  <text x="600" y="300" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="1.5">02</text>
+  <text x="600" y="322" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#1f2328" text-anchor="start">SHACL</text>
+  <text x="600" y="342" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">validation</text>
+  <text x="720" y="300" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="12" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="1.5">03</text>
+  <text x="720" y="322" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="600" fill="#1f2328" text-anchor="start">Verified</text>
+  <text x="720" y="342" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="14" font-weight="400" fill="#515b66" text-anchor="start">repair</text>
+  <text x="940" y="58" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">WHAT COMES BACK</text>
+  <rect x="940.5" y="80.5" width="299" height="57" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <line x1="958" y1="109" x2="986" y2="109" stroke="#1f5f8b" stroke-width="2.4" stroke-dasharray="5 4"/>
+  <circle cx="992" cy="109" r="5" fill="#ffffff" stroke="#1f5f8b" stroke-width="2"/>
+  <text x="1004" y="106" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">Inferred statements</text>
+  <text x="1004" y="126" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#515b66" text-anchor="start">kept apart from your data</text>
+  <rect x="940.5" y="150.5" width="299" height="57" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <circle cx="972" cy="179" r="5" fill="#1f5f8b"/>
+  <text x="1004" y="176" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">Justifications</text>
+  <text x="1004" y="196" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#515b66" text-anchor="start">minimal axiom sets</text>
+  <rect x="940.5" y="220.5" width="299" height="57" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <circle cx="972" cy="249" r="5" fill="#1f5f8b"/>
+  <text x="1004" y="246" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">SHACL findings</text>
+  <text x="1004" y="266" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#515b66" text-anchor="start">with focus node and shape</text>
+  <rect x="940.5" y="290.5" width="299" height="57" rx="12" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <circle cx="972" cy="319" r="5" fill="#1f5f8b"/>
+  <text x="1004" y="316" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="16" font-weight="600" fill="#1f2328" text-anchor="start">Verified repairs</text>
+  <text x="1004" y="336" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="400" fill="#515b66" text-anchor="start">deletion or weakening</text>
+</svg>

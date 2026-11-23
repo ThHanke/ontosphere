@@ -92,6 +92,7 @@ export const ConfigurationPanel = ({
     // Reasoning rulesets setter
     setReasoningRulesets,
     setReasonerBackend,
+    setReasonerClosure,
     resetToDefaults,
     exportConfig,
     importConfig,
@@ -467,6 +468,20 @@ export const ConfigurationPanel = ({
                   </p>
                 </div>
 
+                {(config.reasonerBackend ?? 'konclude') === 'konclude' && (
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5 pr-3">
+                    <Label htmlFor="reasonerClosure">Write the full class hierarchy</Label>
+                    <p className="text-xs text-muted-foreground">Also store every transitive subclass relation as an inferred triple (A ⊑ B ⊑ C gives A ⊑ C). Needed only when SPARQL or SHACL should see the whole hierarchy without reasoning; entailment checks and explanations work without it. Costs about 6-9 times the hierarchy triples, so large ontologies use more canvas memory.</p>
+                  </div>
+                  <Switch
+                    id="reasonerClosure"
+                    checked={config.reasonerClosure === true}
+                    onCheckedChange={setReasonerClosure}
+                  />
+                </div>
+                )}
+
                 {(config.reasonerBackend ?? 'konclude') === 'n3' && (
                 <div className="space-y-2">
                   <Label>Reasoning Rulesets</Label>
@@ -602,7 +617,13 @@ export const ConfigurationPanel = ({
                           useShaclResultStore.getState().clearShaclResults();
                           const { loadShaclShapes } = await import('../../utils/shaclShapeLoader');
                           const manifest = await loadShaclShapes(url);
-                          if (manifest.loaded.length > 0) {
+                          if (manifest.loaded.length > 0 && manifest.errors.length > 0) {
+                            toast.warning(`Loaded ${manifest.loaded.length} shape file(s); ${manifest.errors.length} failed`, {
+                              id: 'shacl-reload',
+                              description: manifest.errors.map(e => `${e.url.split('/').pop()}: ${e.error}`).join('; '),
+                            });
+                            useShaclResultStore.getState().setShaclShapesLoaded(true);
+                          } else if (manifest.loaded.length > 0) {
                             toast.success(`Loaded ${manifest.loaded.length} shape file(s)`, { id: 'shacl-reload' });
                             useShaclResultStore.getState().setShaclShapesLoaded(true);
                           } else if (manifest.errors.length > 0) {

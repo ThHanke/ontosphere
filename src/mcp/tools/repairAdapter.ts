@@ -23,6 +23,8 @@ import type {
   WeakenOptions,
   WeakenResult,
 } from 'rdf-reasoner-konclude';
+import { assessRepairImpact, type RepairImpact } from '../../workers/repairImpact.ts';
+import { WEAKEN_ACCEPTS_ALSO_REMOVE } from '../../utils/reasonerCapabilities';
 import {
   axiomKey,
   hasIriObject,
@@ -72,6 +74,16 @@ export interface SuggestDeletionRepairsInput {
   timeoutMs?: number;
   /** Also offer weakenings of rdfs:subClassOf culprits (default true). */
   weaken?: boolean;
+  /**
+   * Also report what each deletion repair costs in declared class-disjointness guards (one extra
+   * assessEdit per repair, over the asserted disjointness pairs of the store).
+   */
+  assessGuardCost?: boolean;
+  /**
+   * Does the reasoner's weaken() accept `alsoRemove`? Default: WEAKEN_ACCEPTS_ALSO_REMOVE. Without it,
+   * a culprit is weakened on its own, which only works when removing it alone restores consistency.
+   */
+  weakenAlsoRemove?: boolean;
 }
 
 export interface SuggestRepairsResult {
@@ -297,6 +309,33 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
     }
   }
 
+  // Guard cost per deletion repair: the declared disjointness pairs that no longer hold once this
+  // axiom is gone. The baseline is the declared pool, which a consistent version enforces in full.
+  const guardImpacts = new Map<number, RepairImpact>();
+  if (input.assessGuardCost) {
+    for (let i = 0; i < entries.length; i++) {
+      try {
+        const a = await lib.assessEdit({ remove: entries[i].axiom.quads });
+        // Disjointness can only be judged on a consistent result. With several independent contradictions
+        // one removal does not restore consistency alone, so such a repair gets no guard verdict.
+        if (!a.consistent || a.incomplete) continue;
+        const lost = new Set((a.lostDisjointPairs ?? []).map((p) => `${p.a}|${p.b}`));
+        const before = a.pairsChecked.map((pair) => ({ pair, enforced: true, vacuous: false }));
+        const after = a.pairsChecked.map((pair) => ({
+          pair, enforced: !lost.has(`${pair.a}|${pair.b}`), vacuous: false,
+        }));
+        guardImpacts.set(i, assessRepairImpact({
+          wasInconsistent: true,
+          consistencyRestored: true,
+          classGuardsBefore: before,
+          classGuardsAfter: after,
+        }));
+      } catch {
+        // oracle unavailable: no guard verdict for this repair
+      }
+    }
+  }
+
   const repairs: RepairSuggestion[] = entries.map(({ axiom, triple, covered }, i) => {
     const kind = isTBoxAxiom(triple)
       ? 'a TBox/structural axiom (more invasive — verify intent before applying)'
@@ -335,6 +374,7 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
       rationale,
       justificationsCovered: covered,
       ...(verified !== undefined ? { verifiedConsistent: verified } : {}),
+      ...(guardImpacts.has(i) ? { guardImpact: guardImpacts.get(i) } : {}),
       ...(setVerified !== null ? { verifiedSet: setVerified } : {}),
       ...(minimal !== null ? { minimalityVerified: minimal } : {}),
     };
@@ -376,6 +416,7 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
   // the deletion repair above is that. weaken() supports named-class subClassOf culprits only
   // and splits conjuncts itself.
   let weakenIncomplete = false;
+  const alsoRemoveSupported = input.weakenAlsoRemove ?? WEAKEN_ACCEPTS_ALSO_REMOVE;
   if (input.weaken !== false) {
     const culprits = new Map<string, LibAxiom>();
     for (const j of result.justifications) {
@@ -385,9 +426,16 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
       }
     }
     for (const [key, culprit] of culprits) {
+      // Several justifications: weaken the culprit relative to the rest of the repair set it belongs to,
+      // whose other axioms are removed together with it (reasoner option alsoRemove).
+      const inSet = entries.some((e) => axiomKey(e.triple) === key);
+      const others = inSet && entries.length > 1 && alsoRemoveSupported ? entries.filter((e) => axiomKey(e.triple) !== key) : [];
       let weakened: WeakenResult;
       try {
-        weakened = await input.lib.weaken(culprit, input.timeoutMs !== undefined ? { timeout: input.timeoutMs } : undefined);
+        weakened = await input.lib.weaken(culprit, {
+          ...(input.timeoutMs !== undefined ? { timeout: input.timeoutMs } : {}),
+          ...(others.length > 0 ? { alsoRemove: others.map((e) => e.axiom) } : {}),
+        });
       } catch {
         weakenIncomplete = true; // oracle unavailable: deletion repairs still stand
         continue;
@@ -417,6 +465,12 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
             return { subject: t.subject, predicate: t.predicate, object: t.object, ...(t.graph ? { graph: t.graph } : {}) };
           });
         const verified = w.verifiedConsistent === true;
+        const alsoRemoved = others.flatMap((e) => e.axiom.quads);
+        const withOthers =
+          others.length > 0
+            ? ` Applies together with removing the other ${others.length} axiom(s) of repair set ${owner?.id ?? ''}: ` +
+              others.map((e) => `${name(e.triple.subject)} ${name(e.triple.predicate)} ${hasIriObject(e.triple) ? name(e.triple.object) : e.triple.object}`).join('; ') + '.'
+            : '';
         repairs.push({
           id: `W${repairs.filter((r) => r.kind === 'weaken').length + 1}`,
           issue: 'inconsistency',
@@ -433,9 +487,9 @@ export async function suggestDeletionRepairs(input: SuggestDeletionRepairsInput)
               ...(culpritTriple.graph ? { graph: culpritTriple.graph } : {}),
             },
           },
-          batch: { removes: triples(w.remove), adds: triples(w.add) },
+          batch: { removes: triples([...w.remove, ...alsoRemoved]), adds: triples(w.add) },
           weakerThan: `${A} ⊑ ${original}`,
-          rationale: `${rationale} (less destructive than deletion — apply as a remove+add batch).`,
+          rationale: `${rationale}${withOthers} (less destructive than deletion — apply as a remove+add batch).`,
           justificationsCovered: covered,
           weakeningVerified: verified,
           weakeningNote: verified

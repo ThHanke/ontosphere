@@ -59,7 +59,7 @@ function createModelContextShim(): ModelContext {
         throw new Error(`[WebMCP] executeTool: tool "${tool.name}" not found in registry`);
       }
       const signal = opts?.signal ?? new AbortController().signal;
-      const result = await entry.execute(inputs ?? {}, { signal });
+      const result = await entry.execute((inputs ?? {}) as Record<string, unknown>, { signal });
       return JSON.stringify(result);
     },
   } as Omit<ModelContext, keyof EventTarget>);

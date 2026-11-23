@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased]
+
+## [1.8.2] — 2026-11-23
+
+Reasoner 0.9.7, SHACL focus counts and an entailment verdict, repair weakening for several axioms, and warnings where the reasoner or a shape file silently dropped input.
+
+### Added
+
+- **Focus counts in validation.** `validateGraph` returns `focus` (`nodeShapes`, `shapesWithFocus`, `perShape`) and, once validation ran with and without inferred triples, `focusComparison`; `runReasoning` returns `shaclFocus` and `shaclFocusComparison`. The reasoning report shows one line with the counts, so a shape that selects nothing is told apart from a conforming one.
+- **`explainEntailment` returns `verdict`:** `entailed`, `not-entailed` (a decided answer) or `undetermined` (the check could not decide; `isEntailed` is `null`, `undeterminedKind` and `reason` say why). An undecided answer is not cached.
+- **`explainDiagnostics` takes `assessGuardCost`.** Each deletion repair that restores consistency on its own then carries `guardImpact`: the declared class-disjointness guards it destroys, with the verdict `restores-consistency-with-collateral` when it deletes a constraint the ontology used to reject modelling errors with.
+- **`exportGraph` format `jsonld-dataset`:** one JSON-LD graph object per named graph.
+- **`owl:imports` are followed transitively**, with a visited set and limits.
+- **Ill-typed literals show as warnings in the reasoning report.** Numeric and boolean literals outside their datatype (`"5abc"^^xsd:integer`, `"300"^^xsd:byte`, integers beyond 64 bits) are dropped by the reasoner and so do not make an ontology inconsistent. The report lists each one (rule `reasoner:ill-typed-literal`, linked to the subject) and says the reasoner ignores it; beyond the first few it adds a count of the rest.
+- **Setting "Write the full class hierarchy"** (Konclude backend, off by default, `reasonerClosure` in the app config). On, the reasoner also writes every transitive `rdfs:subClassOf` pair into the inferred graph (about 6-9 times the hierarchy triples). Needed only when SPARQL or SHACL should see the whole hierarchy without reasoning; entailment checks and explanations do not need it.
+- **Failed SHACL shape files are shown in the SHACL panel.** A file that cannot be fetched or parsed gives a red "N failed" badge on the SHACL Shapes header, a dot on the collapsed sidebar button and an alert listing each file with its error, until the next load. Before, only a toast told the user. The MCP tool `loadShacl` (inline Turtle) reports through the same track.
+
+### Changes to behaviour
+
+- A shape whose validation throws is reported as one violation naming the shape; the other shapes are still validated.
+- Shape files are parsed with their URL as base IRI. A file that cannot be fetched or parsed is skipped with a warning and a notice; `loadShaclFromUrl` then names the failed and the loaded files.
+- SPARQL updates run through `queryGraph` are journaled as agent edits.
+- Loaded-from bookkeeping lives in `urn:vg:loaded-from`, which is excluded from reasoning and from the SHACL view and exported as its own graph. Named graphs of imported TriG and N-Quads files other than the `urn:vg:*` graphs go to the import's target graph.
+- Weakening is offered for repair sets of several axioms when the installed reasoner accepts `WeakenOptions.alsoRemove` (`WEAKEN_ACCEPTS_ALSO_REMOVE` in `reasonerCapabilities.ts`, on since `rdf-reasoner-konclude` 0.9.7). Without it a culprit is weakened on its own, as before.
+- **DL-safe SWRL rules (`swrl:Imp`) in the data are applied during reasoning** (reasoner 0.9.7 default); their consequences appear as inferred triples. Rules with `swrlb:*` built-ins are skipped. No rules, no cost.
+
+### Dependencies
+
+- `rdf-reasoner-konclude` 0.9.6 → 0.9.7 (pinned). W3C OWL 2 DL test suite: consistency 265 of 266 correct (247 before), entailment 68 of 84 (60 before); `isEntailed` now decides `sameAs`, `equivalentProperty`, domain, range and subclass over the transitive closure. Benchmarks in the browser are unchanged: reasoning-demo 0.90-0.98 s (53 inferred), Pizza 1.07-1.12 s (170), PMDCO 2.55-2.63 s (289), GALEN 3.10-3.14 s (1,386), LUBM-1 with data 9.9-10.0 s (71,025); the inferred counts equal those of 0.9.5.
+
+### Fixes
+
+- The four type errors of the typecheck baseline are fixed (`replaceAll` needed `lib` ES2021, a report-message helper takes warnings, a WebMCP input cast); the baseline is now 0.
+
 ## [1.8.1] — 2026-11-12
 
 SHACL validation now follows the spec on blank nodes and class hierarchies, reads the store without copying it, and the default shapes are smaller and quieter.

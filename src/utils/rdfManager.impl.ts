@@ -4,6 +4,7 @@ import type {
   ReasoningResult,
   ReasoningWarning,
   ShaclViolation,
+  ShaclFocusInfo,
 } from "./reasoningTypes";
 import { createRdfManagerWorkerClient, RdfManagerWorkerClient } from "./rdfManager.workerClient";
 import type {
@@ -47,6 +48,14 @@ const DEFAULT_BLACKLIST_URIS = [
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
+
+/** SHACL focus-node counts as the worker sent them (fields absent when no shapes were loaded). */
+const focusInfo = (value: Record<string, unknown>): ShaclFocusInfo => ({
+  ...(isPlainObject(value.focus) ? { focus: value.focus as unknown as ShaclFocusInfo["focus"] } : {}),
+  ...(isPlainObject(value.focusComparison)
+    ? { focusComparison: value.focusComparison as unknown as ShaclFocusInfo["focusComparison"] }
+    : {}),
+});
 
 const isStringRecord = (value: unknown): value is Record<string, string> => {
   if (!isPlainObject(value)) return false;
@@ -749,6 +758,7 @@ export class RDFManagerImpl {
     };
 
     const shaclEnabled = appConfigState?.config?.shaclEnabled !== false;
+    const closure = appConfigState?.config?.reasonerClosure === true;
     const payload = {
       reasoningId,
       rulesets,
@@ -756,6 +766,7 @@ export class RDFManagerImpl {
       baseUrl: resolveBaseUrl(),
       reasonerBackend,
       shaclEnabled,
+      closure,
     };
     const response = await this.worker.call("runReasoning", payload);
     const safe = isPlainObject(response) ? response : {};
@@ -768,6 +779,7 @@ export class RDFManagerImpl {
       warnings: Array.isArray(safe.warnings) ? (safe.warnings as ReasoningWarning[]) : [],
       inferences: Array.isArray(safe.inferences) ? (safe.inferences as ReasoningInference[]) : [],
       isConsistent: typeof safe.isConsistent === "boolean" ? safe.isConsistent : null,
+      ...(isPlainObject(safe.shaclFocus) ? { shaclFocus: focusInfo(safe.shaclFocus) } : {}),
       meta: {
         usedReasoner: !!safe.usedReasoner,
         workerDurationMs: typeof safe.workerDurationMs === "number" ? safe.workerDurationMs : undefined,
@@ -782,13 +794,14 @@ export class RDFManagerImpl {
     await this.worker.stopReasoning();
   }
 
-  async runShaclValidation(): Promise<{ conforms: boolean; violations: ShaclViolation[]; shapeCount: number }> {
+  async runShaclValidation(): Promise<{ conforms: boolean; violations: ShaclViolation[]; shapeCount: number } & ShaclFocusInfo> {
     const response = await this.worker.call("runShaclValidation", undefined);
     const safe = isPlainObject(response) ? response : {};
     return {
       conforms: typeof safe.conforms === "boolean" ? safe.conforms : true,
       violations: Array.isArray(safe.violations) ? safe.violations : [],
       shapeCount: typeof safe.shapeCount === "number" ? safe.shapeCount : 0,
+      ...focusInfo(safe),
     };
   }
 
@@ -866,6 +879,9 @@ export class RDFManagerImpl {
     justificationUnavailable?: boolean;
     /** The mode the justifications come from ("exact" = guaranteed minimal). */
     justificationMode?: "fast" | "exact";
+    /** entailed | not-entailed (a decided answer) | undetermined (the check could not decide; isEntailed is null). */
+    verdict?: "entailed" | "not-entailed" | "undetermined";
+    undeterminedKind?: "ontology-inconsistent" | "vacuous" | "reasoner-unavailable";
     reason?: string;
   }> {
     const response = await this.worker.call("explainEntailment", {
@@ -883,8 +899,14 @@ export class RDFManagerImpl {
     // null (do NOT coerce to false) so the tool can distinguish "vacuous, fix
     // consistency first" from "not entailed".
     const ontologyInconsistent = safe.ontologyInconsistent === true;
+    // A null from the reasoner means it did not decide; it must not read as "not entailed".
+    const undecided = safe.isEntailed === null && safe.verdict === "undetermined";
     return {
-      isEntailed: ontologyInconsistent ? null : safe.isEntailed === true,
+      isEntailed: ontologyInconsistent || undecided ? null : safe.isEntailed === true,
+      ...(safe.verdict === "entailed" || safe.verdict === "not-entailed" || safe.verdict === "undetermined" ? { verdict: safe.verdict } : {}),
+      ...(safe.undeterminedKind === "ontology-inconsistent" || safe.undeterminedKind === "vacuous" || safe.undeterminedKind === "reasoner-unavailable"
+        ? { undeterminedKind: safe.undeterminedKind }
+        : {}),
       justifications: Array.isArray(safe.justifications)
         ? (safe.justifications as { subject: string; predicate: string; object: string }[][])
         : [],
@@ -1011,6 +1033,7 @@ export class RDFManagerImpl {
     mimeType?: string,
     filename?: string,
     forceGraph?: boolean,
+    baseIri?: string,
   ): Promise<void> {
     if (typeof rdfContent !== "string" || rdfContent.trim().length === 0) {
       throw new Error("Empty RDF content provided to loadRDFIntoGraph");
@@ -1022,6 +1045,7 @@ export class RDFManagerImpl {
       contentType: mimeType,
       filename,
       forceGraph,
+      ...(baseIri ? { baseIri } : {}),
       ontologyUrl: targetGraph === "urn:vg:ontologies" && filename ? filename : undefined,
     };
     const result = await this.worker.call("importSerialized", payload);
@@ -1039,8 +1063,10 @@ export class RDFManagerImpl {
    * Load `contents` into `graphName` only if that graph is empty. The emptiness check and all
    * writes happen in one worker step. Returns false when the graph already held quads.
    */
-  async loadRDFIntoGraphIfEmpty(contents: string[], graphName: string, mimeType?: string): Promise<boolean> {
+  /** `baseIris[i]` is the base IRI of `contents[i]`. */
+  async loadRDFIntoGraphIfEmpty(contents: string[], graphName: string, mimeType?: string, baseIris?: string[]): Promise<boolean> {
     const [content, ...additionalContents] = contents;
+    const [baseIri, ...additionalBaseIris] = baseIris ?? [];
     if (typeof content !== "string" || content.trim().length === 0) {
       throw new Error("Empty RDF content provided to loadRDFIntoGraphIfEmpty");
     }
@@ -1050,6 +1076,8 @@ export class RDFManagerImpl {
       graphName,
       contentType: mimeType,
       onlyIfEmpty: true,
+      ...(baseIri ? { baseIri } : {}),
+      ...(additionalBaseIris.length > 0 ? { additionalBaseIris } : {}),
     };
     const result = await this.worker.call("importSerialized", payload);
     if (isPlainObject(result) && (result as any).skipped === true) return false;
@@ -1506,6 +1534,19 @@ export class RDFManagerImpl {
     const payload: ExportGraphPayload = {
       format: "application/n-quads",
     };
+    const response = await this.worker.call("exportGraph", payload);
+    if (isPlainObject(response) && typeof (response as any).content === "string") {
+      return (response as any).content;
+    }
+    return "";
+  }
+
+  /**
+   * Dataset-faithful export as JSON-LD: one graph object ({"@id": graph IRI, "@graph": [...]})
+   * per urn:vg:* graph, the same partition as {@link exportToNQuads}.
+   */
+  async exportToJsonLDDataset(): Promise<string> {
+    const payload: ExportGraphPayload = { format: "application/ld+json;dataset" };
     const response = await this.worker.call("exportGraph", payload);
     if (isPlainObject(response) && typeof (response as any).content === "string") {
       return (response as any).content;

@@ -58,6 +58,8 @@ export interface ImportSerializedPayload {
   ontologyUrl?: string;
   /** Further documents in the same format, loaded in the same worker step as `content`. */
   additionalContents?: string[];
+  /** Base IRI of each of `additionalContents` (index-aligned); `baseIri` when missing. */
+  additionalBaseIris?: string[];
   /** Write only into an empty target graph. The check and the writes happen in one worker step. */
   onlyIfEmpty?: boolean;
 }
@@ -129,6 +131,7 @@ export type RDFWorkerCommandPayloads = {
     emitSubjects?: boolean;
     reasonerBackend?: 'konclude' | 'n3';
     shaclEnabled?: boolean;
+    closure?: boolean;
   };
   importSerialized: ImportSerializedPayload;
   exportGraph: ExportGraphPayload;
@@ -164,6 +167,8 @@ export type RDFWorkerCommandPayloads = {
     timeoutMs?: number;
     /** Also offer weakenings of rdfs:subClassOf culprits (default true). */
     weaken?: boolean;
+    /** Also report what each deletion repair costs in class-disjointness guards (one extra assessEdit per repair). */
+    assessGuardCost?: boolean;
   };
   /**
    * Search existing ontology terms (classes / properties / individuals) by
@@ -609,11 +614,16 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
     if (typeof shaclEnabled !== "undefined") {
       assertBoolean(shaclEnabled, "runReasoning.shaclEnabled must be a boolean when provided");
     }
+    const { closure } = payload as RDFWorkerCommandPayloads["runReasoning"];
+    if (typeof closure !== "undefined") {
+      assertBoolean(closure, "runReasoning.closure must be a boolean when provided");
+    }
   },
   importSerialized(payload) {
     assertPlainObject(payload, "importSerialized payload must be an object");
-    const { content, graphName, contentType, filename, baseIri, additionalContents, onlyIfEmpty } =
+    const { content, graphName, contentType, filename, baseIri, additionalContents, additionalBaseIris, onlyIfEmpty } =
       payload as unknown as ImportSerializedPayload;
+    assertOptionalStringArray(additionalBaseIris, "importSerialized.additionalBaseIris must be a string array when provided");
     assertString(content, "importSerialized.content must be a string");
     assertOptionalStringArray(additionalContents, "importSerialized.additionalContents must be a string array when provided");
     if (onlyIfEmpty !== undefined && typeof onlyIfEmpty !== "boolean") {
@@ -720,6 +730,7 @@ const COMMAND_VALIDATORS: Record<RDFWorkerCommandName, CommandValidator> = {
       invariant(typeof p[k] === "undefined" || (typeof p[k] === "number" && Number.isFinite(p[k] as number)), `suggestRepairs.${k} must be a finite number when provided`);
     }
     invariant(typeof p.weaken === "undefined" || typeof p.weaken === "boolean", "suggestRepairs.weaken must be a boolean when provided");
+    invariant(typeof p.assessGuardCost === "undefined" || typeof p.assessGuardCost === "boolean", "suggestRepairs.assessGuardCost must be a boolean when provided");
   },
   searchTerms(payload) {
     assertPlainObject(payload, "searchTerms payload must be an object");
@@ -879,6 +890,7 @@ export interface RDFWorkerRunReasoningMessage {
   emitSubjects?: boolean;
   reasonerBackend?: 'konclude' | 'n3';
   shaclEnabled?: boolean;
+  closure?: boolean;
 }
 
 export type RDFWorkerInboundMessage =
@@ -1104,6 +1116,9 @@ export function assertRdfWorkerInbound(value: unknown): asserts value is RDFWork
       }
       if (typeof message.shaclEnabled !== "undefined") {
         assertBoolean(message.shaclEnabled, "runReasoning.shaclEnabled must be a boolean when provided");
+      }
+      if (typeof message.closure !== "undefined") {
+        assertBoolean(message.closure, "runReasoning.closure must be a boolean when provided");
       }
       return;
     default:

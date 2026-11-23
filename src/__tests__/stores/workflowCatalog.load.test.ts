@@ -45,6 +45,7 @@ const testConfig: AppConfig = {
   blacklistedPrefixes: [],
   blacklistedUris: [],
   shaclEnabled: false,
+  reasonerClosure: false,
   relayEnabled: false,
 };
 

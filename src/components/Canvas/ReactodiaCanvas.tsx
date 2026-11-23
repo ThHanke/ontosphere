@@ -1354,8 +1354,11 @@ export default function ReactodiaCanvas() {
           } else {
             useShaclResultStore.getState().setShaclShapesLoaded(false);
           }
-          for (const err of manifest.errors) {
-            console.warn('[ReactodiaCanvas] SHACL shape load error:', err.url, err.error);
+          if (manifest.errors.length > 0) {
+            // the loader logs each failure; tell the user too, the shapes of these files are missing
+            toast.warning(`${manifest.errors.length} SHACL shape file(s) could not be loaded`, {
+              description: manifest.errors.map(e => `${e.url.split('/').pop()}: ${e.error}`).join('; '),
+            });
           }
           if (!manifest.skipped && manifest.loaded.length === 0 && manifest.errors.length > 0) {
             useShaclResultStore.getState().setShaclShapesLoaded(false);
@@ -1572,7 +1575,7 @@ export default function ReactodiaCanvas() {
 
       // Build raw error/warning maps and set them immediately so canvas badges appear
       // without waiting for the async label resolution that follows.
-      const buildMaps = (errors: typeof result.errors, warnings: typeof result.warnings, msgFn: (e: typeof result.errors[0]) => string) => {
+      const buildMaps = (errors: typeof result.errors, warnings: typeof result.warnings, msgFn: (e: typeof result.errors[0] | typeof result.warnings[0]) => string) => {
         const errMap = new Map<string, string[]>();
         for (const err of errors ?? []) {
           if (err.nodeId) {
@@ -1846,7 +1849,7 @@ export default function ReactodiaCanvas() {
     setLoadOntologyOpen(true);
   }, []);
 
-  const handleExportRdf = React.useCallback(async (format: 'turtle' | 'json-ld' | 'rdf-xml' | 'nquads' | 'trig') => {
+  const handleExportRdf = React.useCallback(async (format: 'turtle' | 'json-ld' | 'rdf-xml' | 'nquads' | 'trig' | 'json-ld-dataset') => {
     try {
       const { exportGraph, dataFilename } = useOntologyStore.getState();
       const content = await exportGraph(format);
@@ -1856,6 +1859,7 @@ export default function ReactodiaCanvas() {
         'rdf-xml': 'rdf',
         'nquads': 'nq',
         'trig': 'trig',
+        'json-ld-dataset': 'jsonld',
       };
       const mimeByFormat: Record<typeof format, string> = {
         'turtle': 'text/turtle',
@@ -1863,6 +1867,7 @@ export default function ReactodiaCanvas() {
         'rdf-xml': 'application/rdf+xml',
         'nquads': 'application/n-quads',
         'trig': 'application/trig',
+        'json-ld-dataset': 'application/ld+json',
       };
       const ext = extByFormat[format];
       const mime = mimeByFormat[format];

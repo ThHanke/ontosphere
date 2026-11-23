@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" width="1200" height="540" role="img" aria-labelledby="t d">
+  <title id="t">What Ontosphere provides</title>
+  <desc id="d">Six capabilities: complete OWL 2 DL reasoning, explanations, SHACL aware of inference, verified repair, provenance and undo, open data exchange.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#1f5f8b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></marker>
+  </defs>
+  <rect x="24.5" y="24.5" width="371" height="227" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <text x="52" y="76" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">01</text>
+  <rect x="52" y="88" width="28" height="3" rx="1.5" fill="#1f5f8b"/>
+  <text x="52" y="126" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="21" font-weight="700" fill="#1f2328" text-anchor="start">Complete OWL 2 DL</text>
+  <text x="52" y="164" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">Konclude, compiled to WebAssembly.</text>
+  <text x="52" y="188" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">Consistency, classification,</text>
+  <text x="52" y="212" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">realization and profile detection.</text>
+  <rect x="412.5" y="24.5" width="371" height="227" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <text x="440" y="76" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">02</text>
+  <rect x="440" y="88" width="28" height="3" rx="1.5" fill="#1f5f8b"/>
+  <text x="440" y="126" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="21" font-weight="700" fill="#1f2328" text-anchor="start">Explanations</text>
+  <text x="440" y="164" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">Justifications for contradictions and</text>
+  <text x="440" y="188" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">for any entailed subclass or type</text>
+  <text x="440" y="212" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">statement, with a clear verdict.</text>
+  <rect x="800.5" y="24.5" width="371" height="227" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <text x="828" y="76" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">03</text>
+  <rect x="828" y="88" width="28" height="3" rx="1.5" fill="#1f5f8b"/>
+  <text x="828" y="126" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="21" font-weight="700" fill="#1f2328" text-anchor="start">SHACL that sees inference</text>
+  <text x="828" y="164" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">Core and SPARQL constraints over</text>
+  <text x="828" y="188" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">asserted and inferred statements.</text>
+  <text x="828" y="212" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">Focus counts expose silent shapes.</text>
+  <rect x="24.5" y="276.5" width="371" height="227" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <text x="52" y="328" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">04</text>
+  <rect x="52" y="340" width="28" height="3" rx="1.5" fill="#1f5f8b"/>
+  <text x="52" y="378" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="21" font-weight="700" fill="#1f2328" text-anchor="start">Verified repair</text>
+  <text x="52" y="416" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">Minimal deletion and axiom weakening,</text>
+  <text x="52" y="440" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">each checked by the reasoner.</text>
+  <text x="52" y="464" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">Guard cost on request.</text>
+  <rect x="412.5" y="276.5" width="371" height="227" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <text x="440" y="328" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">05</text>
+  <rect x="440" y="340" width="28" height="3" rx="1.5" fill="#1f5f8b"/>
+  <text x="440" y="378" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="21" font-weight="700" fill="#1f2328" text-anchor="start">Provenance and undo</text>
+  <text x="440" y="416" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">PROV-O record of every agent edit,</text>
+  <text x="440" y="440" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">with a diff and one-click reversal</text>
+  <text x="440" y="464" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">of a whole batch.</text>
+  <rect x="800.5" y="276.5" width="371" height="227" rx="16" fill="#f6f8fa" stroke="#d0d7de" stroke-width="1"/>
+  <text x="828" y="328" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="13" font-weight="700" fill="#1f5f8b" text-anchor="start" letter-spacing="2">06</text>
+  <rect x="828" y="340" width="28" height="3" rx="1.5" fill="#1f5f8b"/>
+  <text x="828" y="378" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="21" font-weight="700" fill="#1f2328" text-anchor="start">Open data exchange</text>
+  <text x="828" y="416" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">Turtle, JSON-LD, RDF/XML, N-Quads</text>
+  <text x="828" y="440" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">and TriG. Named graphs survive export.</text>
+  <text x="828" y="464" font-family="-apple-system,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif" font-size="15" font-weight="400" fill="#515b66" text-anchor="start">RDFC-1.0 content hash in the tab.</text>
+</svg>

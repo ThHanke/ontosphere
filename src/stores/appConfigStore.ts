@@ -50,6 +50,8 @@ export interface AppConfig {
   workflowCatalogUrls: WorkflowCatalogUrls;
   loadWorkflowCatalogOnStartup: boolean;
   shaclEnabled: boolean;
+  /** Konclude backend: also write the transitive class hierarchy into the inferred graph (about 6-9x the hierarchy triples). */
+  reasonerClosure: boolean;
   relayEnabled: boolean;
 }
 
@@ -82,6 +84,7 @@ interface AppConfigStore {
   addAdditionalOntology: (uri: string) => void;
   removeAdditionalOntology: (uri: string) => void;
   setShaclEnabled: (enabled: boolean) => void;
+  setReasonerClosure: (enabled: boolean) => void;
   setRelayEnabled: (enabled: boolean) => void;
   setWorkflowCatalogEnabled: (enabled: boolean) => void;
   setWorkflowCatalogUrls: (urls: Partial<WorkflowCatalogUrls>) => void;
@@ -145,6 +148,7 @@ const defaultConfig: AppConfig = {
     "http://www.w3.org/2001/XMLSchema#",
   ],
   shaclEnabled: true,
+  reasonerClosure: false,
   workflowCatalogEnabled: true,
   workflowCatalogUrls: { ...DEFAULT_WORKFLOW_CATALOG_URLS },
   loadWorkflowCatalogOnStartup: true,
@@ -285,6 +289,11 @@ function normalizeAppConfigInput(value: unknown, context: string): AppConfig {
       input.shaclEnabled,
       `${context}.shaclEnabled`,
       cfg.shaclEnabled,
+    ),
+    reasonerClosure: normalizeBooleanFlag(
+      input.reasonerClosure,
+      `${context}.reasonerClosure`,
+      cfg.reasonerClosure,
     ),
     workflowCatalogEnabled: normalizeBooleanFlag(
       input.workflowCatalogEnabled,
@@ -561,6 +570,13 @@ export const useAppConfigStore = create<AppConfigStore>()(
         updateConfig(set, (config) => ({
           ...config,
           shaclEnabled: normalizeBoolean(enabled, "setShaclEnabled.enabled"),
+        }));
+      },
+
+      setReasonerClosure: (enabled: boolean) => {
+        updateConfig(set, (config) => ({
+          ...config,
+          reasonerClosure: normalizeBoolean(enabled, "setReasonerClosure.enabled"),
         }));
       },
 
