@@ -44,4 +44,4 @@ export const REPAIR_ACCEPTS_JUSTIFICATIONS = true;
  * sets of several axioms, only when this is true. Flip it together with the library upgrade; the
  * test in reasonerCapabilities.test.ts compares it with the installed type declarations.
  */
-export const WEAKEN_ACCEPTS_ALSO_REMOVE = false;
+export const WEAKEN_ACCEPTS_ALSO_REMOVE = true;

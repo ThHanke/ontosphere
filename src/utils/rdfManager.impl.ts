@@ -758,6 +758,7 @@ export class RDFManagerImpl {
     };
 
     const shaclEnabled = appConfigState?.config?.shaclEnabled !== false;
+    const closure = appConfigState?.config?.reasonerClosure === true;
     const payload = {
       reasoningId,
       rulesets,
@@ -765,6 +766,7 @@ export class RDFManagerImpl {
       baseUrl: resolveBaseUrl(),
       reasonerBackend,
       shaclEnabled,
+      closure,
     };
     const response = await this.worker.call("runReasoning", payload);
     const safe = isPlainObject(response) ? response : {};

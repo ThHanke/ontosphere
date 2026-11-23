@@ -99,6 +99,10 @@ export const NON_AXIOM_GRAPHS: ReadonlySet<string> = new Set([
 // ---------------------------------------------------------------------------
 
 
+export interface LiteralIssueLike {
+  subject: string; predicate: string; lexical: string; datatype: string; reason: string; detail: string;
+}
+
 export class DlReasoner {
   readonly ready: Promise<void>;
   private readonly _reasoner: RdfReasoner;
@@ -125,7 +129,7 @@ export class DlReasoner {
    * Konclude worked, the result is stale: the inferred graph it wrote is dropped and the
    * previous run's inferred quads, which the canvas still shows, are reported as removed.
    */
-  async reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }> {
+  async reason(store: N3.Store, isCurrent?: () => boolean, opts?: { closure?: boolean }): Promise<{ delta: InferenceDelta }> {
     const inferredGraph = N3.DataFactory.namedNode(INFERRED_GRAPH);
     // Only a reference list: the package replaces the inferred graph before we can check isCurrent.
     const previous = isCurrent ? store.getQuads(null, null, null, inferredGraph) : [];
@@ -134,6 +138,7 @@ export class DlReasoner {
     const t = performance.now();
     const result = (await this._reasoner.materialize(store, {
       includeClassHierarchy: true,
+      closure: opts?.closure === true,
       inferredGraph: INFERRED_GRAPH,
       returnDelta: true,
     })) as { delta: InferenceDelta };
@@ -150,6 +155,11 @@ export class DlReasoner {
 
   checkConsistency(store: N3.Store): Promise<boolean> {
     return this._reasoner.checkConsistency(store);
+  }
+
+  /** Numeric/boolean literals of the last synced store that the kernel drops (ill-typed, out of range). */
+  literalIssues(): { issues: LiteralIssueLike[]; total: number } {
+    return this._reasoner.lastLiteralIssues;
   }
 
   async validate(store: N3.Store): Promise<ValidationResult> {
@@ -244,7 +254,7 @@ export interface DlReasonerLike {
   readonly timings?: Record<string, number>;
   checkConsistency(store: N3.Store): Promise<boolean>;
   /** Publishes into `store` only while `isCurrent()` holds, when given. */
-  reason(store: N3.Store, isCurrent?: () => boolean): Promise<{ delta: InferenceDelta }>;
+  reason(store: N3.Store, isCurrent?: () => boolean, opts?: { closure?: boolean }): Promise<{ delta: InferenceDelta }>;
   validate(store: N3.Store): Promise<ValidationResult>;
   explainInconsistency(store: N3.Store, maxJustifications?: number): Promise<N3.Quad[][]>;
   /**
@@ -3182,6 +3192,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
             emitSubjects: payload.emitSubjects,
             reasonerBackend: payload.reasonerBackend,
             shaclEnabled: payload.shaclEnabled,
+            closure: payload.closure,
           };
           const outcome = await runReasoningOnCurrentInput(reasoningRequest, {
             mutateSharedStore: true,
@@ -3494,7 +3505,7 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
         if (kConsistencyResult) {
           reasoningStage({ type: "reasoningStage", id: msg.id, stage: "reasoner-start", meta: { backend: 'konclude' } });
           try {
-            const result = await konclude.reason(kStore, () => reasoningInputGeneration === kInputGeneration);
+            const result = await konclude.reason(kStore, () => reasoningInputGeneration === kInputGeneration, { closure: msg.closure === true });
             kDelta = result.delta;
             kReasonerDuration = Date.now() - kStart;
             kUsedReasoner = true;
@@ -3603,6 +3614,25 @@ export function createRdfWorkerRuntime(postMessage: (message: unknown) => void):
       }
 
       const { warnings: kWarnings, errors: kShaclErrors } = collectShaclResults(kAddedQuads);
+      // Literals the kernel drops silently (ill-typed, out of range): reasoning ignores them, so say so.
+      if (kUsedReasoner) {
+        const lit = (getDlReasoner() as { literalIssues?: () => { issues: LiteralIssueLike[]; total: number } }).literalIssues?.();
+        for (const i of lit?.issues ?? []) {
+          kWarnings.push({
+            rule: "reasoner:ill-typed-literal",
+            severity: "warning",
+            nodeId: i.subject,
+            message: `Literal "${i.lexical}" is ${i.reason === "out-of-range" ? "out of range for" : i.reason === "ill-typed" ? "ill-typed for" : "too large for the reasoner as"} <${i.datatype}> (${i.detail}); the reasoner ignores it.`,
+          });
+        }
+        if (lit && lit.total > lit.issues.length) {
+          kWarnings.push({
+            rule: "reasoner:ill-typed-literal",
+            severity: "warning",
+            message: `${lit.total - lit.issues.length} more ill-typed or out-of-range literals not listed.`,
+          });
+        }
+      }
       if (kInputChanged) {
         kWarnings.push({
           rule: "reasoning-input-changed",
